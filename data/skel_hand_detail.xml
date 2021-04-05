@@ -1,0 +1,392 @@
+<Skeleton name="humanoid">
+	<Node name="Hips" parent="None" >
+        <Body type="Sphere" mass="15.0" radius="0.0830" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0 1.0343 0.0"/>
+        </Body>
+        <Joint type="Free" bvh="Spine" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0 1.01 0.0 "/>
+        </Joint>
+    </Node>
+
+    <Node name="RightUpLeg" parent="Hips" >
+        <Body type="Box" mass="15.0" size="0.1000 0.3742 0.1000" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0848 0.7124 0.0085"/>
+        </Body>
+        <Joint type="Ball" bvh="RightUpLeg" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0845 0.9159 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightLeg" parent="RightUpLeg" >
+        <Body type="Box" mass="15.0" size="0.0900 0.3735 0.0900" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0848 0.3044 0.0085"/>
+        </Body>
+        <Joint type="Revolute" axis="1.0 0.0 0.0" bvh="RightLeg" lower="0.0" upper="2.3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0845 0.5063 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightFoot" parent="RightLeg" >
+        <Body type="Box" mass="15.0" size="0.1119 0.0623 0.2444" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0848 0.0320 0.0721"/>
+        </Body>
+        <Joint type="Ball" bvh="RightFoot" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0845 0.0966 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftUpLeg" parent="Hips" >
+        <Body type="Box" mass="15.0" size="0.1000 0.3742 0.1000" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0848 0.7124 0.0085"/>
+        </Body>
+        <Joint type="Ball" bvh="LeftUpLeg" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0845 0.9159 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftLeg" parent="LeftUpLeg" >
+        <Body type="Box" mass="15.0" size="0.0900 0.3735 0.0900" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0848 0.3044 0.0085"/>
+        </Body>
+        <Joint type="Revolute" axis="1.0 0.0 0.0" bvh="LeftLeg" lower="0.0" upper="2.3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0845 0.5063 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftFoot" parent="LeftLeg" >
+        <Body type="Box" mass="15.0" size="0.1119 0.0623 0.2444" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0848 0.0320 0.0721"/>
+        </Body>
+        <Joint type="Ball" bvh="LeftFoot" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0845 0.0966 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="Spine" parent="Hips" >
+        <Body type="Sphere" mass="15.0" radius="0.1136" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0000 1.3322 0.0000"/>
+        </Body>
+        <Joint type="Ball" bvh="Spine1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0000 1.2230 -0.0002"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftArm" parent="Spine" >
+        <Body type="Box" mass="15.0" size="0.2290 0.0450 0.0450" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.2537 1.4362 -0.0029"/>
+        </Body>
+        <Joint type="Ball" bvh="LeftArm" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.1352 1.4360 -0.0002"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftForeArm" parent="LeftArm" >
+        <Body type="Box" mass="15.0" size="0.2240 0.0450 0.0450" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.5048 1.4362 -0.0029"/>
+        </Body>
+        <Joint type="Revolute" axis="0.0 1.0 0.0" lower="0.0" upper="2.3" bvh="LeftForeArm" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.3810 1.4360 -0.0002"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHand" parent="LeftArm" >
+        <Body type="Box" mass="15.0" size="0.0841 0.0121 0.0651" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.6777 1.4385 -0.0045"/>
+        </Body>
+        <Joint type="Ball" bvh="LeftHand" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.6267 1.4368 0.0000"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandThumb1" parent="LeftHand" >
+        <Body type="Box" mass="15.0" size="0.0389 0.0121 0.0153" contact="Off">
+            <Transformation linear="0.7863 0.0000 -0.6178 0.0000 1.0000 0.0000 0.6178 0.0000 0.7863" translation="0.6782 1.4385 0.0462"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandThumb1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.6588 1.4363 0.0321"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandThumb2" parent="LeftHandThumb1" >
+        <Body type="Box" mass="15.0" size="0.0389 0.0121 0.0154" contact="Off">
+            <Transformation linear="0.8785 -0.0000 -0.4777 0.0000 1.0000 0.0000 0.4777 0.0000 0.8785" translation="0.7167 1.4385 0.0702"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandThumb2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.6962 1.4364 0.0590"/>
+        </Joint>
+    </Node>
+    <Node name="LeftHandIndex1" parent="LeftHand" >
+        <Body type="Box" mass="15.0" size="0.0323 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7396 1.4385 0.0288"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandIndex1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7202 1.4388 0.0284"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandIndex2" parent="LeftHandIndex1" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7701 1.4385 0.0288"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandIndex2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7578 1.4388 0.0287"/>
+        </Joint>
+    </Node>
+    <Node name="LeftHandIndex3" parent="LeftHandIndex2" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7954 1.4385 0.0288"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandIndex3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7827 1.4388 0.0290"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandMiddle1" parent="LeftHand" >
+        <Body type="Box" mass="15.0" size="0.0345 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7398 1.4385 0.0067"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandMiddle1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7206 1.4418 0.0086"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandMiddle2" parent="LeftHandMiddle1" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7736 1.4385 0.0067"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandMiddle2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7599 1.4418 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandMiddle3" parent="LeftHandMiddle2" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7989 1.4385 0.0067"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandMiddle3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7866 1.4418 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandRing1" parent="LeftHand" >
+        <Body type="Box" mass="15.0" size="0.0355 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7396 1.4385 -0.0129"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandRing1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7207 1.4406 -0.0124"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandRing2" parent="LeftHandRing1" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7736 1.4385 -0.0129"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandRing2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7605 1.4406 -0.0121"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandRing3" parent="LeftHandRing2" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7989 1.4385 -0.0129"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandRing3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7864 1.4406 -0.0121"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandPinky1" parent="LeftHand" >
+        <Body type="Box" mass="15.0" size="0.0192 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7336 1.4385 -0.0335"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandPinky1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7215 1.4373 -0.0323"/>
+        </Joint>
+    </Node>
+    <Node name="LeftHandPinky2" parent="LeftHandPinky1" >
+        <Body type="Box" mass="15.0" size="0.0197 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7575 1.4385 -0.0335"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandPinky2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7455 1.4373 -0.0340"/>
+        </Joint>
+    </Node>
+
+    <Node name="LeftHandPinky3" parent="LeftHandPinky2" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7822 1.4385 -0.0332"/>
+        </Body>
+        <Joint type="Weld" bvh="LeftHandPinky3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.7694 1.4373 -0.0333"/>
+        </Joint>
+    </Node>
+
+
+
+
+
+
+
+
+
+
+    <Node name="RightArm" parent="Spine" >
+        <Body type="Box" mass="15.0" size="0.2290 0.0450 0.0450" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.2537 1.4362 -0.0029"/>
+        </Body>
+        <Joint type="Ball" bvh="RightArm" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.1352 1.4360 -0.0002"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightForeArm" parent="RightArm" >
+        <Body type="Box" mass="15.0" size="0.2240 0.0450 0.0450" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.5048 1.4362 -0.0029"/>
+        </Body>
+        <Joint type="Revolute" axis="0.0 1.0 0.0" lower="-2.3" upper="0.0" bvh="RightForeArm" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.3810 1.4360 -0.0002"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHand" parent="RightArm" >
+        <Body type="Box" mass="15.0" size="0.0841 0.0121 0.0651" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.6777 1.4385 -0.0045"/>
+        </Body>
+        <Joint type="Ball" bvh="RightHand" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.6267 1.4368 0.0000"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandThumb1" parent="RightHand" >
+        <Body type="Box" mass="15.0" size="0.0389 0.0121 0.0153" contact="Off">
+            <Transformation linear="0.7863 0.0000 0.6178 0.0000 1.0000 0.0000 -0.6178 0.0000 0.7863" translation="-0.6782 1.4385 0.0462"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandThumb1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.6588 1.4363 0.0321"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandThumb2" parent="RightHandThumb1" >
+        <Body type="Box" mass="15.0" size="0.0389 0.0121 0.0154" contact="Off">
+            <Transformation linear="0.8785 0.0000 0.4777 0.0000 1.0000 0.0000 -0.4777 0.0000 0.8785" translation="-0.7167 1.4385 0.0702"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandThumb2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.6962 1.4364 0.0590"/>
+        </Joint>
+    </Node>
+    <Node name="RightHandIndex1" parent="RightHand" >
+        <Body type="Box" mass="15.0" size="0.0323 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7396 1.4385 0.0288"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandIndex1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7202 1.4388 0.0284"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandIndex2" parent="RightHandIndex1" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7701 1.4385 0.0288"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandIndex2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7578 1.4388 0.0287"/>
+        </Joint>
+    </Node>
+    <Node name="RightHandIndex3" parent="RightHandIndex2" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7954 1.4385 0.0288"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandIndex3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7827 1.4388 0.0290"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandMiddle1" parent="RightHand" >
+        <Body type="Box" mass="15.0" size="0.0345 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7398 1.4385 0.0067"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandMiddle1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7206 1.4418 0.0086"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandMiddle2" parent="RightHandMiddle1" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7736 1.4385 0.0067"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandMiddle2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7599 1.4418 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandMiddle3" parent="RightHandMiddle2" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7989 1.4385 0.0067"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandMiddle3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7866 1.4418 0.0084"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandRing1" parent="RightHand" >
+        <Body type="Box" mass="15.0" size="0.0355 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7396 1.4385 -0.0129"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandRing1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7207 1.4406 -0.0124"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandRing2" parent="RightHandRing1" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7736 1.4385 -0.0129"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandRing2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7605 1.4406 -0.0121"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandRing3" parent="RightHandRing2" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7989 1.4385 -0.0129"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandRing3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7864 1.4406 -0.0121"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandPinky1" parent="RightHand" >
+        <Body type="Box" mass="15.0" size="0.0192 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7336 1.4385 -0.0335"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandPinky1" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7215 1.4373 -0.0323"/>
+        </Joint>
+    </Node>
+    <Node name="RightHandPinky2" parent="RightHandPinky1" >
+        <Body type="Box" mass="15.0" size="0.0197 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7575 1.4385 -0.0335"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandPinky2" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7455 1.4373 -0.0340"/>
+        </Joint>
+    </Node>
+
+    <Node name="RightHandPinky3" parent="RightHandPinky2" >
+        <Body type="Box" mass="15.0" size="0.0219 0.0121 0.0150" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7822 1.4385 -0.0332"/>
+        </Body>
+        <Joint type="Weld" bvh="RightHandPinky3" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.7694 1.4373 -0.0333"/>
+        </Joint>
+    </Node>
+
+    <Node name="Head" parent="Spine" >
+        <Body type="Sphere" mass="15.0" radius="0.0715" contact="Off">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0000 1.5810 0.0000"/>
+        </Body>
+        <Joint type="Ball" bvh="Head" kp="0.0" maxf="0.0" weight="1.0">
+            <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0000 1.4975 -0.0002"/>
+        </Joint>
+    </Node>
+
+</Skeleton>
