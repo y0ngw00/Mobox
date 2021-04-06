@@ -75,7 +75,6 @@ stepMotion(const Eigen::VectorXd& action)
 {
 	int idx = mMotionStartFrame + mMotionCounter;
 	int count = 0;
-	int msd_dof = mMSDSystem->getNumDofs();
 	Eigen::Isometry3d T_ref = this->getReferenceTransform();
 	for(int i =0;i<mForceSensors.size();i++)
 	{
@@ -97,7 +96,7 @@ stepMotion(const Eigen::VectorXd& action)
 
 	}
 	// XXXX = mMSDSystem->getTargetPose();
-	auto pR_msd = mMSDSystem->stepForce(mMotion->getPosition(idx), mMotion->getRotation(idx), Eigen::VectorXd::Ones(msd_dof));
+	auto pR_msd = mMSDSystem->step(mMotion->getPosition(idx), mMotion->getRotation(idx));
 	// auto pR_msd = mMSDSystem->stepPose(mMotion->getPosition(idx), mMotion->getRotation(idx));
 	Eigen::Vector3d p_msd = pR_msd.first;
 	Eigen::MatrixXd R_msd = pR_msd.second;

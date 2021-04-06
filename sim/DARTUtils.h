@@ -33,6 +33,8 @@ public:
 
 
 	static dart::dynamics::SkeletonPtr createGround(double y);
+	static dart::dynamics::SkeletonPtr createDoor(const Eigen::Vector3d& c0, double width);
+
 	static dart::dynamics::SkeletonPtr createBox(double density, const Eigen::Vector3d& size, const std::string& type="Free");
 	static dart::dynamics::SkeletonPtr createBall(double density, double r, const std::string& type="Free");
 

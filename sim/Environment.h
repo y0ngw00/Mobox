@@ -38,17 +38,12 @@ public:
 	Character* getSimCharacter(){return mSimCharacter;}
 	Character* getKinCharacter(){return mKinCharacter;}
 	dart::dynamics::SkeletonPtr getGround(){return mGround;}
-	dart::dynamics::SkeletonPtr getWashWindow(){return mWashWindow;}
 	Event* getEvent(){return mEvent;}
 
 	void setKinematics(bool kin){mKinematic = kin;}
 	bool getKinematics(){return mKinematic;}
-	double mR, mTHETA, mPHI;
-	Eigen::Vector3d __fv;
-	Eigen::Vector3d getTargetCenter();
-	void setRandomTargetCenter();
 
-	const std::vector<dart::dynamics::SkeletonPtr>& getObstacles(){return mObstacles;}
+	const dart::dynamics::SkeletonPtr& getDoor(){return mDoor;}
 private:
 	// For Reinforcement Learning
 	Eigen::MatrixXd getActionSpace0();
@@ -69,8 +64,9 @@ private:
 	Character *mSimCharacter,*mKinCharacter;
 
 	dart::dynamics::SkeletonPtr mGround;
-	dart::dynamics::SkeletonPtr mWashWindow;
-
+	dart::dynamics::SkeletonPtr mDoor;
+	dart::constraint::BallJointConstraintPtr mDoorConstraint;
+	bool mDoorConstraintOn;
 	std::vector<int> mImitationFrameWindow;
 	Distribution1D<int>* mInitialStateDistribution;
 
@@ -82,14 +78,6 @@ private:
 	bool mState0Dirty, mState1Dirty;
 	bool mKinematic;
 	Event* mEvent;
-
-	double mHapticBoundary;
-	Distribution1D<double>* mHapticDistribution;
-
-	Eigen::Vector3d mPrevAction1, mCurrAction1;
-	Eigen::Vector3d mTargetHandPositions;
-	Distribution2D<Eigen::Vector3d>* mTargetHandPositionDistribution;
-	std::vector<dart::dynamics::SkeletonPtr> mObstacles;
 };
 
 #endif

@@ -448,7 +448,46 @@ createGround(double y)
 
 	return skel;
 }
+dart::dynamics::SkeletonPtr
+DARTUtils::
+createDoor(const Eigen::Vector3d& c0, double width)
+{
+	double depth = 0.05;
+	double height = 2.0;
+	double base_ratio = 2.0;
+	Eigen::Vector3d size_base = Eigen::Vector3d(width*base_ratio,height,depth);
+	Eigen::Vector3d size = Eigen::Vector3d(width,height,depth);
+	SkeletonPtr skel = Skeleton::create("door");
+	ShapePtr shape_base = makeBoxShape(size_base);
+	ShapePtr shape = makeBoxShape(size);
 
+	double mass_base = 1000.0;
+	double mass = 10.0;
+	dart::dynamics::Inertia inertia_base = makeInertia(shape_base,mass_base);
+	dart::dynamics::Inertia inertia = makeInertia(shape,mass);
+
+	Eigen::Isometry3d T_pj = Eigen::Isometry3d::Identity();
+	T_pj.translation() = c0 + 0.5*size_base;
+	Joint::Properties* props = makeWeldJointProperties("base",T_pj,Eigen::Isometry3d::Identity());
+	auto bn = makeBodyNode(skel,nullptr,props,"Weld",inertia_base);
+
+	bn->createShapeNodeWith<VisualAspect,DynamicsAspect>(shape_base);
+
+	T_pj.setIdentity();
+	T_pj.translation() = 0.5*size_base;
+	Eigen::Isometry3d T_cj = Eigen::Isometry3d::Identity();
+	T_cj.translation()[0] = -0.5*size[0];
+	T_cj.translation()[1] = 0.5*size[1];
+	T_cj.translation()[2] = 0.5*size[2];
+
+	props = makeRevoluteJointProperties("door",Eigen::Vector3d::UnitY(),T_pj,T_cj,Eigen::Vector1d(-2.0),Eigen::Vector1d(2.0));
+	bn = makeBodyNode(skel,bn,props,"Revolute",inertia);
+
+	bn->createShapeNodeWith<VisualAspect,DynamicsAspect>(shape);
+	skel->getJoint(1)->setSpringStiffness(0, 100.0);
+	skel->getJoint(1)->setDampingCoefficient(0, 20.0);
+	return skel;
+}
 dart::dynamics::SkeletonPtr
 DARTUtils::
 createBox(double density, const Eigen::Vector3d& size, const std::string& type)

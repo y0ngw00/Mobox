@@ -147,7 +147,7 @@ drawSkeleton(const SkeletonPtr& skel,const Option& option)
 			
 		drawShape(T,shapeNodes.back()->getShape().get(), option.draw_mode);
 	}
-	if(option.drawJoints)
+	// if(option.drawJoints)
 	for(int i =0;i<skel->getNumJoints();i++)
 	{
 		auto parent = skel->getJoint(i)->getParentBodyNode();

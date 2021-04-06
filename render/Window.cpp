@@ -73,6 +73,7 @@ render()
 		
 	}
 	glColor4f(0.4,0.4,1.2,0.2);
+	DARTRendering::drawSkeleton(mEnvironment->getDoor(),mObjectRenderOption);
 	// DARTRendering::drawSkeleton(mEnvironment->getWashWindow(),mObjectRenderOption);
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
@@ -109,11 +110,6 @@ render()
 		}
 		mEnvironment->getKinCharacter()->restoreState(state);
 		
-		auto obs = mEnvironment->getObstacles();
-		for(int i=0;i<obs.size();i++)
-		{
-			DARTRendering::drawSkeleton(obs[i],mKinRenderOption);
-		}
 	// auto fss = mEnvironment->getSimCharacter()->getForceSensors();
 	// for(int i =0;i<fss.size();i++)
 	// {
@@ -441,7 +437,6 @@ keyboard(unsigned char key, int x, int y)
 		case 's':this->step();break;
 		case 'k':mEnvironment->setKinematics(!mEnvironment->getKinematics());break;
 		case 'r':this->reset();break;
-		case 'p':mEnvironment->setRandomTargetCenter();break;
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;

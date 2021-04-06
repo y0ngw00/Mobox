@@ -35,95 +35,22 @@ Environment()
 
 	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/open_door.bvh");
 	Motion* motion = new Motion(bvh);
-	// if(0)
-	// {
-	// Motion* non_cyclic_motion = new Motion(bvh);
 
-	// for(int i=100;i<325;i++)
-	// 	non_cyclic_motion->append(bvh->getPosition(i),bvh->getRotation(i),false);
-
-	
-	
-
-	
-	// Eigen::MatrixXd D = MotionUtils::computePoseDifferences(non_cyclic_motion);
-
-	// int s0=10,s1=70;
-	// int e0=110,e1=160;
-	// int s,e;
-	// double min_diff = 1e6;
-	// D.block(s0,e0,s1-s0,e1-e0).minCoeff(&s,&e);
-	// s += s0;
-	// e += e0;
-	
-	// Eigen::MatrixXd disp_pos = bvh->getPosition(e) - bvh->getPosition(s);
-	// Eigen::MatrixXd disp = MotionUtils::computePoseDisplacement(bvh->getRotation(s), bvh->getRotation(e));
-
-	
-	// for(int i=0;i<10;i++)
-	// 	for(int j=s;j<e;j++){
-	// 		if(j-s<15)
-	// 		{
-	// 			double alpha = MotionUtils::easeInEaseOut((j-s)/15.0);
-
-	// 			motion->append(bvh->getPosition(j)+alpha*disp_pos, MotionUtils::addDisplacement(bvh->getRotation(j), alpha*disp),false);
-	// 		}
-	// 		else
-	// 			motion->append(bvh->getPosition(j),bvh->getRotation(j),false);
-	// 	}
-	// }
 	int nf = bvh->getNumFrames();
 	for(int i=0;i<nf;i++)
 		motion->append(bvh->getPosition(i), bvh->getRotation(i), false);
 	for(int i=0;i<mMaxElapsedFrame-nf+50;i++)
 		motion->append(bvh->getPosition(nf-1), bvh->getRotation(nf-1), false);
 	motion->computeVelocity();
-	std::cout<<motion->getNumFrames()<<std::endl;
 
 	mSimCharacter->buildBVHIndices(bvh->getNodeNames());
 	mKinCharacter->buildBVHIndices(bvh->getNodeNames());
 	mSimCharacter->setBaseMotionAndCreateMSDSystem(motion);
 
 	mGround = DARTUtils::createGround(1.0);
-
-	{
-		mObstacles.emplace_back(DARTUtils::createBox(1000.0, Eigen::Vector3d(0.5,1.5,0.5),"Weld"));
-		Eigen::Isometry3d T_w = Eigen::Isometry3d::Identity();
-		std::ifstream ifs(std::string(ROOT_DIR)+"/temp.txt");
-		double x,y,z;
-		ifs>>x>>y>>z;
-		ifs.close();
-		T_w.translation() = Eigen::Vector3d(-2.0, 2.0,-0.5);
-		mObstacles.back()->getJoint(0)->setTransformFromParentBodyNode(T_w);
-		mWorld->addSkeleton(mObstacles.back());
-
-	}
 	
+	mDoor = nullptr;	
 
-	{
-		mObstacles.emplace_back(DARTUtils::createBox(1000.0, Eigen::Vector3d(0.5,1.5,0.5),"Weld"));
-		Eigen::Isometry3d T_w = Eigen::Isometry3d::Identity();
-		std::ifstream ifs(std::string(ROOT_DIR)+"/temp.txt");
-		double x,y,z;
-		ifs>>x>>y>>z;
-		ifs.close();
-		T_w.translation() = Eigen::Vector3d(x, y, z);
-		mObstacles.back()->getJoint(0)->setTransformFromParentBodyNode(T_w);
-
-		mWorld->addSkeleton(mObstacles.back());
-	}
-	
-	
-	mWashWindow = DARTUtils::createBox(1000.0,Eigen::Vector3d(2.0, 2.0, 0.1),"Weld");
-	Eigen::Isometry3d T_w = Eigen::Isometry3d::Identity();
-	T_w.translation() = Eigen::Vector3d(0.0, 2.0, 0.8);
-	mWashWindow->getJoint(0)->setTransformFromParentBodyNode(T_w);
-	double friction = 0.001;
-	mWashWindow->getBodyNode(0)->setFrictionCoeff(friction);
-	mSimCharacter->getSkeleton()->getBodyNode("RightHand")->setFrictionCoeff(friction);
-	mSimCharacter->getSkeleton()->getBodyNode("RightForeArm")->setFrictionCoeff(0.05);
-	mWorld->addSkeleton(mWashWindow);
-	
 	mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::BulletCollisionDetector::create());
 
 	mWorld->addSkeleton(mSimCharacter->getSkeleton());
@@ -158,30 +85,8 @@ Environment()
 	// mInitialStateDistribution = new Distribution1D<int>(1, [=](int i){return i;}, 0.7);
 	mStartFrame = mInitialStateDistribution->sample();
 	
-	// mHapticDistribution = new Distribution1D<double>(8,[=](int i)->double{std::vector<double> x={0.0, 0.01, 0.02,0.05,0.1,0.12,0.15,0.2};return x[i];}, 0.7);
-	mHapticDistribution = new Distribution1D<double>(2,[=](int i)->double{std::vector<double> x={0.0, 0.1};return x[i];}, 0.7);
-	mHapticBoundary =0.0;
-
-
-	// mTargetHandPositions = new Distribution2D<Eigen::Vector3d>(16,8,[=](int i, int j)->Eigen::Vector3d{
-
-	// })
-	// mTargetHandPositionDistribution
-
-	
-
-
-
 	mEvent = new ObstacleEvent(this, mSimCharacter);
 	this->reset();
-	
-	mR = 0.4;
-	mTHETA = 1.0;
-	mPHI = 3.0;
-
-	// mR = dart::math::Random::uniform<double>(0.3, 0.5);
-	// mTHETA = dart::math::Random::uniform<double>(0.0,0.5*M_PI);
-	// mPHI = dart::math::Random::uniform<double>(0.0,2*M_PI);
 
 	mActionSpace0 = this->getActionSpace0();
 	mActionWeight0 = this->getActionWeight0();
@@ -194,28 +99,13 @@ void
 Environment::
 reset(int frame)
 {
-
-	// mR = 0.4;
-	// mTHETA = 1.0;
-	// mPHI = 2.3;
-
-	// mR += dart::math::Random::uniform<double>(-0.1, 0.1);
-	// mTHETA += dart::math::Random::uniform<double>(-0.5,0.5);
-	// mPHI += dart::math::Random::uniform<double>(-0.5, 0.5);
-
-	// this->setRandomTargetCenter();
-
 	mElapsedFrame = 0;
-	mPrevAction1 = Eigen::Vector3d::UnitZ();
 	Eigen::Map<Eigen::ArrayXd> rs(mRewards["r"].data(), mRewards["r"].size());
-	// Eigen::Map<Eigen::ArrayXd> rfs(mRewards["r_force"].data(), mRewards["r_force"].size());
 	mInitialStateDistribution->update(rs.sum());
 	if(frame<0)
 		mStartFrame = mInitialStateDistribution->sample();
 	else
 		mStartFrame = frame;
-	// mHapticDistribution->update(rfs.sum());
-	// mHapticBoundary = mHapticDistribution->sample();
 
 	mCurrentFrame = mStartFrame;
 	mEvent->reset();
@@ -225,6 +115,30 @@ reset(int frame)
 						mSimCharacter->getRotation(mCurrentFrame),
 						mSimCharacter->getLinearVelocity(mCurrentFrame),
 						mSimCharacter->getAngularVelocity(mCurrentFrame));
+
+	if(mDoor ==nullptr)
+	{
+		Eigen::Vector3d door_hinge_pos(-2.1,1.0,0.4);
+		mDoor = DARTUtils::createDoor(door_hinge_pos, 0.8);
+		mDoorConstraint =
+	        std::make_shared<dart::constraint::BallJointConstraint>(mSimCharacter->getSkeleton()->getBodyNode("LeftHand"), 
+					mDoor->getBodyNode(1),mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getCOM());
+	    mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);	
+		mWorld->addSkeleton(mDoor);
+	}
+	else
+	{
+		Eigen::VectorXd p = mDoor->getPositions();
+		Eigen::VectorXd v = mDoor->getVelocities();
+		p.setZero();
+		v.setZero();
+		mDoor->setPositions(p);
+		mDoor->setVelocities(v);
+		if(mDoorConstraintOn == false)
+			mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);
+	}
+	mDoorConstraintOn = true;
+
 	mSimCharacter->getSkeleton()->clearConstraintImpulses();
 	mSimCharacter->getSkeleton()->clearInternalForces();
 	mSimCharacter->getSkeleton()->clearExternalForces();
@@ -236,6 +150,7 @@ reset(int frame)
 						mSimCharacter->getRotation(mCurrentFrame),
 						mSimCharacter->getLinearVelocity(mCurrentFrame),
 						mSimCharacter->getAngularVelocity(mCurrentFrame));
+
 	for(auto r : mRewards){
 		mRewards[r.first].clear();
 		mRewards[r.first].reserve(mMaxElapsedFrame);
@@ -250,26 +165,16 @@ void
 Environment::
 step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 {
+	if(mElapsedFrame == 65){
+		mDoorConstraintOn = false;
+		mWorld->getConstraintSolver()->removeConstraint(mDoorConstraint);
+	}
 	double alpha = dart::math::Random::uniform<double>(0.0,1.0);
 	
 	Eigen::VectorXd action0 = this->convertToRealActionSpace0(_action0);
 	Eigen::VectorXd action1 = this->convertToRealActionSpace1(_action1);
-	mCurrAction1 = action1;
+
 	int num_sub_steps = mSimulationHz/mControlHz;
-	// action_force.setZero();
-
-	// 	Eigen::Vector3d center = Eigen::Vector3d(-0.0003061, 2.44461, 0.534614);
-
-	// double x = mR*std::sin(mTHETA)*std::cos(mPHI);
-	// double y = mR*std::sin(mTHETA)*std::sin(mPHI);
-	// double z = mR*std::cos(mTHETA);
-
-	// center[0] += x;
-	// center[1] += y;
-	// center[2] += z;
-
-	// center = center - mSimCharacter->getForceSensors()[0]->getPosition();
-	// action1 = center*1000.0;
 
 	mSimCharacter->stepMotion(action1);
 	mKinCharacter->setPose(mSimCharacter->getPosition(mCurrentFrame),
@@ -286,7 +191,6 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 	Eigen::Vector6d p_o = Eigen::compose(Eigen::Vector3d::Zero(),dynamic_cast<ObstacleEvent*>(mEvent)->getLinearPosition());
 	Eigen::Vector6d v_o = Eigen::compose(Eigen::Vector3d::Zero(),dynamic_cast<ObstacleEvent*>(mEvent)->getLinearVelocity());
 
-	// int xx = 10; //XXX
 	for(int i=0;i<num_sub_steps;i++)
 	{
 		mSimCharacter->actuate(target_pv.first, target_pv.second);
@@ -297,12 +201,9 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 								mSimCharacter->getAngularVelocity(mCurrentFrame));
 		obstacle->setPositions(p_o);
 		obstacle->setVelocities(v_o);
-		if(!mKinematic) mWorld->step();	
+		// if(!mKinematic) mWorld->step();	
+		mWorld->step();	
 		auto cr = mWorld->getConstraintSolver()->getLastCollisionResult();
-
-		// for(int j=0;j<xx;j++)//XXX
-		// {//XXX
-
 
 		for (auto j = 0u; j < cr.getNumContacts(); ++j)
 		{
@@ -327,15 +228,11 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 		}
 		for(auto fs: fss)
 			fs->step();
-		// } //XXX
 	}
 
 	mElapsedFrame++;
 	mCurrentFrame = mStartFrame + mElapsedFrame;
 	mState0Dirty = true, mState1Dirty = true;
-
-
-	
 }
 
 Eigen::VectorXd
@@ -531,147 +428,13 @@ getReward()
 
 	r_root = std::max(0.5, r_root);
 
-	Eigen::VectorXd applied_forces = mSimCharacter->getAppliedForces();
-
-	int idx_hip = mSimCharacter->getSkeleton()->getJoint("Spine1")->getIndexInSkeleton(0);
-	int idx_sl = mSimCharacter->getSkeleton()->getJoint("LeftArm")->getIndexInSkeleton(0);
-	int idx_sr = mSimCharacter->getSkeleton()->getJoint("RightArm")->getIndexInSkeleton(0);
-	int idx_hl = mSimCharacter->getSkeleton()->getJoint("LeftUpLeg")->getIndexInSkeleton(0);
-	int idx_hr = mSimCharacter->getSkeleton()->getJoint("RightUpLeg")->getIndexInSkeleton(0);
-
-	Eigen::Vector3d fhip = applied_forces.segment<3>(idx_hip);
-	Eigen::Vector3d fsl = applied_forces.segment<3>(idx_sl);
-	Eigen::Vector3d fsr = applied_forces.segment<3>(idx_sr);
-	Eigen::Vector3d fhl = applied_forces.segment<3>(idx_hl);
-	Eigen::Vector3d fhr = applied_forces.segment<3>(idx_hr);
-
-	Eigen::Vector3d force_boundary = Eigen::Vector3d::Constant(20.0);
-
-	Eigen::Vector3d ofhip = (fhip.cwiseAbs() - force_boundary).cwiseMax(Eigen::Vector3d::Zero());
-	Eigen::Vector3d ofsl = (fsl.cwiseAbs() - force_boundary).cwiseMax(Eigen::Vector3d::Zero());
-	Eigen::Vector3d ofsr = (fsr.cwiseAbs() - force_boundary).cwiseMax(Eigen::Vector3d::Zero());
-	Eigen::Vector3d ofhl = (fhl.cwiseAbs() - force_boundary).cwiseMax(Eigen::Vector3d::Zero());
-	Eigen::Vector3d ofhr = (fhr.cwiseAbs() - force_boundary).cwiseMax(Eigen::Vector3d::Zero());
-
-	auto fss = mSimCharacter->getForceSensors();
-	auto statefs = mSimCharacter->getStateForceSensors();
-
-	const auto& ps = statefs["ps"];
-	const auto& vs = statefs["vs"];
-	const auto& hps = statefs["hps"];
-	const auto& hvs = statefs["hvs"];
-
-	// double error_force = 0.0;
-	// int m = ps.cols();
-	// double haptic_boundary = 1e-1;
-	// double hps_norm = hps.colwise().norm().sum();
-	// error_force = std::abs(mHapticBoundary - hps_norm);
-	// // Eigen::MatrixXd bounded_ps = (haptic_boundary - hps.cwiseAbs()).cwiseMax(Eigen::MatrixXd::Zero(3, m));
-	// // std::cout<<(haptic_boundary - hps_norm).transpose()<<std::endl;
-	// // double r_force = std::exp(-5.0*bounded_ps.norm());
-	// // std::cout<<haptic_boundary - hps_norm<<std::endl;
-	// const Eigen::MatrixXd& msd_R = mSimCharacter->getMSDSystem()->getR();
-	// const Eigen::MatrixXd& msd_w = mSimCharacter->getMSDSystem()->getw();
-
-	// Eigen::VectorXd msd_angle = Eigen::VectorXd::Zero(n);
-	// error_pos = 0.0;
-	// for(int i=0;i<n;i++)
-	// {
-	// 	Eigen::Vector3d r = dart::math::logMap(msd_R.block<3,3>(0,i*3));
-	// 	error_pos += joint_weights[i]*r.dot(r);
-	// }
-	
-	// Eigen::Vector3d center = this->getTargetCenter();
-
-	// // error_force = (center - T_sim*((Eigen::Vector3d)ps.col(28))).squaredNorm();
-	// Eigen::Vector3d fp = T_sim*((Eigen::Vector3d)ps.col(0));
-	// Eigen::Vector3d fv = T_sim.linear()*((Eigen::Vector3d)vs.col(0));
-	// __fv = T_sim.linear()*((Eigen::Vector3d)vs.col(0));
-	// Eigen::Vector3d dir = center - fp;
-	// dir.normalize();
-
-	// double error_force_v = std::max(0.0, 0.3-fv.dot(dir));
-	// double error_force_p = (center - T_sim*((Eigen::Vector3d)ps.col(0))).squaredNorm();
-	// // std::cout<<fv.dot(dir)<<std::endl;
-	// // double r_force = std::exp(-10.0*error_force);
-	// double r_force = std::exp(-mWeightEE*20.0*error_force_p);
-	// r_force = std::max(1.0-2.0*std::cbrt(error_force_p), 0.0);
-	// double r_force_orig = r_force;
-	// // if(mRewards["r_force_orig"].size()>0)
-	// // {
-	// // 	double prev_r = mRewards["r_force_orig"].back();
-	// // 	if(prev_r<r_force)
-	// // 		r_force *= 1.5;
-	// // 	else
-	// // 		r_force *= 0.5;
-	// // }
-	// double r_diff = std::exp(-mWeightPos*error_pos);
-	// r_diff = 1.0;
-	// // std::cout<<(center - T_sim*((Eigen::Vector3d)ps.col(0))).transpose()<<std::endl;
-
-	// double error_action = 0.0;
-	// {
-	// 	Eigen::Isometry3d T_sim = mSimCharacter->getReferenceTransform();
-
-	// 	auto statefs = mSimCharacter->getStateForceSensors();
-
-	// 	const auto& ps = statefs["ps"];
-	// 	const auto& vs = statefs["vs"];
-	// 	const auto& hps = statefs["hps"];
-	// 	const auto& hvs = statefs["hvs"];
-
-	// 	Eigen::Vector3d fp = T_sim*((Eigen::Vector3d)ps.col(0));
-	// 	Eigen::Vector3d center = this->getTargetCenter();
-	// 	if((fp-center).norm()<1e-1)
-	// 	{
-	// 		this->setRandomTargetCenter();
-	// 	}
-	// }
-	// // if(mPrevAction1.norm()>1e-6)
-	// // {
-	// // 	Eigen::AngleAxisd aa_action(Eigen::Quaterniond::FromTwoVectors(mPrevAction1, mCurrAction1));
-	// // 	double action_diff = aa_action.angle();
-	// // 	error_action = std::max(action_diff-0.3, 0.0);
-	// // 	// error_action = std::max(0.1-action_diff, 0.0);
-		
-	// // }
-	// double r_action = std::exp(-1.0*error_action);
-	// r_action = 1.0;
-	// // std::cout<<r_force*r_action<<std::endl;
-	// mPrevAction1 = mCurrAction1;
-	// if(mElapsedFrame<30){
-	// 	double alpha = (30 - mElapsedFrame)/30.0;
-	// 	r_force = alpha + (1-alpha)*r_force;
-	// }
-	// std::cout<<mHapticBoundary<<" "<<hps_norm<<" "<<r_force<<" "<<r_diff<<std::endl;
-
-	// if(this->isSleepf()==false)
-	// std::cout<<"r_force  "<<r_force<<std::endl;
-	// std::cout<<std::endl;
-	// std::cout<<r_force<<std::endl;
-	// for(int i=0;i<m;i++){
-	// 	Eigen::Vector3d bounded_ps = (hps.col(i).cwiseAbs() - force_boundary).cwiseMax(Eigen::Vector3d::Zero())
-	// 	error_force += hps.col(i).norm();
-	// }
-	// double error_force = ofsl.norm()+ofsr.norm()+ofhl.norm()+ofhr.norm();
-	// double error_force = ofhip.norm() + ofsl.norm() + ofsr.norm();
-
-	// std::cout<<fsl.cwiseAbs().norm()<<std::endl<<std::endl;
-	// std::cout<<error_force<<std::endl;
-	// if(mElapsedFrame<10)
-	// 	error_force = 0.0;
-
-	// double r_force = std::exp(-0.2*error_force);
-	// std::cout<<r_force<<std::endl;
 	double r_imit = r_pos*r_vel*r_ee*r_root*r_com;
 	rewards.insert(std::make_pair("r_pos",r_pos));
 	rewards.insert(std::make_pair("r_vel",r_vel));
 	rewards.insert(std::make_pair("r_ee",r_ee));
 	rewards.insert(std::make_pair("r_root",r_root));
 	rewards.insert(std::make_pair("r_com",r_com));
-	// rewards.insert(std::make_pair("r_force",r_force*r_diff*r_action));
 	rewards.insert(std::make_pair("r_force",1.0));
-	rewards.insert(std::make_pair("r_force_orig",1.0));
 	rewards.insert(std::make_pair("r_imit",r_imit));
 	rewards.insert(std::make_pair("r",r_imit));
 
@@ -758,11 +521,7 @@ int
 Environment::
 getDimAction1()
 {
-	// return mSimCharacter->getMSDSystem()->getNumDofs()*mSimCharacter->getForceSensors().size(); //PPP
 	return 3*mSimCharacter->getForceSensors().size(); //FFF
-	// return 3*mSimCharacter->getForceSensors().size() + mSimCharacter->getMSDSystem()->getNumDofs(); //FFF
-
-
 }
 
 Eigen::MatrixXd
@@ -798,7 +557,6 @@ Environment::
 getActionSpace1()
 {
 	Eigen::MatrixXd action_space = Eigen::MatrixXd::Ones(this->getDimAction1(), 2);
-	int n = mSimCharacter->getMSDSystem()->getNumDofs();
 	int m = 3*mSimCharacter->getForceSensors().size();
 
 	action_space.col(0) *= -1.0;
@@ -810,7 +568,6 @@ Environment::
 getActionWeight1()
 {
 	Eigen::VectorXd action_weight = Eigen::VectorXd::Ones(this->getDimAction1());
-	int n = mSimCharacter->getMSDSystem()->getNumDofs();
 	int m = 3*mSimCharacter->getForceSensors().size();
 
 	action_weight.head(m) *= 1000.0; //FFF
@@ -828,7 +585,6 @@ convertToRealActionSpace1(const Eigen::VectorXd& a_norm)
 	a_real = dart::math::clip<Eigen::VectorXd, Eigen::VectorXd>(a_norm, lo, hi);
 	a_real = mActionWeight1.cwiseProduct(a_real);
 	
-	int n = mSimCharacter->getMSDSystem()->getNumDofs();
 	int m = 3*mSimCharacter->getForceSensors().size();
 
 	// a_real = 0.7*mPrevAction1 + 0.3*a_real;
@@ -845,28 +601,4 @@ convertToRealActionSpace1(const Eigen::VectorXd& a_norm)
 	// a_real.tail(n) += Eigen::VectorXd::Ones(n);
 	// a_real.tail(n) = Eigen::VectorXd::Ones(n);
 	return a_real;
-}
-Eigen::Vector3d
-Environment::
-getTargetCenter()
-{
-	Eigen::Vector3d center = Eigen::Vector3d(-0.0003061, 2.44461, 0.534614);
-
-	double x = mR*std::sin(mTHETA)*std::cos(mPHI);
-	double y = mR*std::sin(mTHETA)*std::sin(mPHI);
-	double z = mR*std::cos(mTHETA);
-
-	center[0] += x;
-	center[1] += y;
-	center[2] += z;
-
-	return center;
-}
-void
-Environment::
-setRandomTargetCenter()
-{
-	mR = dart::math::Random::uniform<double>(0.2, 0.4);
-	mTHETA = dart::math::Random::uniform<double>(0.0,0.5*M_PI);
-	mPHI = dart::math::Random::uniform<double>(0.0,2*M_PI);
 }
