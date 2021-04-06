@@ -33,7 +33,7 @@ Environment()
 	mSimCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel_c.xml");
 	mKinCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel_c.xml");
 
-	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/open_door.bvh");
+	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/open_door3.bvh");
 	Motion* motion = new Motion(bvh);
 
 	int nf = bvh->getNumFrames();
@@ -123,7 +123,7 @@ reset(int frame)
 		mDoorConstraint =
 	        std::make_shared<dart::constraint::BallJointConstraint>(mSimCharacter->getSkeleton()->getBodyNode("LeftHand"), 
 					mDoor->getBodyNode(1),mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getCOM());
-	    mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);	
+	    // mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);	
 		mWorld->addSkeleton(mDoor);
 	}
 	else
@@ -134,8 +134,8 @@ reset(int frame)
 		v.setZero();
 		mDoor->setPositions(p);
 		mDoor->setVelocities(v);
-		if(mDoorConstraintOn == false)
-			mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);
+		// if(mDoorConstraintOn == false)
+			// mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);
 	}
 	mDoorConstraintOn = true;
 
@@ -167,7 +167,7 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 {
 	if(mElapsedFrame == 65){
 		mDoorConstraintOn = false;
-		mWorld->getConstraintSolver()->removeConstraint(mDoorConstraint);
+		// mWorld->getConstraintSolver()->removeConstraint(mDoorConstraint);
 	}
 	double alpha = dart::math::Random::uniform<double>(0.0,1.0);
 	
@@ -175,7 +175,10 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 	Eigen::VectorXd action1 = this->convertToRealActionSpace1(_action1);
 
 	int num_sub_steps = mSimulationHz/mControlHz;
-
+	action1[0] = 700.0;
+	action1[2] = -700.0;
+	if(mElapsedFrame>65)
+		action1 = -action1;
 	mSimCharacter->stepMotion(action1);
 	mKinCharacter->setPose(mSimCharacter->getPosition(mCurrentFrame),
 							mSimCharacter->getRotation(mCurrentFrame),

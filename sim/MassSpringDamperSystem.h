@@ -1,7 +1,7 @@
 #ifndef __MASS_SPRING_DAMPER_SYSTEM_H__
 #define __MASS_SPRING_DAMPER_SYSTEM_H__
 #include "dart/dart.hpp"
-
+class TwoJointIK;
 class Character;
 class MassSpringDamperSystem
 {
@@ -24,17 +24,30 @@ public:
 public:
 	
 	Character* mCharacter;
+	dart::dynamics::SkeletonPtr mSkeleton;
 
 	int mNumJoints;
 	Eigen::MatrixXd mR; //3*3n rotation
 	Eigen::MatrixXd mw; //3*n angular velocity;
 	Eigen::MatrixXd mf; //3*n generalized forces
 
+	int mCount;
 	double mTimestep;
 	Eigen::VectorXd mMassCoeffs, mSpringCoeffs, mDamperCoeffs;
 
 	Eigen::Vector3d mPp, mPv, mPf;
 	double mPMassCoeffs, mPSpringCoeffs, mPDamperCoeffs;
+
+
+	//For stepping strategy
+	std::vector<TwoJointIK*> mTwoJointIKs;
+	double mStepTime,mphase;
+	int mSwing, mStance;
+	Eigen::Isometry3d mSwingPosition, mStancePosition;
+	Eigen::Vector3d mCurrentHipPosition;
+	Eigen::MatrixXd mR_IK0, mR_IK1;
+	// Eigen::MatrixXd mR_IK, mR_IK1;
+
 
 };
 #endif

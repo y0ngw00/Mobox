@@ -4,7 +4,6 @@
 #include "ForceSensor.h"
 class MassSpringDamperSystem;
 class Motion;
-class TwoJointIK;
 class Character
 {
 public:
@@ -97,8 +96,6 @@ private:
 	Motion* mMotion, *mMSDMotion;
 	int mMotionCounter, mMotionStartFrame;
 	int mResponseDelay;
-
-	std::vector<TwoJointIK*> mTwoJointIKs;
 };
 
 #endif

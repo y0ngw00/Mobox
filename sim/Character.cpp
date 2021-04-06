@@ -4,7 +4,6 @@
 #include "MassSpringDamperSystem.h"
 #include "Motion.h"
 #include "BVH.h"
-#include "TwoJointIK.h"
 #include <algorithm>
 #include <iostream>
 using namespace dart;
@@ -53,15 +52,15 @@ setBaseMotionAndCreateMSDSystem(Motion* m)
 		damper_coeffs[mBVHIndices[i]] = mDamperParams[i];
 	}
 
-	mMSDSystem = new MassSpringDamperSystem(this,mass_coeffs,spring_coeffs,damper_coeffs,1.0/30.0);
-	// mForceSensors[0]->setInsomnia(true);
+	mForceSensors[0]->setInsomnia(true);
 	mResponseDelay = 1;
 	mMotion = m;
 	mMSDMotion = new Motion();
 	mMSDMotion->registerBVHHierarchy(mMotion->getBVH());
+	mMSDSystem = new MassSpringDamperSystem(this,mass_coeffs,spring_coeffs,damper_coeffs,1.0/30.0);
 
-	mTwoJointIKs.emplace_back(new TwoJointIK(mMotion->getBVH(), mMotion->getBVH()->getNodeIndex("simLeftFoot")));
-	mTwoJointIKs.emplace_back(new TwoJointIK(mMotion->getBVH(), mMotion->getBVH()->getNodeIndex("simRightFoot")));
+	// mTwoJointIKs.emplace_back(new TwoJointIK(mMotion->getBVH(), mMotion->getBVH()->getNodeIndex("simLeftFoot")));
+	// mTwoJointIKs.emplace_back(new TwoJointIK(mMotion->getBVH(), mMotion->getBVH()->getNodeIndex("simRightFoot")));
 }
 MassSpringDamperSystem*
 Character::
@@ -84,12 +83,13 @@ stepMotion(const Eigen::VectorXd& action)
 			// Eigen::VectorXd ai = action.segment(count*msd_dof,msd_dof);
 			// mMSDSystem->addTargetPose(ai);
 			// count++; //wrong
+			Eigen::Vector3d ai = action;
 
 			// Eigen::Vector3d ai = action.segment<3>(i*3);
 			// XXXX = ai;
 			// mMSDSystem->applyForce(fs->getBodyNode(), fs->getBodyNode()->getTransform().linear()*ai, fs->getLocalOffset());
-			// mMSDSystem->applyForce(fs->getBodyNode(), ai, fs->getLocalOffset());
-			mMSDSystem->applyForce(fs->getBodyNode(), fs->getBodyNode()->getTransform().linear()*(fs->getHapticPosition()*1000.0), fs->getLocalOffset());
+			mMSDSystem->applyForce(fs->getBodyNode(), ai, fs->getLocalOffset());
+			// mMSDSystem->applyForce(fs->getBodyNode(), fs->getBodyNode()->getTransform().linear()*(fs->getHapticPosition()*1000.0), fs->getLocalOffset());
 
 			
 		}
@@ -100,23 +100,21 @@ stepMotion(const Eigen::VectorXd& action)
 	// auto pR_msd = mMSDSystem->stepPose(mMotion->getPosition(idx), mMotion->getRotation(idx));
 	Eigen::Vector3d p_msd = pR_msd.first;
 	Eigen::MatrixXd R_msd = pR_msd.second;
-
-	Eigen::Vector3d p_root_diff = p_msd - mMotion->getPosition(idx);
-	int lf = mMotion->getBVH()->getNodeIndex("simLeftFoot");
-	int rf = mMotion->getBVH()->getNodeIndex("simRightFoot");
-	Eigen::Isometry3d Tlf = mMotion->getBVH()->forwardKinematics(p_msd, R_msd, lf)[0];
-	Eigen::Isometry3d Trf = mMotion->getBVH()->forwardKinematics(p_msd, R_msd, rf)[0];
-	Tlf.translation() -= p_root_diff;
-	Trf.translation() -= p_root_diff;
+	mMSDMotion->append(p_msd, R_msd);
+	// Eigen::Vector3d p_root_diff = p_msd - mMotion->getPosition(idx);
+	// int lf = mMotion->getBVH()->getNodeIndex("simLeftFoot");
+	// int rf = mMotion->getBVH()->getNodeIndex("simRightFoot");
+	// Eigen::Isometry3d Tlf = mMotion->getBVH()->forwardKinematics(p_msd, R_msd, lf)[0];
+	// Eigen::Isometry3d Trf = mMotion->getBVH()->forwardKinematics(p_msd, R_msd, rf)[0];
+	// Tlf.translation() -= p_root_diff;
+	// Trf.translation() -= p_root_diff;
 	// Eigen::Isometry3d T_target = Ts[0];
 	// T_target.translation()[1] += 0.4;
 	// // T_target.translation()[0] += 0.1;
-	mTwoJointIKs[0]->solve(Tlf, p_msd, R_msd);
-	mTwoJointIKs[1]->solve(Trf, p_msd, R_msd);
-	mMSDMotion->append(p_msd, R_msd);
-	mMotionCounter++;
-
+	// mTwoJointIKs[0]->solve(Tlf, p_msd, R_msd);
+	// mTwoJointIKs[1]->solve(Trf, p_msd, R_msd);
 	
+	mMotionCounter++;
 }
 void
 Character::
