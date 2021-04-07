@@ -46,6 +46,8 @@ public:
 	Eigen::Isometry3d mSwingPosition, mStancePosition;
 	Eigen::Vector3d mCurrentHipPosition;
 	Eigen::MatrixXd mR_IK0, mR_IK1;
+	Eigen::Vector3d mP_IK0, mP_IK1;
+	bool mFootChanged;
 	// Eigen::MatrixXd mR_IK, mR_IK1;
 
 

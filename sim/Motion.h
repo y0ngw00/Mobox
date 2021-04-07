@@ -64,7 +64,7 @@ public:
 	static double computePoseDifference(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj);
 	static Eigen::MatrixXd computePoseDisplacement(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj);
 	static Eigen::MatrixXd addDisplacement(const Eigen::MatrixXd& R, const Eigen::MatrixXd& d);
-	static double easeInEaseOut(double x);
+	static double easeInEaseOut(double x, double yp0 = 0.0, double yp1 = 0.0);
 private:
 	// static Eigen::VectorXd gJointWeights;
 };

@@ -78,6 +78,8 @@ private:
 	bool mState0Dirty, mState1Dirty;
 	bool mKinematic;
 	Event* mEvent;
+
+	Eigen::Vector3d mPredefinedAction;
 };
 
 #endif

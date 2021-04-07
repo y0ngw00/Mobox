@@ -22,7 +22,7 @@ Environment()
 	mElapsedFrame(0),
 	mStartFrame(0),
 	mCurrentFrame(0),
-	mMaxElapsedFrame(300),
+	mMaxElapsedFrame(150),
 	mWorld(std::make_shared<World>()),
 	mEvent(nullptr),
 	mState0Dirty(true),
@@ -118,12 +118,14 @@ reset(int frame)
 
 	if(mDoor ==nullptr)
 	{
-		Eigen::Vector3d door_hinge_pos(-2.1,1.0,0.4);
-		mDoor = DARTUtils::createDoor(door_hinge_pos, 0.8);
+		double door_size = 1.2;
+		Eigen::Vector3d door_hinge_pos(0.27-door_size,1.01,0.53);
+		mDoor = DARTUtils::createDoor(door_hinge_pos, door_size);
 		mDoorConstraint =
 	        std::make_shared<dart::constraint::BallJointConstraint>(mSimCharacter->getSkeleton()->getBodyNode("LeftHand"), 
 					mDoor->getBodyNode(1),mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getCOM());
-	    // mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);	
+
+	    mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);	
 		mWorld->addSkeleton(mDoor);
 	}
 	else
@@ -134,8 +136,8 @@ reset(int frame)
 		v.setZero();
 		mDoor->setPositions(p);
 		mDoor->setVelocities(v);
-		// if(mDoorConstraintOn == false)
-			// mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);
+		if(mDoorConstraintOn == false)
+			mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);
 	}
 	mDoorConstraintOn = true;
 
@@ -158,6 +160,7 @@ reset(int frame)
 	mState0Dirty = true;
 	mState1Dirty = true;
 
+	mPredefinedAction = 1000.0*Eigen::AngleAxisd(dart::math::Random::uniform<double>(-M_PI,M_PI), Eigen::Vector3d::UnitY()).toRotationMatrix()*Eigen::Vector3d::UnitZ();
 
 }
 
@@ -167,7 +170,7 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 {
 	if(mElapsedFrame == 65){
 		mDoorConstraintOn = false;
-		// mWorld->getConstraintSolver()->removeConstraint(mDoorConstraint);
+		mWorld->getConstraintSolver()->removeConstraint(mDoorConstraint);
 	}
 	double alpha = dart::math::Random::uniform<double>(0.0,1.0);
 	
@@ -175,10 +178,20 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 	Eigen::VectorXd action1 = this->convertToRealActionSpace1(_action1);
 
 	int num_sub_steps = mSimulationHz/mControlHz;
-	action1[0] = 700.0;
-	action1[2] = -700.0;
-	if(mElapsedFrame>65)
-		action1 = -action1;
+	// action1[0] = mPredefinedAction[0];
+	// action1[1] = mPredefinedAction[1];
+	// action1[2] = mPredefinedAction[2];
+	action1.setZero();
+	if(mElapsedFrame == 25 ||
+		mElapsedFrame == 26 ||
+		mElapsedFrame == 27 ||
+		mElapsedFrame == 28 ||
+		mElapsedFrame == 29){
+		action1[0] = -1000.0;
+		action1[2] = -1000.0;
+	}
+		
+
 	mSimCharacter->stepMotion(action1);
 	mKinCharacter->setPose(mSimCharacter->getPosition(mCurrentFrame),
 							mSimCharacter->getRotation(mCurrentFrame),

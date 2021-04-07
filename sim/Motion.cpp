@@ -225,8 +225,10 @@ addDisplacement(const Eigen::MatrixXd& R, const Eigen::MatrixXd& d)
 }
 double
 MotionUtils::
-easeInEaseOut(double x)
+easeInEaseOut(double x, double yp0, double yp1)
 {
-	double y = 2*x*x*x - 3*x*x + 1.0;
-	return std::max(0.0,std::min(1.0,y));
+	double y = (x-1.0)*((yp0+yp1+2)*x*x - (yp0 + 1)*x - 1.0);
+	// double y = 2*x*x*x - 3*x*x + 1.0;
+	return y;
+	// return std::max(0.0,std::min(1.0,y));
 }

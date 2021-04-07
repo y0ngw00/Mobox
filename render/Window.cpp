@@ -440,7 +440,6 @@ keyboard(unsigned char key, int x, int y)
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;
-
 		default:GLUTWindow3D::keyboard(key,x,y);break;
 	}
 }
@@ -477,9 +476,9 @@ mouse(int button, int state, int x, int y)
 				auto obstacle = oevent->getObstacle();
 				Eigen::Vector3d p0 = ray.first;
 				Eigen::Vector3d p1 = ray.second;
-				
 
-				
+
+
 				Eigen::Vector3d p_glob = obstacle->getPositions().segment<3>(3);
 				double t = (p1 - p0).dot(p_glob - p0)/(p1 - p0).dot(p1 - p0);
 				double distance = (t*(p1-p0) - (p_glob - p0)).norm();

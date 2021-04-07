@@ -467,7 +467,11 @@ createDoor(const Eigen::Vector3d& c0, double width)
 	dart::dynamics::Inertia inertia = makeInertia(shape,mass);
 
 	Eigen::Isometry3d T_pj = Eigen::Isometry3d::Identity();
-	T_pj.translation() = c0 + 0.5*size_base;
+	T_pj.translation() = c0;
+	T_pj.translation()[0] += -0.5*size_base[0];
+	T_pj.translation()[1] += 0.5*size_base[1];
+	T_pj.translation()[2] += 0.5*size_base[2];
+
 	Joint::Properties* props = makeWeldJointProperties("base",T_pj,Eigen::Isometry3d::Identity());
 	auto bn = makeBodyNode(skel,nullptr,props,"Weld",inertia_base);
 
@@ -484,8 +488,8 @@ createDoor(const Eigen::Vector3d& c0, double width)
 	bn = makeBodyNode(skel,bn,props,"Revolute",inertia);
 
 	bn->createShapeNodeWith<VisualAspect,DynamicsAspect>(shape);
-	skel->getJoint(1)->setSpringStiffness(0, 100.0);
-	skel->getJoint(1)->setDampingCoefficient(0, 20.0);
+	skel->getJoint(1)->setSpringStiffness(0, 1.0);
+	skel->getJoint(1)->setDampingCoefficient(0, 1.0);
 	return skel;
 }
 dart::dynamics::SkeletonPtr
