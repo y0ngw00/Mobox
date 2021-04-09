@@ -17,7 +17,7 @@ MassSpringDamperSystem(Character* character,
 	mw.resize(3,mNumJoints);
 	mf.resize(3,mNumJoints);
 
-	mPMassCoeffs = 50.0;
+	mPMassCoeffs = 10.0;
 	mPSpringCoeffs = 0.0;
 	mPDamperCoeffs = 200.0;
 	this->reset();
@@ -40,6 +40,9 @@ reset()
 
 	mCurrentHipPosition.setZero();
 	mFootChanged = false;
+	mFootState = 0;
+	xT.setZero();
+	uT.setZero();
 	mR_IK0 = Eigen::MatrixXd::Zero(0,0);
 	mR_IK1 = Eigen::MatrixXd::Zero(0,0);
 	mw.setZero();
@@ -99,11 +102,12 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 		mSwingPosition = T_swing;
 		mStancePosition = T_stance;
 		mCount++;
+
+		// mStepTime = std::sqrt(9.81/0.8);
 	}
 	int cnt = 0;
 	for(int i=0;i<mNumJoints;i++)
 	{
-		break;
 		Eigen::Matrix3d Ri = mR.block<3,3>(0,i*3);
 		Eigen::Vector3d aai = dart::math::logMap(Ri);
 		Eigen::Vector3d wi = mw.col(i);
@@ -120,9 +124,7 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 		double k = mSpringCoeffs[i];
 		double d = mDamperCoeffs[i];
 		double angle = aai.norm();
-
-		wi += h/m*(fi);
-		wi = dart::math::clip<Eigen::Vector3d>(wi, Eigen::Vector3d::Constant(-20.0), Eigen::Vector3d::Constant(20.0));
+		wi += h/m*(-k*aai+fi);
 		wi *= 0.7;
 		Ri = Ri*dart::math::expMapRot(h*wi);
 
@@ -137,8 +139,8 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 	mPv += mTimestep/mPMassCoeffs*(-mPSpringCoeffs*mPp + mPf);
 
 	mPv *= 0.6;
-	mPp[0] = std::max(-0.2,std::min(0.2,mPp[0]));
-	mPp[2] = std::max(-0.2,std::min(0.2,mPp[2]));
+	mPp[0] = std::max(-0.2,std::min(0.2,mPp[0]-xT[0])) + xT[0];
+	mPp[2] = std::max(-0.2,std::min(0.2,mPp[2]-xT[2])) + xT[2];
 	mPp += mTimestep*mPv;
 	
 	mf.setZero();
@@ -151,62 +153,323 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 
 	// Adjust root position and lower body
 	Eigen::Isometry3d T_ref = mCharacter->getReferenceTransform();
+	Eigen::Isometry3d T_ref_inv = T_ref.inverse();
 	Eigen::Matrix3d R_ref = T_ref.linear();
 
+	mPp[1] = 0.0;
 	Eigen::Vector3d p_xz = mPp;
 	p_xz[1] = 0.0;
+	mGlobalHipPosition = baseP + R_ref*p_xz;
 	// std::cout<<mPp.transpose()<<std::endl;
 	// mPp[1] = -0.3*p_xz.norm();
 
 	// Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
 
-	if((p_xz-mCurrentHipPosition).norm()>0.15 && mphase>1.0)
+	// if(mphase > 1.0 && (p_xz - xT).norm()>0.1)
+	if(mphase > 1.0)
 	{
-		if((mSwing == 0 && p_xz[0]<0) || (mSwing == 1 && p_xz[0]>0))
-			mFootChanged = true;
-		else
-			mFootChanged = false;
-		mCurrentHipPosition = p_xz;
-		if(p_xz[0]>0)
+		if(mR_IK1.rows()==0)
 		{
-			mSwing = 0;
-			mStance = 1;
+			if(p_xz[0]>0)
+			{
+				mSwing = 0;
+				mStance = 1;
+				mFootState = 0;
+			}
+			else
+			{
+				mSwing = 1;
+				mStance = 0;
+				mFootState = 1;
+			}
 		}
-		else
+		else if(mFootState == 0)
 		{
 			mSwing = 1;
 			mStance = 0;
+			mFootState = 1;
 		}
+		else
+		{
+			mSwing = 0;
+			mStance = 1;
+			mFootState = 0;
+		}
+
+		mPp, mPv;
+		Eigen::Vector3d x = mPp;
+		Eigen::Vector3d x_dot = mPv;
+		x[1] = 0.0;
+		x_dot[1] = 0.0;
+		int slice = 10;
+		double h = mStepTime;
+
+		double w2 = 9.81/0.8;
+		Eigen::Vector3d u = Eigen::Vector3d::Zero();
+		if(mR_IK1.rows()!=0)
+			u = uT;
+
+		// Eigen::MatrixXd A = Eigen::MatrixXd::Identity(6,6);
+		// A.topRightCorner(3,3)    = -h*Eigen::MatrixXd::Identity(3,3);
+		// A.bottomLeftCorner(3,3)  = -w2*h*Eigen::MatrixXd::Identity(3,3);
+		// Eigen::MatrixXd A_inv = A.inverse();
+		// Eigen::VectorXd b = Eigen::VectorXd::Zero(6);
+		// b.head<3>() = x;
+		// b.tail<3>() = x_dot - w2*h*u;
+
+		// Eigen::VectorXd s;
+		// for(int i=0;i<slice;i++)
+		// {
+		// 	s = A_inv*b;
+		// 	b.head<3>() = s.head<3>();
+		// 	b.tail<3>() = s.tail<3>() - w2*h*u;
+		// 	std::cout<<s.transpose()<<std::endl;
+		// }
 		int swing_foot = mSwing==0?bvh->getNodeIndex("simLeftFoot"):bvh->getNodeIndex("simRightFoot");	
 		int stance_foot = mSwing==0?bvh->getNodeIndex("simRightFoot"):bvh->getNodeIndex("simLeftFoot");
+		double n = mStepTime*300.0;
+		xT = x;
+		// Eigen::Vector3d x_dotT = x_dot;
+		// for(int i =0;i<10;i++)
+		// {
+		// 	xT = xT+1.0/300.0*x_dotT;
+		// 	x_dotT *= 0.8;
+		// }
 
-		Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
+		Eigen::Vector3d root_p = baseP + R_ref*xT;
 		Eigen::Isometry3d T_swing = bvh->forwardKinematics(root_p, baseR, swing_foot)[0];
 		Eigen::Isometry3d T_stance = bvh->forwardKinematics(root_p, baseR, stance_foot)[0];
 
-		mSwingPosition = T_swing;
-		mStancePosition = T_stance;
+		Eigen::Vector3d u_sim;
+		if(mStance == 0)
+			u_sim = R_ref.transpose()*(mCharacter->getSkeleton()->getBodyNode("RightFoot")->getCOM() - T_swing.translation());
+		else
+			u_sim = R_ref.transpose()*(mCharacter->getSkeleton()->getBodyNode("LeftFoot")->getCOM() - T_swing.translation());
+		u_sim[1] = 0.0;
+		double alpha = 0.6;
+		
+		
+		// std::cout<<uT.transpose()<<std::endl;
+		Eigen::Vector3d lo, up;
+		lo = Eigen::Vector3d::Constant(-0.2);
+		up = Eigen::Vector3d::Constant(0.2);
+		Eigen::Vector3d xtu = (xT - u_sim);
+		xtu = xtu.cwiseMax(lo).cwiseMin(up);
 
+		uT = alpha*xtu;
 
-		mSwingPosition.translation() += R_ref*mCurrentHipPosition*1.2;
-		mStancePosition.translation() += -R_ref*mCurrentHipPosition;
-		// mStancePosition.translation()[1] -= 0.1;
-		if(mR_IK1.rows()!=0){
+		if(mR_IK1.rows()==0)
+		{
+			mR_IK0 = R;
+			mP_IK0.setZero();
+
+			mSwingPosition = T_swing;
+			mStancePosition = T_stance;
+
+			mStancePosition.translation() -= R_ref*xT;
+			mSwingPosition.translation() += R_ref*uT;
+		}
+		else
+		{
 			mR_IK0 = mR_IK1;
 			mP_IK0 = mP_IK1;
-		}
-		else{
-			mP_IK0.setZero();
-			mR_IK0 = R;
+		
+			mStancePosition = mSwingPosition;
+			// mStancePosition = T_stance;
+
+			// mStancePosition.translation() += -R_ref*(xT-u_sim);
+			// mStancePosition.translation() += -R_ref*(xT-u_sim);
+			mSwingPosition = T_swing;
+			mSwingPosition.translation() += R_ref*uT;
 		}
 		mR_IK1 = R;
-		mP_IK1 = mCurrentHipPosition;
+		mP_IK1 = xT;
+
+
+		uT = xT + uT;
+
+		// mStepTime
+
+
+
+
+		// mCurrentHipPosition = p_xz;
+
+
+		// int swing_foot = mSwing==0?bvh->getNodeIndex("simLeftFoot"):bvh->getNodeIndex("simRightFoot");	
+		// int stance_foot = mSwing==0?bvh->getNodeIndex("simRightFoot"):bvh->getNodeIndex("simLeftFoot");
+
+		// Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
+		// Eigen::Isometry3d T_swing = bvh->forwardKinematics(root_p, baseR, swing_foot)[0];
+		// Eigen::Isometry3d T_stance = bvh->forwardKinematics(root_p, baseR, stance_foot)[0];
+
+		// if(mR_IK1.rows()==0)
+		// {
+		// 	mR_IK0 = R;
+		// 	mP_IK0.setZero();
+
+		// 	mSwingPosition = T_swing;
+		// 	mStancePosition = T_stance;
+
+		// 	mSwingPosition.translation() += R_ref*mCurrentHipPosition;
+		// 	mStancePosition.translation() += -R_ref*mCurrentHipPosition;
+		// }
+		// else
+		// {
+		// 	mR_IK0 = mR_IK1;
+		// 	mP_IK0 = mP_IK1;
+
+		// 	mStancePosition = mSwingPosition;
+		// 	Eigen::Vector3d dir = root_p - mStancePosition.translation();
+		// 	dir[1] = 0.0;
+		// 	double alpha = mPv.norm();
+		// 	alpha = std::max(1.0,std::min(2.0, alpha));
+
+		// 	mSwingPosition.translation() = 2.0*dir + mStancePosition.translation();
+		// 	// mSwingPosition.translation() += R_ref*mCurrentHipPosition;
+		// }
+		// mR_IK1 = R;
+		// mP_IK1 = mCurrentHipPosition;
 
 		mTwoJointIKs[mSwing]->solve(mSwingPosition, root_p, mR_IK1);
 		mTwoJointIKs[mStance]->solve(mStancePosition, root_p, mR_IK1);
 		mphase = 0.0;
 	}
-	Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
+		// if(mFootState == 0) //IDLE
+		// {
+		// 	mFootState = 1;
+
+		// 	mCurrentHipPosition = p_xz;
+		// 	if(p_xz[0]>0)
+		// 	{
+		// 		mSwing = 0;
+		// 		mStance = 1;
+		// 	}
+		// 	else
+		// 	{
+		// 		mSwing = 1;
+		// 		mStance = 0;
+		// 	}
+
+	// 		int swing_foot = mSwing==0?bvh->getNodeIndex("simLeftFoot"):bvh->getNodeIndex("simRightFoot");	
+	// 		int stance_foot = mSwing==0?bvh->getNodeIndex("simRightFoot"):bvh->getNodeIndex("simLeftFoot");
+
+	// 		Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
+
+	// 		Eigen::Isometry3d T_swing = bvh->forwardKinematics(root_p, baseR, swing_foot)[0];
+	// 		Eigen::Isometry3d T_stance = bvh->forwardKinematics(root_p, baseR, stance_foot)[0];
+
+			
+
+	// 		if(mR_IK1.rows()!=0)
+	// 		{
+	// 			mSwingPosition = T_swing;
+	// 			mStancePosition = T_stance;
+	// 		}
+	// 		else
+	// 		{
+
+	// 		}
+
+			
+
+	// 		// mSwingPosition.translation() += R_ref*mCurrentHipPosition*1.3;
+	// 		// mStancePosition.translation() += -R_ref*mCurrentHipPosition;
+
+	// 		mR_IK0 = R;
+	// 		mP_IK0.setZero();
+
+	// 		mR_IK1 = R;
+	// 		mP_IK1 = mCurrentHipPosition;
+
+	// 		mTwoJointIKs[mSwing]->solve(mSwingPosition, root_p, mR_IK1);
+	// 		mTwoJointIKs[mStance]->solve(mStancePosition, root_p, mR_IK1);
+	// 		mphase = 0.0;
+	// 	}
+	// 	else if(mFootState == 1) //ONE-STEP STEPPING
+	// 	{
+	// 		mFootState = 0;
+
+	// 		mCurrentHipPosition = p_xz;
+	// 		mSwing = mStance;
+	// 		mStance = 1 - mStance;
+
+	// 		int swing_foot = mSwing==0?bvh->getNodeIndex("simLeftFoot"):bvh->getNodeIndex("simRightFoot");	
+	// 		int stance_foot = mSwing==0?bvh->getNodeIndex("simRightFoot"):bvh->getNodeIndex("simLeftFoot");
+
+	// 		Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
+	// 		Eigen::Isometry3d T_swing = bvh->forwardKinematics(root_p, baseR, swing_foot)[0];
+	// 		Eigen::Isometry3d T_stance = bvh->forwardKinematics(root_p, baseR, stance_foot)[0];
+
+	// 		mStancePosition = mSwingPosition;
+	// 		mSwingPosition = T_swing;
+	// 		// mStancePosition = T_stance;
+
+	// 		// mSwingPosition.translation() -= R_ref*mCurrentHipPosition*0.8;
+	// 		// mStancePosition.translation() += -R_ref*mCurrentHipPosition;
+
+	// 		mR_IK0 = mR_IK1;
+	// 		mP_IK0 = mP_IK1;
+
+	// 		mR_IK1 = R;
+	// 		mP_IK1 = mCurrentHipPosition;
+
+	// 		mTwoJointIKs[mSwing]->solve(mSwingPosition, root_p, mR_IK1);
+	// 		mTwoJointIKs[mStance]->solve(mStancePosition, root_p, mR_IK1);
+	// 		mphase = 0.0;
+	// 	}
+	// }
+
+
+
+	// if((p_xz-mCurrentHipPosition).norm()>0.15 && mphase>1.0)
+	// {
+	// 	if((mSwing == 0 && p_xz[0]<0) || (mSwing == 1 && p_xz[0]>0))
+	// 		mFootChanged = true;
+	// 	else
+	// 		mFootChanged = false;
+	// 	mCurrentHipPosition = p_xz;
+	// 	if(p_xz[0]>0)
+	// 	{
+	// 		mSwing = 0;
+	// 		mStance = 1;
+	// 	}
+	// 	else
+	// 	{
+	// 		mSwing = 1;
+	// 		mStance = 0;
+	// 	}
+	// 	int swing_foot = mSwing==0?bvh->getNodeIndex("simLeftFoot"):bvh->getNodeIndex("simRightFoot");	
+	// 	int stance_foot = mSwing==0?bvh->getNodeIndex("simRightFoot"):bvh->getNodeIndex("simLeftFoot");
+
+	// 	Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
+	// 	Eigen::Isometry3d T_swing = bvh->forwardKinematics(root_p, baseR, swing_foot)[0];
+	// 	Eigen::Isometry3d T_stance = bvh->forwardKinematics(root_p, baseR, stance_foot)[0];
+
+	// 	mSwingPosition = T_swing;
+	// 	mStancePosition = T_stance;
+
+
+	// 	mSwingPosition.translation() += R_ref*mCurrentHipPosition*1.2;
+	// 	mStancePosition.translation() += -R_ref*mCurrentHipPosition;
+	// 	// mStancePosition.translation()[1] -= 0.1;
+	// 	if(mR_IK1.rows()!=0){
+	// 		mR_IK0 = mR_IK1;
+	// 		mP_IK0 = mP_IK1;
+	// 	}
+	// 	else{
+	// 		mP_IK0.setZero();
+	// 		mR_IK0 = R;
+	// 	}
+	// 	mR_IK1 = R;
+	// 	mP_IK1 = mCurrentHipPosition;
+
+	// 	mTwoJointIKs[mSwing]->solve(mSwingPosition, root_p, mR_IK1);
+	// 	mTwoJointIKs[mStance]->solve(mStancePosition, root_p, mR_IK1);
+	// 	mphase = 0.0;
+	// }
+	// Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
+	Eigen::Vector3d root_p = baseP + R_ref*xT;
 	if(mphase>1.0)
 	{
 		// if(mR_IK1.rows()!=0)
@@ -218,7 +481,7 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 	{
 		double s = mphase;
 		s = MotionUtils::easeInEaseOut(1.0-s, 0.0, 1.0);
-		Eigen::Vector3d dir = mCurrentHipPosition - mP_IK0;
+		Eigen::Vector3d dir = xT - mP_IK0;
 		root_p = baseP + (R_ref*(mP_IK0 + s*dir));
 		s = 0.03*MotionUtils::easeInEaseOut(2*std::abs(s-0.5));
 		root_p[1] += s;
@@ -251,43 +514,9 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 			aa1.angle() *= s;
 			aa2.angle() *= s;
 
-			s = MotionUtils::easeInEaseOut(2*std::abs(s-0.5));
+			s = 0.6*MotionUtils::easeInEaseOut(2*std::abs(s-0.5));
 			Eigen::AngleAxisd aa1x(s,Eigen::Vector3d::UnitX());
-			R.block<3,3>(0, i0*3) = R00*(aa0.toRotationMatrix());
-			R.block<3,3>(0, i1*3) = R10*(aa1.toRotationMatrix());
-			R.block<3,3>(0, i2*3) = R20*(aa2.toRotationMatrix());
-
-		}
-		if(mFootChanged)
-		{
-			int i0,i1,i2;
-			if(mSwing == 1)
-			{
-				i0 = bvh->getNodeIndex("simLeftFoot");
-				i1 = bvh->getNodeIndex("simLeftLeg");
-				i2 = bvh->getNodeIndex("simLeftUpLeg");
-			}
-			else
-			{
-				i0 = bvh->getNodeIndex("simRightFoot");
-				i1 = bvh->getNodeIndex("simRightLeg");
-				i2 = bvh->getNodeIndex("simRightUpLeg");
-			}
-			Eigen::Matrix3d R00(mR_IK0.block<3,3>(0, i0*3)),R10(mR_IK0.block<3,3>(0, i1*3)),R20(mR_IK0.block<3,3>(0, i2*3));
-			Eigen::Matrix3d R01(mR_IK1.block<3,3>(0, i0*3)),R11(mR_IK1.block<3,3>(0, i1*3)),R21(mR_IK1.block<3,3>(0, i2*3));
-			Eigen::AngleAxisd aa0(R00.transpose()*R01);
-			Eigen::AngleAxisd aa1(R10.transpose()*R11);
-			Eigen::AngleAxisd aa2(R20.transpose()*R21);
-
-			double s = mphase;
-			s = MotionUtils::easeInEaseOut(1.0-s);
-
-			aa0.angle() *= s;
-			aa1.angle() *= s;
-			aa2.angle() *= s;
-
-			s = 0.2*MotionUtils::easeInEaseOut(2*std::abs(s-0.5));
-			Eigen::AngleAxisd aa1x(s,Eigen::Vector3d::UnitX());
+			Eigen::AngleAxisd aa2x(-s,Eigen::Vector3d::UnitX());
 			R.block<3,3>(0, i0*3) = R00*(aa0.toRotationMatrix());
 			R.block<3,3>(0, i1*3) = R10*(aa1.toRotationMatrix());
 			R.block<3,3>(0, i2*3) = R20*(aa2.toRotationMatrix());

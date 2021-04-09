@@ -88,8 +88,8 @@ stepMotion(const Eigen::VectorXd& action)
 			// Eigen::Vector3d ai = action.segment<3>(i*3);
 			// XXXX = ai;
 			// mMSDSystem->applyForce(fs->getBodyNode(), fs->getBodyNode()->getTransform().linear()*ai, fs->getLocalOffset());
-			mMSDSystem->applyForce(fs->getBodyNode(), ai, fs->getLocalOffset());
-			// mMSDSystem->applyForce(fs->getBodyNode(), fs->getBodyNode()->getTransform().linear()*(fs->getHapticPosition()*1000.0), fs->getLocalOffset());
+			// mMSDSystem->applyForce(fs->getBodyNode(), ai, fs->getLocalOffset());
+			mMSDSystem->applyForce(fs->getBodyNode(), fs->getBodyNode()->getTransform().linear()*(fs->getHapticPosition()*2000.0), fs->getLocalOffset());
 
 			
 		}

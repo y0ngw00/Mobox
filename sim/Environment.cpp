@@ -127,6 +127,9 @@ reset(int frame)
 
 	    mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);	
 		mWorld->addSkeleton(mDoor);
+		// mDoorConstraint->setErrorAllowance(0.9);
+		// mDoorConstraint->setErrorReductionParameter(1.0);
+		// mDoorConstraint->setConstraintForceMixing(0.0);
 	}
 	else
 	{
@@ -160,7 +163,7 @@ reset(int frame)
 	mState0Dirty = true;
 	mState1Dirty = true;
 
-	mPredefinedAction = 1000.0*Eigen::AngleAxisd(dart::math::Random::uniform<double>(-M_PI,M_PI), Eigen::Vector3d::UnitY()).toRotationMatrix()*Eigen::Vector3d::UnitZ();
+	mPredefinedAction = 100.0*Eigen::AngleAxisd(dart::math::Random::uniform<double>(-M_PI,M_PI), Eigen::Vector3d::UnitY()).toRotationMatrix()*Eigen::Vector3d::UnitZ();
 
 }
 
@@ -178,18 +181,18 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 	Eigen::VectorXd action1 = this->convertToRealActionSpace1(_action1);
 
 	int num_sub_steps = mSimulationHz/mControlHz;
-	// action1[0] = mPredefinedAction[0];
-	// action1[1] = mPredefinedAction[1];
-	// action1[2] = mPredefinedAction[2];
-	action1.setZero();
-	if(mElapsedFrame == 25 ||
-		mElapsedFrame == 26 ||
-		mElapsedFrame == 27 ||
-		mElapsedFrame == 28 ||
-		mElapsedFrame == 29){
-		action1[0] = -1000.0;
-		action1[2] = -1000.0;
-	}
+	action1[0] = mPredefinedAction[0];
+	action1[1] = mPredefinedAction[1];
+	action1[2] = mPredefinedAction[2];
+	// action1.setZero();
+	// if(mElapsedFrame == 25 ||
+	// 	mElapsedFrame == 26 ||
+	// 	mElapsedFrame == 27 ||
+	// 	mElapsedFrame == 28 ||
+	// 	mElapsedFrame == 29){
+	// 	action1[0] = -1000.0;
+	// 	action1[2] = -1000.0;
+	// }
 		
 
 	mSimCharacter->stepMotion(action1);
@@ -239,9 +242,13 @@ step(const Eigen::VectorXd& _action0, const Eigen::VectorXd& _action1)
 				force = -force;
 
 			auto fs = mSimCharacter->getClosestForceSensor(contact.point);
-			if(fs!=nullptr)
-				fs->addExternalForce(force);
+			// if(fs!=nullptr)
+				// fs->addExternalForce(force);
 		}
+		Eigen::Vector3d constraint_force = mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getConstraintImpulse().tail<3>();
+		constraint_force *= mSimulationHz;
+		auto fs = mSimCharacter->getClosestForceSensor(mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getCOM());
+		fs->addExternalForce(-constraint_force);
 		for(auto fs: fss)
 			fs->step();
 	}

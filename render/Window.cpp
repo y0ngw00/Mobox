@@ -28,7 +28,7 @@ Window()
 	mPlotReward(true),
 	mFocus(false),
 	mDrawCOMvel(true),
-	mDraw2DCharacter(false),
+	mDraw2DCharacter(true),
 	mCapture(false),
 	mKinematic(false)
 	// ,mCurrentForceSensor(nullptr)
@@ -131,7 +131,38 @@ render()
 
 	// }	
 	}
+	float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
+			dynamic_cast<const BoxShape*>(mEnvironment->getGround()->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get())->getSize()[1]*0.5;
+
+	Eigen::Vector3d swing_position = mEnvironment->getSimCharacter()->getMSDSystem()->mSwingPosition.translation();
+	Eigen::Vector3d stance_position = mEnvironment->getSimCharacter()->getMSDSystem()->mStancePosition.translation();
+	Eigen::Vector3d current_hip_position = mEnvironment->getSimCharacter()->getMSDSystem()->mGlobalHipPosition;
+
+	glPushMatrix();
+	DrawUtils::translate(swing_position);
+	glTranslatef(0,y,0);
+	glColor3f(1,0,0);
+	DrawUtils::drawSphere(0.1);
 	
+	glPopMatrix();
+	
+
+	glPushMatrix();
+	glColor3f(0,0,1);
+	DrawUtils::translate(stance_position);
+	glTranslatef(0,y,0);
+	DrawUtils::drawSphere(0.1);
+
+	glPopMatrix();
+
+	glPushMatrix();
+	glColor3f(0,1,0);
+	DrawUtils::translate(current_hip_position);
+	// glTranslatef(0,y,0);
+	DrawUtils::drawSphere(0.1);
+
+	glPopMatrix();
+
 	// for(int i=0;i<1000;i++)
 	// {
 	// 	double mTHETA = dart::math::Random::uniform<double>(0.0,0.5*M_PI);
@@ -173,8 +204,7 @@ render()
 	// }
 	// DrawUtils::disableTexture();
 	// DrawUtils::enableTexture(false);
-	float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
-			dynamic_cast<const BoxShape*>(mEnvironment->getGround()->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get())->getSize()[1]*0.5;
+	
 
 	DrawUtils::drawGround(y,100.0);
 	DrawUtils::disableTexture();

@@ -44,10 +44,14 @@ public:
 	double mStepTime,mphase;
 	int mSwing, mStance;
 	Eigen::Isometry3d mSwingPosition, mStancePosition;
-	Eigen::Vector3d mCurrentHipPosition;
+	Eigen::Vector3d mCurrentHipPosition,mGlobalHipPosition;
 	Eigen::MatrixXd mR_IK0, mR_IK1;
 	Eigen::Vector3d mP_IK0, mP_IK1;
 	bool mFootChanged;
+
+	int mFootState;
+
+	Eigen::Vector3d uT, xT;
 	// Eigen::MatrixXd mR_IK, mR_IK1;
 
 
