@@ -138,7 +138,7 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 	
 	mPv += mTimestep/mPMassCoeffs*(-mPSpringCoeffs*mPp + mPf);
 
-	mPv *= 0.6;
+	mPv *= 0.7;
 	mPp[0] = std::max(-0.2,std::min(0.2,mPp[0]-xT[0])) + xT[0];
 	mPp[2] = std::max(-0.2,std::min(0.2,mPp[2]-xT[2])) + xT[2];
 	mPp += mTimestep*mPv;
@@ -164,9 +164,8 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 	// mPp[1] = -0.3*p_xz.norm();
 
 	// Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
-
-	// if(mphase > 1.0 && (p_xz - xT).norm()>0.1)
-	if(mphase > 1.0)
+	if(mphase > 1.0 && (p_xz - xT).norm()>0.05)
+	// if(mphase > 1.0)
 	{
 		if(mR_IK1.rows()==0)
 		{
@@ -246,7 +245,8 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 		else
 			u_sim = R_ref.transpose()*(mCharacter->getSkeleton()->getBodyNode("LeftFoot")->getCOM() - T_swing.translation());
 		u_sim[1] = 0.0;
-		double alpha = 0.6;
+		u_sim = u;
+		double alpha = 1.0;
 		
 		
 		// std::cout<<uT.transpose()<<std::endl;
