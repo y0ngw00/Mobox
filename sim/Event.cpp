@@ -18,7 +18,7 @@ ObstacleEvent(Environment* env, Character* character)
 {
 	// if(0)
 	{
-		mObstacle = DARTUtils::createBall(4000.0, 0.1, "Free");
+		mObstacle = DARTUtils::createBall(1e9, 0.03, "Free");
 		mEnvironment->getWorld()->addSkeleton(mObstacle);
 		mObstacle->getJoint(0)->setDampingCoefficient(0,0.1);
 		mObstacle->getJoint(0)->setDampingCoefficient(1,0.1);

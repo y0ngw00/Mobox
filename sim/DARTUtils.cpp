@@ -421,12 +421,12 @@ buildFromFile(const std::string& path, Eigen::Vector4d color_filter, bool isCont
 	}
 	Character* character = new Character(skel, end_effectors, bvh_map, w_joint, kps, maxfs);
 
-	for(TiXmlElement* sensor = skeleton_elem->FirstChildElement("Sensor");sensor != nullptr;sensor = sensor->NextSiblingElement("Sensor"))
-	{
-		character->addForceSensor(stringToVector3d(sensor->Attribute("point")));
-	}
+	// for(TiXmlElement* sensor = skeleton_elem->FirstChildElement("Sensor");sensor != nullptr;sensor = sensor->NextSiblingElement("Sensor"))
+	// {
+	// 	character->addForceSensor(stringToVector3d(sensor->Attribute("point")));
+	// }
 	
-	character->setMSDParameters(ms,ss,ds);
+	// character->setMSDParameters(ms,ss,ds);
 	return character;
 }
 
@@ -525,7 +525,7 @@ createBall(double density, double r, const std::string& type)
 	else if(type == "Weld")
 		props = makeWeldJointProperties("root",Eigen::Isometry3d::Identity(),Eigen::Isometry3d::Identity());
 	auto bn = makeBodyNode(skel,nullptr,props,type,inertia);
-	bn->createShapeNodeWith<VisualAspect,CollisionAspect,DynamicsAspect>(shape);
+	bn->createShapeNodeWith<VisualAspect,DynamicsAspect>(shape);
 
 	return skel;	
 }

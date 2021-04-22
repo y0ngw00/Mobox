@@ -48,7 +48,7 @@ public:
 	Eigen::MatrixXd mR_IK0, mR_IK1;
 	Eigen::Vector3d mP_IK0, mP_IK1;
 	bool mFootChanged;
-
+	bool mSolveFootIK;
 	int mFootState;
 
 	Eigen::Vector3d uT, xT;

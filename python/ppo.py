@@ -19,7 +19,7 @@ class FCPolicy(object):
 	def __init__(self, model, config):
 		self.model = model
 
-		self.state_filter = filter.MeanStdFilter(shape=model.dim_state)
+		self.state_filter = filter.MeanStdRuntimeFilter(shape=model.dim_state)
 		self.distribution = torch.distributions.normal.Normal
 		self.gamma = config['gamma']
 		self.lb = config['lb']
@@ -38,22 +38,24 @@ class FCPolicy(object):
 			self.model.cuda()
 
 	def __call__(self, states):
-		states_filtered = self.state_filter(states)
-		states = self.convert_to_tensor(states_filtered)
+		states = self.convert_to_ndarray(states)
+		states_filtered = self.state_filter(states, update=False)
+		_states = self.convert_to_tensor(states_filtered)
 
-		logits, vf_pred = self.model(states)
+		logits, vf_pred = self.model(_states)
 		mean, log_std = torch.chunk(logits, 2, dim = 1)
 		
 		action_dists = self.distribution(mean, torch.exp(log_std))
 		actions = action_dists.sample()
 
 		logprobs = action_dists.log_prob(actions).sum(-1)
+		# actions = action_dists.loc
 
 		actions = self.convert_to_ndarray(actions)
 		logprobs = self.convert_to_ndarray(logprobs)
 		vf_preds = self.convert_to_ndarray(vf_pred)
 
-		return states_filtered, actions, logprobs, vf_preds
+		return states, actions, logprobs, vf_preds
 
 	def convert_to_tensor(self, arr, use_cuda=True):
 		if torch.is_tensor(arr):
@@ -173,18 +175,12 @@ def load_config(path):
 	spec = spec_module
 	return spec.config
 
-def build_policy0(dim_state0, dim_action0, config):
-	md = model.FCModel(dim_state0, dim_action0, config['model0'])
-	policy = FCPolicy(md, config['policy0'])
+def build_policy(dim_state, dim_action, config):
+	md = model.FCModel(dim_state, dim_action, config['model'])
+	policy = FCPolicy(md, config['policy'])
 	return policy
 
-def build_policy1(dim_state1, dim_action1, config):
-	md = model.FCModel(dim_state1, dim_action1, config['model1'])
-	policy = FCPolicy(md, config['policy1'])
-	return policy
-
-def load_policy(policy0, policy1, checkpoint):
+def load_policy(policy, checkpoint):
 	state = torch.load(checkpoint)
 	state = state['policy_state_dict']
-	policy0.load_state_dict(state[0])
-	policy1.load_state_dict(state[1])
+	policy.load_state_dict(state)

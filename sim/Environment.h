@@ -13,73 +13,65 @@ class Environment
 {
 public:
 	Environment();
-	// For Reinforcement Learning
-	int getDimState0();
-	int getDimAction0();
-	int getDimState1();
-	int getDimAction1();
 
+	int getDimState();
+	int getDimAction();
+	int getDimStateAMP();
+
+	void resetGoal();
 	void reset(int frame=-1);
-	void step(const Eigen::VectorXd& action0, const Eigen::VectorXd& action1);
 
-	Eigen::VectorXd getState0();
-	Eigen::VectorXd getState1();
+	void updateGoal();
+	void step(const Eigen::VectorXd& action);
+	
+	double getRewardGoal();
 
-	std::map<std::string,double> getReward();
+	const Eigen::VectorXd& getState();
+	const Eigen::VectorXd& getStateGoal();
+	const Eigen::VectorXd& getStateAMP();
+	Eigen::MatrixXd getStateAMPExpert();
 
 	bool inspectEndOfEpisode();
-	bool isSleep();
-
-	const std::map<std::string, std::vector<double>>& getCummulatedReward(){return mRewards;}
-	
-	
 	const dart::simulation::WorldPtr& getWorld(){return mWorld;}
-	Distribution1D<int>* getInitialStateDistribution(){return mInitialStateDistribution;}
+
 	Character* getSimCharacter(){return mSimCharacter;}
 	Character* getKinCharacter(){return mKinCharacter;}
 	dart::dynamics::SkeletonPtr getGround(){return mGround;}
-	Event* getEvent(){return mEvent;}
-
-	void setKinematics(bool kin){mKinematic = kin;}
-	bool getKinematics(){return mKinematic;}
-
-	const dart::dynamics::SkeletonPtr& getDoor(){return mDoor;}
+	double getTargetHeading(){return mTargetHeading;}
+	double getTargetSpeed(){return mTargetSpeed;}
+	bool isEnableGoal(){return mEnableGoal;}
 private:
-	// For Reinforcement Learning
-	Eigen::MatrixXd getActionSpace0();
-	Eigen::VectorXd getActionWeight0();
-	Eigen::VectorXd convertToRealActionSpace0(const Eigen::VectorXd& a_norm);
-	
-	Eigen::MatrixXd getActionSpace1();
-	Eigen::VectorXd getActionWeight1();
-	Eigen::VectorXd convertToRealActionSpace1(const Eigen::VectorXd& a_norm);
+	double computeGroundHeight();
+	void recordState();
+	void recordGoal();
 
-	Eigen::MatrixXd mActionSpace0, mActionSpace1;
-	Eigen::VectorXd mActionWeight0, mActionWeight1;
+	Eigen::MatrixXd getActionSpace();
+	Eigen::VectorXd getActionWeight();
+	Eigen::VectorXd convertToRealActionSpace(const Eigen::VectorXd& a_norm);
+
+	Eigen::MatrixXd mActionSpace;
+	Eigen::VectorXd mActionWeight;
 
 	dart::simulation::WorldPtr mWorld;
 	int mControlHz, mSimulationHz;
-	int mElapsedFrame, mStartFrame, mCurrentFrame;
+	int mElapsedFrame;
 	int mMaxElapsedFrame;
 	Character *mSimCharacter,*mKinCharacter;
+	std::vector<Motion*> mMotions;
 
 	dart::dynamics::SkeletonPtr mGround;
-	dart::dynamics::SkeletonPtr mDoor;
-	dart::constraint::BallJointConstraintPtr mDoorConstraint;
-	bool mDoorConstraintOn;
-	std::vector<int> mImitationFrameWindow;
-	Distribution1D<int>* mInitialStateDistribution;
 
-	double mWeightPos, mWeightVel, mWeightEE, mWeightRoot, mWeightCOM;
+	Eigen::VectorXd mPrevPositions, mPrevVelocities, mPrevCOM;
+	Eigen::VectorXd mState, mStateGoal, mStateAMP;
 
-	std::map<std::string, std::vector<double>> mRewards;
+	bool mContactEOE;
+	bool mEnableGoal;
 
-	Eigen::VectorXd mState0, mState1;
-	bool mState0Dirty, mState1Dirty;
-	bool mKinematic;
-	Event* mEvent;
+	double mRewardGoal;
 
-	Eigen::Vector3d mPredefinedAction;
+	double mTargetHeading, mTargetSpeed;
+	double mTargetSpeedMin, mTargetSpeedMax;
+	double mSharpTurnProb, mSpeedChangeProb, mMaxHeadingTurnRate;
 };
 
 #endif

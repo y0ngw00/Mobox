@@ -10,7 +10,7 @@ MassSpringDamperSystem(Character* character,
 					const Eigen::VectorXd& spring_coeffs,
 					const Eigen::VectorXd& damper_coeffs,
 					double timestep)
-	:mCharacter(character),mSkeleton(character->getSkeleton()), mNumJoints(character->getSkeleton()->getNumJoints()),mStepTime(0.5),
+	:mCharacter(character),mSkeleton(character->getSkeleton()), mNumJoints(character->getSkeleton()->getNumJoints()),mStepTime(0.5),mSolveFootIK(false),
 	mMassCoeffs(mass_coeffs*0.5),mSpringCoeffs(spring_coeffs*2.0),mDamperCoeffs(damper_coeffs),mTimestep(timestep) // FFF
 {
 	mR.resize(3,3*mNumJoints);	
@@ -138,7 +138,7 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 	
 	mPv += mTimestep/mPMassCoeffs*(-mPSpringCoeffs*mPp + mPf);
 
-	mPv *= 0.7;
+	mPv *= 0.6;
 	mPp[0] = std::max(-0.2,std::min(0.2,mPp[0]-xT[0])) + xT[0];
 	mPp[2] = std::max(-0.2,std::min(0.2,mPp[2]-xT[2])) + xT[2];
 	mPp += mTimestep*mPv;
@@ -469,8 +469,11 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 	// 	mphase = 0.0;
 	// }
 	// Eigen::Vector3d root_p = baseP + R_ref*mCurrentHipPosition;
-	Eigen::Vector3d root_p = baseP + R_ref*xT;
-	if(mphase>1.0)
+	
+	if(mSolveFootIK)
+	{
+		Eigen::Vector3d root_p = baseP + R_ref*xT;
+		if(mphase>1.0)
 	{
 		// if(mR_IK1.rows()!=0)
 		// 	R = mR_IK1;
@@ -523,9 +526,16 @@ step(const Eigen::Vector3d& baseP, const Eigen::MatrixXd& baseR)
 
 		}
 	}
-
-	mphase += mTimestep/mStepTime;
+		mphase += mTimestep/mStepTime;
 
 	return std::make_pair(root_p, R);
+	}
+	else
+	{
+		return std::make_pair(baseP, R);
+	}
+	
+
+
 }
 

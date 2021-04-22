@@ -13,7 +13,8 @@ import numpy as np
 import pycomcon
 import model
 import ppo
-import trainer
+import discriminator
+import trainerAMP
 
 from torch.utils.tensorboard import SummaryWriter
 cuda = torch.cuda.is_available()
@@ -66,22 +67,22 @@ if __name__ == "__main__":
 	writer = create_summary_writer(save_path,launch=False)
 
 	envs = pycomcon.vector_env(config['num_envs'])
+	state_experts = envs.get_states_AMP_expert()
+	
+	policy_model = model.FCModel(envs.get_dim_state(), envs.get_dim_action(), config['model'])
+	discriminator_model = model.FC(envs.get_dim_state_AMP(), config['discriminator_model'])
+	
+	policy = ppo.FCPolicy(policy_model, config['policy'])
+	discriminator = discriminator.FCDiscriminator(discriminator_model, state_experts, config['discriminator'])
 
-	model0 = model.FCModel(envs.get_dim_state0(), envs.get_dim_action0(), config['model0'])
-	model1 = model.FCModel(envs.get_dim_state1(), envs.get_dim_action1(), config['model1'])
+	trainer = trainerAMP.TrainerAMP(envs, policy, discriminator, config['trainer'])
 
-	policy0 = ppo.FCPolicy(model0, config['policy0'])
-	policy1 = ppo.FCPolicy(model1, config['policy1'])
-
-	trainer = trainer.Trainer(envs, [policy0, policy1], config['trainer'])
 	if args.checkpoint is not None:
 		trainer.load(args.checkpoint)
 	if config['save_at_start']:
 		trainer.save(save_path)
 
 	while True:
-		envs.sync_envs()
-
 		trainer.generate_samples()
 		trainer.compute_TD_GAE()
 		trainer.concat_samples()

@@ -16,116 +16,117 @@ drawJoints(const SkeletonPtr& skel)
 {
 
 }
-void
-DARTRendering::
-drawForceSensors(Character* character, const Eigen::Vector3d& pos, const Eigen::Vector3d& size ,const Option& option)
-{
-	Eigen::VectorXd rest_pose = Eigen::VectorXd::Zero(character->getSkeleton()->getNumDofs());
-	int idx = character->getSkeleton()->getJoint("LeftArm")->getIndexInSkeleton(2);
-	rest_pose[idx] = - 1.4;
-	idx = character->getSkeleton()->getJoint("RightArm")->getIndexInSkeleton(2);
-	rest_pose[idx] = + 1.4;
-	glDisable(GL_LIGHTING);
+// void
+// DARTRendering::
+// drawForceSensors(Character* character, const Eigen::Vector3d& pos, const Eigen::Vector3d& size ,const Option& option)
+// {
+// 	Eigen::VectorXd rest_pose = Eigen::VectorXd::Zero(character->getSkeleton()->getNumDofs());
+// 	int idx = character->getSkeleton()->getJoint("LeftArm")->getIndexInSkeleton(2);
+// 	rest_pose[idx] = - 1.4;
+// 	idx = character->getSkeleton()->getJoint("RightArm")->getIndexInSkeleton(2);
+// 	rest_pose[idx] = + 1.4;
+// 	glDisable(GL_LIGHTING);
 
-	glMatrixMode(GL_PROJECTION);
+// 	glMatrixMode(GL_PROJECTION);
 
-	glPushMatrix();
-	glLoadIdentity();
+// 	glPushMatrix();
+// 	glLoadIdentity();
 
-	double x_min,x_max, y_min,y_max;
-	x_min=-0.3, x_max=0.3, y_min=0.8, y_max=2.0;
-	gluOrtho2D(x_min,x_max, y_min,y_max);
+// 	double x_min,x_max, y_min,y_max;
+// 	// x_min=-0.3, x_max=0.3, y_min=0.8, y_max=2.0;
+// 	x_min=-0.3, x_max=0.3, y_min=-0.2, y_max=1.0;
+// 	gluOrtho2D(x_min,x_max, y_min,y_max);
 
-	GLint w = glutGet(GLUT_WINDOW_WIDTH);
-	GLint h = glutGet(GLUT_WINDOW_HEIGHT);
-	glViewport(w*(pos[0]),h*(pos[1]),w*size[0],h*size[1]);
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
-	glLoadIdentity();
+// 	GLint w = glutGet(GLUT_WINDOW_WIDTH);
+// 	GLint h = glutGet(GLUT_WINDOW_HEIGHT);
+// 	glViewport(w*(pos[0]),h*(pos[1]),w*size[0],h*size[1]);
+// 	glMatrixMode(GL_MODELVIEW);
+// 	glPushMatrix();
+// 	glLoadIdentity();
 
-	glColor3f(1,1,1);
-	glBegin(GL_QUADS);
-	glVertex3f(x_min,y_min,0.0);
-	glVertex3f(x_min,y_max,0.0);
-	glVertex3f(x_max,y_max,0.0);
-	glVertex3f(x_max,y_min,0.0);
-	glEnd();
+// 	glColor3f(1,1,1);
+// 	glBegin(GL_QUADS);
+// 	glVertex3f(x_min,y_min,0.0);
+// 	glVertex3f(x_min,y_max,0.0);
+// 	glVertex3f(x_max,y_max,0.0);
+// 	glVertex3f(x_max,y_min,0.0);
+// 	glEnd();
 	
-	Eigen::VectorXd old_pos = character->getSkeleton()->getPositions();
-	Option option2 = option;
-	option2.draw_mode = DrawUtils::eDrawWireSimple;
-	option2.drawJoints = false;
-	option2.line_width =1.5;
-	glDisable(GL_DEPTH_TEST);
-	character->getSkeleton()->setPositions(rest_pose);
-	drawSkeleton(character->getSkeleton(), option2);
+// 	Eigen::VectorXd old_pos = character->getSkeleton()->getPositions();
+// 	Option option2 = option;
+// 	option2.draw_mode = DrawUtils::eDrawWireSimple;
+// 	option2.drawJoints = false;
+// 	option2.line_width =1.5;
+// 	glDisable(GL_DEPTH_TEST);
+// 	character->getSkeleton()->setPositions(rest_pose);
+// 	drawSkeleton(character->getSkeleton(), option2);
 
-	Eigen::VectorXd applied_forces = character->getAppliedForces();
-	for(int i=1;i<character->getSkeleton()->getNumJoints();i++)
-	{
-		auto joint =  character->getSkeleton()->getJoint(i); 
-		auto parent = joint->getParentBodyNode();
+// 	Eigen::VectorXd applied_forces = character->getAppliedForces();
+// 	for(int i=1;i<character->getSkeleton()->getNumJoints();i++)
+// 	{
+// 		auto joint =  character->getSkeleton()->getJoint(i); 
+// 		auto parent = joint->getParentBodyNode();
 
-		Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
-		T = parent->getTransform()*joint->getTransformFromParentBodyNode();
+// 		Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+// 		T = parent->getTransform()*joint->getTransformFromParentBodyNode();
 
-		double radius = 0.02;
-		Eigen::Vector3d applied_force = Eigen::Vector3d::Zero();
-		if(joint->getType()=="BallJoint")
-			 applied_force = applied_forces.segment<3>(joint->getIndexInSkeleton(0));
+// 		double radius = 0.02;
+// 		Eigen::Vector3d applied_force = Eigen::Vector3d::Zero();
+// 		if(joint->getType()=="BallJoint")
+// 			 applied_force = applied_forces.segment<3>(joint->getIndexInSkeleton(0));
 
-		double mag = 0.05*applied_force.norm();
-		glPushMatrix();
-		glMultMatrixd(T.data());
+// 		double mag = 0.05*applied_force.norm();
+// 		glPushMatrix();
+// 		glMultMatrixd(T.data());
 
-		glDisable(GL_LIGHTING);
-		glDisable(GL_TEXTURE_2D);
-		glColor3f(0.4+0.6*mag,0.2,0.2);
-		DrawUtils::drawSphere(radius*std::sqrt(1.0+mag));
-		glEnable(GL_TEXTURE_2D);
-		glEnable(GL_LIGHTING);
-		glPopMatrix();
-	}
-	auto force_sensors = character->getForceSensors();
-	double sensor_radius = option.sensor_radius;
+// 		glDisable(GL_LIGHTING);
+// 		glDisable(GL_TEXTURE_2D);
+// 		glColor3f(0.4+0.6*mag,0.2,0.2);
+// 		DrawUtils::drawSphere(radius*std::sqrt(1.0+mag));
+// 		glEnable(GL_TEXTURE_2D);
+// 		glEnable(GL_LIGHTING);
+// 		glPopMatrix();
+// 	}
+// 	auto force_sensors = character->getForceSensors();
+// 	double sensor_radius = option.sensor_radius;
 
-	for(auto fs : force_sensors)
-	{
-		glPushMatrix();
-		Eigen::Vector3d p = fs->getPosition();
-		Eigen::Vector3d p_haptic = fs->getBodyNode()->getTransform().linear()*fs->getHapticPosition();
-		// std::cout<<p_haptic.transpose()<<std::endl;
-		DrawUtils::translate(p+p_haptic);
+// 	for(auto fs : force_sensors)
+// 	{
+// 		glPushMatrix();
+// 		Eigen::Vector3d p = fs->getPosition();
+// 		Eigen::Vector3d p_haptic = fs->getBodyNode()->getTransform().linear()*fs->getHapticPosition();
+// 		// std::cout<<p_haptic.transpose()<<std::endl;
+// 		DrawUtils::translate(p+p_haptic);
 		
-		// if(fs->value.norm()>1e-6){
-		// 	// sensor_radius = option.sensor_radius*std::sqrt(fs->value.norm());
-		// 	// sensor_radius = option.sensor_radius*std::sqrt(fs->value.norm())*0.5;
-		// 	glColor3f(1.0,0.1,0.0);
-		// }
-		// else{
-		// 	// sensor_radius = option.sensor_radius;
-		// 	glColor3f(0.6,0.25,0.0);
-		// }
-		glColor3f(0.0,0.0,0.0);
-		glDisable(GL_LIGHTING);
-		glDisable(GL_TEXTURE_2D);
-		DrawUtils::drawSphere(sensor_radius);
-		DrawUtils::drawSphere(sensor_radius*1.05,DrawUtils::eDrawWireSimple);
-		glEnable(GL_TEXTURE_2D);
-		glEnable(GL_LIGHTING);
-		glPopMatrix();
+// 		// if(fs->value.norm()>1e-6){
+// 		// 	// sensor_radius = option.sensor_radius*std::sqrt(fs->value.norm());
+// 		// 	// sensor_radius = option.sensor_radius*std::sqrt(fs->value.norm())*0.5;
+// 		// 	glColor3f(1.0,0.1,0.0);
+// 		// }
+// 		// else{
+// 		// 	// sensor_radius = option.sensor_radius;
+// 		// 	glColor3f(0.6,0.25,0.0);
+// 		// }
+// 		glColor3f(0.0,0.0,0.0);
+// 		glDisable(GL_LIGHTING);
+// 		glDisable(GL_TEXTURE_2D);
+// 		DrawUtils::drawSphere(sensor_radius);
+// 		DrawUtils::drawSphere(sensor_radius*1.05,DrawUtils::eDrawWireSimple);
+// 		glEnable(GL_TEXTURE_2D);
+// 		glEnable(GL_LIGHTING);
+// 		glPopMatrix();
     	
-	}
-	character->getSkeleton()->setPositions(old_pos);
-	glEnable(GL_DEPTH_TEST);
-	glPopMatrix();
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
+// 	}
+// 	character->getSkeleton()->setPositions(old_pos);
+// 	glEnable(GL_DEPTH_TEST);
+// 	glPopMatrix();
+// 	glMatrixMode(GL_PROJECTION);
+// 	glPopMatrix();
+// 	glMatrixMode(GL_MODELVIEW);
 
-	glEnable(GL_LIGHTING);
-	glViewport(0,0,w,h);
-}
+// 	glEnable(GL_LIGHTING);
+// 	glViewport(0,0,w,h);
+// }
 
 void
 DARTRendering::

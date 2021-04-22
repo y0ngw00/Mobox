@@ -5,8 +5,9 @@ config = {
 	# 'save_path' : '/home/seunghwan/Documents/comcon_remote_new/data/learning/',
 	'save_path' : '/home/seunghwan/Documents/comcon_remote/data/learning/',
 	'save_at_start' : True,
-	'model0' : {
-		'sample_std' : 0.3,
+	'model' : {
+		'sample_std' : 0.1,
+		'fixed_std' : True,
 		'policy_hiddens' : [256, 256],
 		'policy_activations' : ['relu', 'relu', None],
 		'policy_init_weights' : [0.1, 0.1, 0.01],
@@ -14,45 +15,43 @@ config = {
 		'value_activations' : ['relu', 'relu', None],
 		'value_init_weights' : [0.1, 0.1, 0.01],
 	},
-
-	'model1' : {
-		'sample_std' : 0.2,
-		'policy_hiddens' : [16],
-		'policy_activations' : ['relu', None],
-		'policy_init_weights' : [0.1, 0.01],
-		'value_hiddens' : [16],
-		'value_activations' : ['relu', None],
-		'value_init_weights' : [0.1, 0.01],
-	},
-
 	
-	'policy0' : {
-		'gamma' : 0.95,
+	'policy' : {
+		'gamma' : 0.99,
 		'lb' : 0.95,
 		'lr' : 1e-5,
 		'policy_clip' : 0.2,
 		'value_clip' : 1.0,
 		'grad_clip' : 0.5,
-		# 'grad_clip' : 1000.0,
 		'kl' : 0.01,
-		'entropy' : -0.01
+		'entropy' : 0.0
 	},
 
-	'policy1' : {
-		'gamma' : 0.95,
-		'lb' : 0.95,
-		'lr' : 1e-5,
-		'policy_clip' : 0.2,
-		'value_clip' : 1.0,
-		'grad_clip' : 0.5,
-		# 'grad_clip' : 1000.0,
-		'kl' : 0.01,
-		'entropy' : -0.01
+	'discriminator_model' : {
+		'hiddens' : [256, 256],
+		'activations' : ['relu', 'relu', None],
+		'init_weights' : [0.1, 0.1, 1.0],
 	},
+	
+	'discriminator' : {
+		# 'w_grad' : 10.0,
+		'w_grad' : 10.0,
+		'grad_clip' : 0.5,
+		'w_reg' : 0.05,
+		'w_decay' : 0.0005,
+		'r_scale' : 2.0,
+		'lr' : 1e-5,
+	},
+
 	'trainer' : {
 		'sample_size' : 2048,
 		'num_sgd_iter' : 5,
-		'sgd_minibatch_size' : [128,128],
-		'save_iteration' : [10,500]
+		'sgd_minibatch_size' : 128,
+		
+		'num_disc_sgd_iter' : 2,
+		'disc_sgd_minibatch_size' : 32,
+		'disc_buffer_len' : 100000,
+
+		'save_iteration' : [10,500],
 	}
 }

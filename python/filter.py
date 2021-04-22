@@ -68,7 +68,7 @@ class RunningStat:
 	def shape(self):
 		return self._M.shape
 
-class MeanStdFilter:
+class MeanStdRuntimeFilter:
 	def __init__(self, shape, demean=True, destd=True, clip=10.0):
 		self.shape = shape
 		self.demean = demean
@@ -106,3 +106,24 @@ class MeanStdFilter:
 		self.rs._n = state['n']
 		self.rs._M = state['M']
 		self.rs._S = state['S']
+class MeanStdFilter:
+	def __init__(self, shape, mean, std):
+		self.shape = shape
+		self.mean = mean
+		self.std = std
+		
+	def __call__(self, x):
+		x = np.asarray(x)
+		x = (x - self.mean)/(self.std + 1e-8)
+		x = np.clip(x, -10.0, 10.0)
+		return x
+		
+	def state_dict(self):
+		state = {}
+		state['M'] = self.mean
+		state['S'] = self.std
+		return state
+
+	def load_state_dict(self, state):
+		self.mean = state['M']
+		self.std = state['S']

@@ -52,24 +52,32 @@ protected:
 
 	bool mDrawSimPose, mDrawKinPose, mDrawTargetPose, mDrawCOMvel, mDraw2DCharacter;
 	bool mExplore, mFocus;
+	double mReward, mRewardGoal;
 	bool mPlotReward;
-	bool mKinematic;
 
-	Eigen::VectorXd mObservation0, mObservation1;
+	Eigen::VectorXd mObservation, mObservationDiscriminator;
 	DrawUtils::BarPlot mBarPlot;
 	py::scoped_interpreter guard;
+	std::vector<double> mRewards, mRewardGoals;
 	py::object mm,mns,sys_module;
-	py::module policy_md;
-	py::object policy0, policy1;
+	py::module policy_md, discriminator_md;
+	py::object policy, discriminator;
+
 
 	std::chrono::system_clock::time_point mTimePoint;
 	double mComputedTime;
 
-	double mInteractionDepth;
 
-	std::vector<Eigen::Vector3d> mHandPositions;
-	std::vector<Eigen::Vector4d> mWashedRecords;
-	std::vector<Eigen::VectorXd> mPositions;
+
+	// py::object policy0, policy1;
+
+	
+
+	// double mInteractionDepth;
+
+	// std::vector<Eigen::Vector3d> mHandPositions;
+	// std::vector<Eigen::Vector4d> mWashedRecords;
+	// std::vector<Eigen::VectorXd> mPositions;
 };
 
 #endif

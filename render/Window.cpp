@@ -29,8 +29,7 @@ Window()
 	mFocus(false),
 	mDrawCOMvel(true),
 	mDraw2DCharacter(true),
-	mCapture(false),
-	mKinematic(false)
+	mCapture(false)
 	// ,mCurrentForceSensor(nullptr)
 {
 	mTimePoint = std::chrono::system_clock::now();
@@ -40,18 +39,10 @@ Window()
 	mBarPlot.base_val = 0.0;
 	mBarPlot.color = Eigen::Vector4d(0.8,0.8,0.8,0.6);
 	
-	mCamera->setLookAt(Eigen::Vector3d(0.0,2.3,0.8));
-	mCamera->setEye( Eigen::Vector3d(-2.0,2.3,-0.8));
+	mCamera->setLookAt(Eigen::Vector3d(0.0,1.3,0.8));
+	mCamera->setEye( Eigen::Vector3d(-2.0,1.3,-0.8));
 
 	this->reset();
-
-	// BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk.bvh");
-
-	// for(int i=2400;i<3400;i+=30)
-	// {
-	// 	mEnvironment->getSimCharacter()->setPose(bvh->getPosition(i), bvh->getRotation(i));
-	// 	mPositions.emplace_back(mEnvironment->getSimCharacter()->getSkeleton()->getPositions());
-	// }
 }
 void
 Window::
@@ -73,19 +64,25 @@ render()
 		
 	}
 	glColor4f(0.4,0.4,1.2,0.2);
-	DARTRendering::drawSkeleton(mEnvironment->getDoor(),mObjectRenderOption);
-	// DARTRendering::drawSkeleton(mEnvironment->getWashWindow(),mObjectRenderOption);
+	
+	
+
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
-	Event* event = mEnvironment->getEvent();
-	if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
+	
+	if(mEnvironment->isEnableGoal())
 	{
-		ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
-		auto obstacle = oevent->getObstacle();
-		DARTRendering::drawSkeleton(obstacle,mObjectRenderOption);
+		double target_heading = mEnvironment->getTargetHeading();
+		double target_speed = mEnvironment->getTargetSpeed();
+		Eigen::Vector3d start = mEnvironment->getSimCharacter()->getReferenceTransform().translation();
+		Eigen::Matrix3d R_target = Eigen::AngleAxisd(target_heading, Eigen::Vector3d::UnitY()).toRotationMatrix();
+		Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
+
+		Eigen::Vector3d dir = target_speed*R_target.col(2);
+		glColor4f(1,0,0,1);
+		DrawUtils::drawArrow3D(start, start+dir*0.7, 0.2);	
 	}
-	if(mDrawKinPose)
-		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
+	
 	if(mDrawTargetPose)
 	{
 		Eigen::VectorXd state = mEnvironment->getKinCharacter()->saveState();
@@ -99,17 +96,309 @@ render()
 		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mTargetRenderOption);
 		mEnvironment->getKinCharacter()->restoreState(state);
 	}
-	if(mDrawCOMvel)
-	{
-		Eigen::VectorXd state = mEnvironment->getKinCharacter()->saveState();
+	float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
+			dynamic_cast<const BoxShape*>(mEnvironment->getGround()->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get())->getSize()[1]*0.5;
 
-		for(int i=0;i<mPositions.size();i++)
-		{
-			mEnvironment->getKinCharacter()->getSkeleton()->setPositions(mPositions[i]);
-			DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mTargetRenderOption);
-		}
-		mEnvironment->getKinCharacter()->restoreState(state);
-		
+	DrawUtils::drawGround(y,100.0);
+	DrawUtils::disableTexture();
+	if(mPlotReward)
+	{
+		glDisable(GL_LIGHTING);
+		glDisable(GL_TEXTURE_2D);
+
+		glMatrixMode(GL_PROJECTION);
+
+		glPushMatrix();
+		glLoadIdentity();
+		gluOrtho2D(-1.0, 1.0, -1.0, 1.0);
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glLoadIdentity();
+		int n = mRewards.size();
+		int offset = std::max(0,n-30);
+		mBarPlot.vals = Eigen::Map<Eigen::VectorXd>(mRewards.data()+offset, 30 + std::min(0,n-30));
+		mBarPlot.background_color = Eigen::Vector4d(1,1,1,0);
+		mBarPlot.color = Eigen::Vector4d(0,0,0,1);
+		DrawUtils::drawLinePlot(mBarPlot, Eigen::Vector3d(0.69,0.69,0.0),Eigen::Vector3d(0.3,0.3,0.0));	
+		mBarPlot.vals = Eigen::Map<Eigen::VectorXd>(mRewardGoals.data()+offset, 30 + std::min(0,n-30));
+		mBarPlot.background_color = Eigen::Vector4d(1,1,1,0);
+		mBarPlot.color = Eigen::Vector4d(1,0,0,1);
+		DrawUtils::drawLinePlot(mBarPlot, Eigen::Vector3d(0.69,0.69,0.0),Eigen::Vector3d(0.3,0.3,0.0));	
+
+		glPopMatrix();
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		// glMatrixMode(oldMode);
+
+		glEnable(GL_LIGHTING);
+		glEnable(GL_TEXTURE_2D);
+	
+	}
+	if(mCapture)
+		this->capture_screen();
+}
+
+void
+Window::
+reset(int frame)
+{
+	mEnvironment->reset(frame);
+	mObservation = mEnvironment->getState();
+	mObservationDiscriminator = mEnvironment->getStateAMP();
+	mRewards.clear();
+	mRewardGoals.clear();
+	mReward = 0.0;
+	if(mFocus)
+	{
+		Eigen::Vector3d com = mEnvironment->getSimCharacter()->getSkeleton()->getCOM();
+		com[1] = 2.0;
+		Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
+		mCamera->setLookAt(com);
+		mCamera->setEye( com + dir );
+	}
+}
+void
+Window::
+step()
+{
+	if(mUseNN)
+	{
+		Eigen::VectorXd action = policy.attr("compute_action")(mObservation, mExplore).cast<Eigen::VectorXd>();
+		mEnvironment->step(action);
+	}
+	else{
+		Eigen::VectorXd action = Eigen::VectorXd::Zero(mEnvironment->getDimAction());
+		mEnvironment->step(action);
+	}
+	mObservation = mEnvironment->getState();
+	mObservationDiscriminator = mEnvironment->getStateAMP();
+	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
+	mRewardGoal = mEnvironment->getRewardGoal();
+	
+	mRewardGoals.push_back(0.5*mRewardGoal);
+	mRewards.push_back(0.5*(mReward + mRewardGoal));
+	bool eoe = mEnvironment->inspectEndOfEpisode();
+	if(eoe)
+		this->reset();
+
+	if(mFocus)
+	{
+		Eigen::Vector3d com = mEnvironment->getSimCharacter()->getSkeleton()->getCOM();
+		com[1] = 2.0;
+		Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
+		mCamera->setLookAt(com);
+		mCamera->setEye( com + dir );
+	}	
+}
+
+void
+Window::
+initNN(const std::string& config)
+{
+	mUseNN = true;
+
+	mm = py::module::import("__main__");
+	mns = mm.attr("__dict__");
+	sys_module = py::module::import("sys");
+	py::str module_dir = (std::string(ROOT_DIR)+"/python").c_str();
+	sys_module.attr("path").attr("insert")(1, module_dir);
+
+	policy_md = py::module::import("ppo");
+	discriminator_md = py::module::import("discriminator");
+	py::object pyconfig = policy_md.attr("load_config")(config);
+	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimAction(),pyconfig);
+	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getStateAMPExpert(), pyconfig);
+	//TODO
+	
+	// policy0 = policy_md.attr("build_policy0")(mEnvironment->getDimState0(),mEnvironment->getDimAction0(),pyconfig);
+	// policy1 = policy_md.attr("build_policy1")(mEnvironment->getDimState1(),mEnvironment->getDimAction1(),pyconfig);
+}
+void
+Window::
+loadNN(const std::string& checkpoint)
+{
+	//TODO
+	policy_md.attr("load_policy")(policy, checkpoint);
+	discriminator_md.attr("load_discriminator")(discriminator, checkpoint);
+}
+void
+Window::
+keyboard(unsigned char key, int x, int y)
+{
+	switch(key)
+	{
+		case '0':mDrawSimPose = !mDrawSimPose;break;
+		case '1':mDrawKinPose = !mDrawKinPose;break;
+		case '2':mDrawTargetPose = !mDrawTargetPose;break;
+		case '3':mExplore = !mExplore;break;
+		case '4':mPlotReward = !mPlotReward;break;
+		case '5':mFocus = !mFocus;break;
+		case '6':mDrawCOMvel = !mDrawCOMvel;break;
+		case '7':mDraw2DCharacter = !mDraw2DCharacter;break;
+		case 's':this->step();break;
+		// case 'k':mEnvironment->setKinematics(!mEnvironment->getKinematics());break;
+		case 'r':this->reset();break;
+		case 'R':this->reset(0);break;
+		case 'C':mCapture=true;break;
+		case ' ':mPlay = !mPlay; break;
+		default:GLUTWindow3D::keyboard(key,x,y);break;
+	}
+}
+void
+Window::
+special(int key, int x, int y)
+{
+	switch(key)
+	{
+		case 100: break;//Left
+		case 101: break;//Up
+		case 102: break;//Right
+		case 103: break;//bottom
+		default:GLUTWindow3D::special(key,x,y);break;
+	}
+
+}
+void
+Window::
+mouse(int button, int state, int x, int y)
+{
+	GLUTWindow3D::mouse(button,state,x,y);
+
+	// if(mMouse == 2) // Right
+	// {
+	// 	if(state==0) // Down
+	// 	{
+	// 		auto ray = mCamera->getRay(x,y);
+
+	// 		Event* event = mEnvironment->getEvent();
+	// 		if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
+	// 		{
+	// 			ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
+	// 			auto obstacle = oevent->getObstacle();
+	// 			Eigen::Vector3d p0 = ray.first;
+	// 			Eigen::Vector3d p1 = ray.second;
+
+
+
+	// 			Eigen::Vector3d p_glob = obstacle->getPositions().segment<3>(3);
+	// 			double t = (p1 - p0).dot(p_glob - p0)/(p1 - p0).dot(p1 - p0);
+	// 			double distance = (t*(p1-p0) - (p_glob - p0)).norm();
+
+	// 			mInteractionDepth = t;
+	// 		}
+	// 	}
+	// 	else
+	// 		mInteractionDepth = -1;
+	// }
+
+}
+void
+Window::
+motion(int x, int y)
+{
+	GLUTWindow3D::motion(x,y);
+	// if(mMouse == 2 && mDrag)
+	// {
+	// 	auto ray = mCamera->getRay(x,y);
+	// 	Eigen::Vector3d current_force_point = ray.first + mInteractionDepth*(ray.second-ray.first);
+	// 	Event* event = mEnvironment->getEvent();
+	// 	if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
+	// 	{
+	// 		ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
+	// 		auto obstacle = oevent->getObstacle();
+	// 		Eigen::VectorXd p = obstacle->getPositions();
+	// 		Eigen::VectorXd v = obstacle->getVelocities();
+	// 		p.segment<3>(0) = Eigen::Vector3d::Zero();
+	// 		p.segment<3>(3) = current_force_point;
+	// 		v.segment<3>(0) = Eigen::Vector3d::Zero();
+	// 		v.segment<3>(3) = Eigen::Vector3d::Zero();//(current_force_point-)/30.0;
+	// 		oevent->setLinearPosition(current_force_point);
+	// 		oevent->setLinearVelocity(Eigen::Vector3d::Zero());
+	// 	}
+	// }
+	
+}
+void
+Window::
+reshape(int w, int h)
+{
+	mScreenshotTemp.resize(4*w*h);
+	mScreenshotTemp2.resize(4*w*h);
+	GLUTWindow3D::reshape(w,h);
+}
+void
+Window::
+timer(int tic)
+{
+	auto next_time_point = std::chrono::system_clock::now();
+	std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(next_time_point - mTimePoint);
+	mComputedTime = micro.count();
+
+	mTimePoint = next_time_point;
+	if(mPlay)
+		this->step();
+	GLUTWindow3D::timer(tic);
+}
+#include <chrono>
+#include <ctime>
+#include "lodepng.h"
+
+std::string timepoint_to_string(const std::chrono::system_clock::time_point& p_tpTime,
+                                           const std::string& p_sFormat)
+{
+    auto converted_timep = std::chrono::system_clock::to_time_t(p_tpTime);
+    std::ostringstream oss;
+    oss << std::put_time(std::localtime(&converted_timep), p_sFormat.c_str());
+ 
+    return oss.str();
+}
+
+void
+Window::
+capture_screen()
+{
+	static int count = 0;
+	static std::string path = timepoint_to_string(std::chrono::system_clock::now(), "../data/png/%Y_%m_%d:%H_%M_%S");
+	if(count == 0){
+		std::string command = "mkdir " + path;
+		system(command.c_str());	
+	}
+	
+	
+	char file_name[256];
+	std::string file_base = "Capture";
+
+	std::snprintf(file_name, sizeof(file_name), "%s%s%s%.4d.png",
+				path.c_str(), "/", file_base.c_str(), count++);
+
+	int tw = glutGet(GLUT_WINDOW_WIDTH);
+	int th = glutGet(GLUT_WINDOW_HEIGHT);
+
+	glReadPixels(0, 0,  tw, th, GL_RGBA, GL_UNSIGNED_BYTE, &mScreenshotTemp[0]);
+
+	// reverse temp2 temp1
+	for (int row = 0; row < th; row++) {
+	memcpy(&mScreenshotTemp2[row * tw * 4],
+		   &mScreenshotTemp[(th - row - 1) * tw * 4], tw * 4);
+	}
+	
+	unsigned result = lodepng::encode(file_name, mScreenshotTemp2, tw, th);
+
+	// if there's an error, display it
+	if (result) {
+	std::cout << "lodepng error " << result << ": "
+			<< lodepng_error_text(result) << std::endl;
+	} else {
+		std::cout << "wrote screenshot " << file_name << "\n";
+	}
+}
+
+
+// if(mDraw2DCharacter)
+	// DARTRendering::drawForceSensors(mEnvironment->getSimCharacter(),Eigen::Vector3d(0.8,0.7,0.0),Eigen::Vector3d(0.16,0.4,0.0),mSimRenderOption);
+	// DrawUtils::drawString3D("this is ground",Eigen::Vector3d::Zero(),Eigen::Vector3d::Zero());
+
+
 	// auto fss = mEnvironment->getSimCharacter()->getForceSensors();
 	// for(int i =0;i<fss.size();i++)
 	// {
@@ -130,38 +419,39 @@ render()
 	// 	}
 
 	// }	
-	}
-	float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
-			dynamic_cast<const BoxShape*>(mEnvironment->getGround()->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get())->getSize()[1]*0.5;
 
-	Eigen::Vector3d swing_position = mEnvironment->getSimCharacter()->getMSDSystem()->mSwingPosition.translation();
-	Eigen::Vector3d stance_position = mEnvironment->getSimCharacter()->getMSDSystem()->mStancePosition.translation();
-	Eigen::Vector3d current_hip_position = mEnvironment->getSimCharacter()->getMSDSystem()->mGlobalHipPosition;
 
-	glPushMatrix();
-	DrawUtils::translate(swing_position);
-	glTranslatef(0,y,0);
-	glColor3f(1,0,0);
-	DrawUtils::drawSphere(0.1);
-	
-	glPopMatrix();
-	
 
-	glPushMatrix();
-	glColor3f(0,0,1);
-	DrawUtils::translate(stance_position);
-	glTranslatef(0,y,0);
-	DrawUtils::drawSphere(0.1);
 
-	glPopMatrix();
 
-	glPushMatrix();
-	glColor3f(0,1,0);
-	DrawUtils::translate(current_hip_position);
+	// Eigen::Vector3d swing_position = mEnvironment->getSimCharacter()->getMSDSystem()->mSwingPosition.translation();
+	// Eigen::Vector3d stance_position = mEnvironment->getSimCharacter()->getMSDSystem()->mStancePosition.translation();
+	// Eigen::Vector3d current_hip_position = mEnvironment->getSimCharacter()->getMSDSystem()->mGlobalHipPosition;
+
+	// glPushMatrix();
+	// DrawUtils::translate(swing_position);
 	// glTranslatef(0,y,0);
-	DrawUtils::drawSphere(0.1);
+	// glColor3f(1,0,0);
+	// DrawUtils::drawSphere(0.1);
+	
+	// glPopMatrix();
+	
 
-	glPopMatrix();
+	// glPushMatrix();
+	// glColor3f(0,0,1);
+	// DrawUtils::translate(stance_position);
+	// glTranslatef(0,y,0);
+	// DrawUtils::drawSphere(0.1);
+
+	// glPopMatrix();
+
+	// glPushMatrix();
+	// glColor3f(0,1,0);
+	// DrawUtils::translate(current_hip_position);
+	// // glTranslatef(0,y,0);
+	// DrawUtils::drawSphere(0.1);
+
+	// glPopMatrix();
 
 	// for(int i=0;i<1000;i++)
 	// {
@@ -204,15 +494,6 @@ render()
 	// }
 	// DrawUtils::disableTexture();
 	// DrawUtils::enableTexture(false);
-	
-
-	DrawUtils::drawGround(y,100.0);
-	DrawUtils::disableTexture();
-	if(mDraw2DCharacter)
-	DARTRendering::drawForceSensors(mEnvironment->getSimCharacter(),Eigen::Vector3d(0.8,0.7,0.0),Eigen::Vector3d(0.16,0.4,0.0),mSimRenderOption);
-	// DrawUtils::drawString3D("this is ground",Eigen::Vector3d::Zero(),Eigen::Vector3d::Zero());
-	if(mCapture)
-		this->capture_screen();
 	// glBegin(GL_LINE_STRIP);
 	// glColor3f(0,0,0);
 	// glLineWidth(2.0);
@@ -340,6 +621,7 @@ render()
 	// 	std::map<std::string, std::vector<double>> cr = mEnvironment->getCummulatedReward();
 	// 	int n = cr["r"].size();
 	// 	int offset = std::max(0,n-30);
+
 		
 	// 	mBarPlot.vals = Eigen::Map<Eigen::VectorXd>(cr["r"].data()+offset, 30 + std::min(0,n-30));
 	// 	mBarPlot.background_color = Eigen::Vector4d(1,1,1,0);
@@ -374,250 +656,3 @@ render()
 	// // DrawUtils::drawString3D("this is ground",Eigen::Vector3d::Zero(),Eigen::Vector3d::Zero());
 	// if(mCapture)
 	// 	this->capture_screen();
-}
-
-void
-Window::
-reset(int frame)
-{
-	mEnvironment->reset(frame);
-	mObservation0 = mEnvironment->getState0();
-	mObservation1 = mEnvironment->getState1();
-
-	// mBarPlot.vals = mEnvironment->getRewards();
-	if(mFocus)
-	{
-		Eigen::Vector3d com = mEnvironment->getSimCharacter()->getSkeleton()->getCOM();
-		com[1] = 2.0;
-		Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
-		mCamera->setLookAt(com);
-		mCamera->setEye( com + dir );
-	}
-}
-void
-Window::
-step()
-{
-	if(mUseNN)
-	{
-		Eigen::VectorXd action0 = policy0.attr("compute_action")(mObservation0, mExplore).cast<Eigen::VectorXd>();
-		Eigen::VectorXd action1 = policy1.attr("compute_action")(mObservation1, mExplore).cast<Eigen::VectorXd>();
-		mEnvironment->step(action0, action1);
-	}
-	else{
-		Eigen::VectorXd action0 = Eigen::VectorXd::Zero(mEnvironment->getDimAction0());
-		Eigen::VectorXd action1 = Eigen::VectorXd::Zero(mEnvironment->getDimAction1());
-
-		mEnvironment->step(action0, action1);
-	}
-	mObservation0 = mEnvironment->getState0();
-	mObservation1 = mEnvironment->getState1();
-	mEnvironment->getReward();
-	bool eoe = mEnvironment->inspectEndOfEpisode();
-	if(eoe)
-		this->reset();
-
-	if(mFocus)
-	{
-		Eigen::Vector3d com = mEnvironment->getSimCharacter()->getSkeleton()->getCOM();
-		com[1] = 2.0;
-		Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
-		mCamera->setLookAt(com);
-		mCamera->setEye( com + dir );
-	}	
-}
-
-void
-Window::
-initNN(const std::string& config)
-{
-	mUseNN = true;
-
-	mm = py::module::import("__main__");
-	mns = mm.attr("__dict__");
-	sys_module = py::module::import("sys");
-	py::str module_dir = (std::string(ROOT_DIR)+"/python").c_str();
-	sys_module.attr("path").attr("insert")(1, module_dir);
-
-	policy_md = py::module::import("ppo");
-	py::object pyconfig = policy_md.attr("load_config")(config);
-	policy0 = policy_md.attr("build_policy0")(mEnvironment->getDimState0(),mEnvironment->getDimAction0(),pyconfig);
-	policy1 = policy_md.attr("build_policy1")(mEnvironment->getDimState1(),mEnvironment->getDimAction1(),pyconfig);
-}
-void
-Window::
-loadNN(const std::string& checkpoint)
-{
-	policy_md.attr("load_policy")(policy0, policy1, checkpoint);
-}
-void
-Window::
-keyboard(unsigned char key, int x, int y)
-{
-	switch(key)
-	{
-		case '0':mDrawSimPose = !mDrawSimPose;break;
-		case '1':mDrawKinPose = !mDrawKinPose;break;
-		case '2':mDrawTargetPose = !mDrawTargetPose;break;
-		case '3':mExplore = !mExplore;break;
-		case '4':mPlotReward = !mPlotReward;break;
-		case '5':mFocus = !mFocus;break;
-		case '6':mDrawCOMvel = !mDrawCOMvel;break;
-		case '7':mDraw2DCharacter = !mDraw2DCharacter;break;
-		case 's':this->step();break;
-		case 'k':mEnvironment->setKinematics(!mEnvironment->getKinematics());break;
-		case 'r':this->reset();break;
-		case 'R':this->reset(0);break;
-		case 'C':mCapture=true;break;
-		case ' ':mPlay = !mPlay; break;
-		default:GLUTWindow3D::keyboard(key,x,y);break;
-	}
-}
-void
-Window::
-special(int key, int x, int y)
-{
-	switch(key)
-	{
-		case 100: break;//Left
-		case 101: break;//Up
-		case 102: break;//Right
-		case 103: break;//bottom
-		default:GLUTWindow3D::special(key,x,y);break;
-	}
-
-}
-void
-Window::
-mouse(int button, int state, int x, int y)
-{
-	GLUTWindow3D::mouse(button,state,x,y);
-
-	if(mMouse == 2) // Right
-	{
-		if(state==0) // Down
-		{
-			auto ray = mCamera->getRay(x,y);
-
-			Event* event = mEnvironment->getEvent();
-			if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
-			{
-				ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
-				auto obstacle = oevent->getObstacle();
-				Eigen::Vector3d p0 = ray.first;
-				Eigen::Vector3d p1 = ray.second;
-
-
-
-				Eigen::Vector3d p_glob = obstacle->getPositions().segment<3>(3);
-				double t = (p1 - p0).dot(p_glob - p0)/(p1 - p0).dot(p1 - p0);
-				double distance = (t*(p1-p0) - (p_glob - p0)).norm();
-
-				mInteractionDepth = t;
-			}
-		}
-		else
-			mInteractionDepth = -1;
-	}
-
-}
-void
-Window::
-motion(int x, int y)
-{
-	GLUTWindow3D::motion(x,y);
-	if(mMouse == 2 && mDrag)
-	{
-		auto ray = mCamera->getRay(x,y);
-		Eigen::Vector3d current_force_point = ray.first + mInteractionDepth*(ray.second-ray.first);
-		Event* event = mEnvironment->getEvent();
-		if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
-		{
-			ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
-			auto obstacle = oevent->getObstacle();
-			Eigen::VectorXd p = obstacle->getPositions();
-			Eigen::VectorXd v = obstacle->getVelocities();
-			p.segment<3>(0) = Eigen::Vector3d::Zero();
-			p.segment<3>(3) = current_force_point;
-			v.segment<3>(0) = Eigen::Vector3d::Zero();
-			v.segment<3>(3) = Eigen::Vector3d::Zero();//(current_force_point-)/30.0;
-			oevent->setLinearPosition(current_force_point);
-			oevent->setLinearVelocity(Eigen::Vector3d::Zero());
-		}
-	}
-	
-}
-void
-Window::
-reshape(int w, int h)
-{
-	mScreenshotTemp.resize(4*w*h);
-	mScreenshotTemp2.resize(4*w*h);
-	GLUTWindow3D::reshape(w,h);
-}
-void
-Window::
-timer(int tic)
-{
-	auto next_time_point = std::chrono::system_clock::now();
-	std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(next_time_point - mTimePoint);
-	mComputedTime = micro.count();
-
-	mTimePoint = next_time_point;
-	if(mPlay)
-		this->step();
-	GLUTWindow3D::timer(tic);
-}
-#include <chrono>
-#include <ctime>
-#include "lodepng.h"
-
-std::string timepoint_to_string(const std::chrono::system_clock::time_point& p_tpTime,
-                                           const std::string& p_sFormat)
-{
-    auto converted_timep = std::chrono::system_clock::to_time_t(p_tpTime);
-    std::ostringstream oss;
-    oss << std::put_time(std::localtime(&converted_timep), p_sFormat.c_str());
- 
-    return oss.str();
-}
-
-void
-Window::
-capture_screen()
-{
-	static int count = 0;
-	static std::string path = timepoint_to_string(std::chrono::system_clock::now(), "../data/png/%Y_%m_%d:%H_%M_%S");
-	if(count == 0){
-		std::string command = "mkdir " + path;
-		system(command.c_str());	
-	}
-	
-	
-	char file_name[256];
-	std::string file_base = "Capture";
-
-	std::snprintf(file_name, sizeof(file_name), "%s%s%s%.4d.png",
-				path.c_str(), "/", file_base.c_str(), count++);
-
-	int tw = glutGet(GLUT_WINDOW_WIDTH);
-	int th = glutGet(GLUT_WINDOW_HEIGHT);
-
-	glReadPixels(0, 0,  tw, th, GL_RGBA, GL_UNSIGNED_BYTE, &mScreenshotTemp[0]);
-
-	// reverse temp2 temp1
-	for (int row = 0; row < th; row++) {
-	memcpy(&mScreenshotTemp2[row * tw * 4],
-		   &mScreenshotTemp[(th - row - 1) * tw * 4], tw * 4);
-	}
-	
-	unsigned result = lodepng::encode(file_name, mScreenshotTemp2, tw, th);
-
-	// if there's an error, display it
-	if (result) {
-	std::cout << "lodepng error " << result << ": "
-			<< lodepng_error_text(result) << std::endl;
-	} else {
-		std::cout << "wrote screenshot " << file_name << "\n";
-	}
-}
