@@ -152,3 +152,13 @@ def load_discriminator(discriminator, checkpoint):
 	state = torch.load(checkpoint)
 	state = state['discriminator_state_dict']
 	discriminator.load_state_dict(state)
+
+def load_discriminator_lb(discriminator, checkpoint):
+	state = torch.load(checkpoint)
+	state = state['discriminator_lb_state_dict']
+	discriminator.load_state_dict(state)
+
+def load_discriminator_ub(discriminator, checkpoint):
+	state = torch.load(checkpoint)
+	state = state['discriminator_ub_state_dict']
+	discriminator.load_state_dict(state)

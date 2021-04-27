@@ -164,6 +164,18 @@ class FCPolicy(object):
 	def get_vf_pred(self):
 		return self.vf_pred
 
+	def compute_grad(self, state):
+		state = state.reshape(1,-1)
+		state_filtered = self.state_filter(state, update=False)
+		state = self.convert_to_tensor(state_filtered)
+		state = state.squeeze()
+		n = self.model.policy_fn[3].log_std.shape[0]
+		state = state.repeat(n, 1)
+		state.requires_grad = True
+		logit, _ = self.model(state)
+		mean, log_std = torch.chunk(logit, 2, dim = 1)
+		mean.backward(torch.eye(n).cuda())
+		return state.grad.data.cpu().detach().numpy() 
 '''Below function do not use when training'''
 import model
 import importlib.util

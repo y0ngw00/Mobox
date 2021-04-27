@@ -525,7 +525,7 @@ createBall(double density, double r, const std::string& type)
 	else if(type == "Weld")
 		props = makeWeldJointProperties("root",Eigen::Isometry3d::Identity(),Eigen::Isometry3d::Identity());
 	auto bn = makeBodyNode(skel,nullptr,props,type,inertia);
-	bn->createShapeNodeWith<VisualAspect,DynamicsAspect>(shape);
+	bn->createShapeNodeWith<VisualAspect,CollisionAspect,DynamicsAspect>(shape);
 
 	return skel;	
 }

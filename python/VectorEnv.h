@@ -15,11 +15,14 @@ class Environment;
 class VectorEnv
 {
 public:
-	VectorEnv(int num_envs);
+	VectorEnv(int num_envs, bool enable_lower_upper_body);
 	
+	bool isEnableLowerUpperBody(){return mEnableLowerUpperBody;}
 	int getNumEnvs();
 	int getDimState();
 	int getDimStateAMP();
+	int getDimStateAMPLowerBody();
+	int getDimStateAMPUpperBody();
 	int getDimAction();
 
 	void reset(int id);
@@ -29,12 +32,18 @@ public:
 	const Eigen::VectorXd& getRewardGoals();
 	const Eigen::MatrixXd& getStates();	
 	const Eigen::MatrixXd& getStatesAMP();
+	const Eigen::MatrixXd& getStatesAMPLowerBody();
+	const Eigen::MatrixXd& getStatesAMPUpperBody();
 	const Eigen::VectorXb& inspectEndOfEpisodes();
 
 	const Eigen::MatrixXd& getStatesAMPExpert();
+	const Eigen::MatrixXd& getStatesAMPExpertLowerBody();
+	const Eigen::MatrixXd& getStatesAMPExpertUpperBody();
 private:
 	std::vector<Environment*> mEnvs;
+	bool mEnableLowerUpperBody;
 	Eigen::MatrixXd mStates, mStatesAMP, mStatesAMPExpert;
+	Eigen::MatrixXd mStatesAMPLowerBody, mStatesAMPUpperBody, mStatesAMPExpertLowerBody, mStatesAMPExpertUpperBody;
 	Eigen::VectorXd mRewardGoals;
 	Eigen::VectorXb mEOEs;
 	int mNumEnvs;

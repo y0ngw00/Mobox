@@ -26,7 +26,16 @@ Character(dart::dynamics::SkeletonPtr& skel,
 	mMaxForces(maxf),
 	mTargetPositions(Eigen::VectorXd::Zero(skel->getNumDofs()))
 {
-
+	double y_root = mSkeleton->getBodyNode(0)->getCOM()[1];
+	mLowerBodyNodes.emplace_back(mSkeleton->getBodyNode(0));
+	mUpperBodyNodes.emplace_back(mSkeleton->getBodyNode(0));
+	for(int i=1;i<mSkeleton->getNumBodyNodes();i++){
+		double y = mSkeleton->getBodyNode(i)->getCOM()[1];	
+		if(y < y_root)
+			mLowerBodyNodes.emplace_back(mSkeleton->getBodyNode(i));
+		else
+			mUpperBodyNodes.emplace_back(mSkeleton->getBodyNode(i));
+	}
 }
 // void
 // Character::
@@ -220,7 +229,67 @@ getState()
 
 	return states;
 }
+Eigen::MatrixXd
+Character::
+getStateDeriv()
+{
+	Eigen::Isometry3d T_ref = this->getReferenceTransform();
 
+	Eigen::Isometry3d T_ref_inv = T_ref.inverse();
+	Eigen::Matrix3d R_ref_inv = T_ref_inv.linear();
+
+	int n = mSkeleton->getNumBodyNodes();
+	int m = mSkeleton->getNumDofs();
+
+	Eigen::VectorXd p = mSkeleton->getPositions();
+	Eigen::MatrixXd ds = Eigen::MatrixXd::Zero((5*n+2)*3, m-6);
+	for(int i=6;i<m;i++)
+	{
+		Eigen::VectorXd p1 = p;
+		Eigen::VectorXd p2 = p;
+		p1[i] -= 0.01;
+		p2[i] += 0.01;
+
+		mSkeleton->setPositions(p1);
+		Eigen::VectorXd s1 = MathUtils::ravel(this->getState());
+		mSkeleton->setPositions(p2);
+		Eigen::VectorXd s2 = MathUtils::ravel(this->getState());
+		ds.col(i-6) = (s2 - s1)/(0.02);
+		mSkeleton->setPositions(p);
+	}
+
+	return ds;
+
+	// Eigen::MatrixXd dS = Eigen::MatrixXd::Zero((5*n+2)*3, m);
+
+	// for(int i=0;i<n;i++)
+	// {
+	// 	Eigen::MatrixXd J = mSkeleton->getWorldJacobian(mSkeleton->getBodyNode(i));
+
+	// 	Eigen::Isometry3d Ti = T_ref_inv*(mSkeleton->getBodyNode(i)->getTransform());
+
+	// 	ps[i] = Ti.translation();
+	// 	Rs[i] = Ti.linear();
+
+		
+	// }
+	// Eigen::Vector3d p_com = T_ref_inv*mSkeleton->getCOM();
+	// Eigen::Vector3d v_com = R_ref_inv*mSkeleton->getCOMLinearVelocity();
+
+	// std::vector<Eigen::Vector3d> states(5*n+2);
+
+	// int o = 0;
+	// for(int i=0;i<n;i++) states[o+i] = ps[i]; o += n;
+	// for(int i=0;i<n;i++) states[o+i] = Rs[i].col(0); o += n;
+	// for(int i=0;i<n;i++) states[o+i] = Rs[i].col(1); o += n;
+	// for(int i=0;i<n;i++) states[o+i] = vs[i]; o += n;
+	// for(int i=0;i<n;i++) states[o+i] = ws[i]; o += n;
+
+	// states[o+0] = p_com;
+	// states[o+1] = v_com;
+
+	// return states;
+}
 Eigen::VectorXd
 Character::
 getStateAMP()
@@ -273,7 +342,123 @@ getStateAMP()
 
 	return MathUtils::ravel(states);
 }
+Eigen::VectorXd
+Character::
+getStateAMPLowerBody()
+{
+	Eigen::Isometry3d T_ref = this->getReferenceTransform();
 
+	Eigen::Isometry3d T_ref_inv = T_ref.inverse();
+	Eigen::Matrix3d R_ref_inv = T_ref_inv.linear();
+
+	Eigen::VectorXd p = mSkeleton->getPositions();
+	Eigen::VectorXd v = mSkeleton->getVelocities();
+
+	int n = mSkeleton->getNumBodyNodes();
+	int m = (p.rows()-6)/3;
+	std::vector<Eigen::VectorXd> states;
+	double root_h = p[5];
+	states.emplace_back(Eigen::VectorXd::Constant(1,root_h));
+
+
+	for(int i=0;i<mLowerBodyNodes.size();i++)
+	{
+		auto joint = mLowerBodyNodes[i]->getParentJoint();
+
+		if(joint->getType()=="BallJoint")
+		{
+			int idx = joint->getIndexInSkeleton(0);
+			Eigen::Matrix3d R = dart::dynamics::BallJoint::convertToRotation(p.segment<3>(idx));
+
+			states.emplace_back(R.col(0));
+			states.emplace_back(R.col(1));
+		}
+		else if(joint->getType()=="FreeJoint")
+		{
+			int idx = joint->getIndexInSkeleton(0);
+			Eigen::Matrix3d R = dart::dynamics::BallJoint::convertToRotation(p.segment<3>(idx));
+			R = R_ref_inv*R;
+			
+			states.emplace_back(R.col(0));
+			states.emplace_back(R.col(1));
+		}
+	}
+	
+	for(int i=0;i<mEndEffectors.size();i++){
+		if(mEndEffectors[i]->getName().find("Foot") != std::string::npos)
+			states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());
+	}
+
+	Eigen::Vector3d v_root = R_ref_inv*mSkeleton->getBodyNode(0)->getLinearVelocity();
+	Eigen::Vector3d w_root = R_ref_inv*mSkeleton->getBodyNode(0)->getAngularVelocity();
+	states.emplace_back(v_root);
+	states.emplace_back(w_root);
+
+	for(int i=0;i<mLowerBodyNodes.size();i++)
+	{
+		auto joint = mLowerBodyNodes[i]->getParentJoint();
+		if(joint->getType()=="BallJoint")
+		{
+			int idx = joint->getIndexInSkeleton(0);
+			states.emplace_back(v.segment<3>(idx));
+		}
+	}
+	return MathUtils::ravel(states);
+}
+Eigen::VectorXd
+Character::
+getStateAMPUpperBody()
+{
+	Eigen::Isometry3d T_ref = this->getReferenceTransform();
+
+	Eigen::Isometry3d T_ref_inv = T_ref.inverse();
+	Eigen::Matrix3d R_ref_inv = T_ref_inv.linear();
+
+	Eigen::VectorXd p = mSkeleton->getPositions();
+	Eigen::VectorXd v = mSkeleton->getVelocities();
+
+	int n = mSkeleton->getNumBodyNodes();
+	int m = (p.rows()-6)/3;
+	std::vector<Eigen::VectorXd> states;
+	for(int i=0;i<mUpperBodyNodes.size();i++)
+	{
+		auto joint = mUpperBodyNodes[i]->getParentJoint();
+
+		if(joint->getType()=="BallJoint")
+		{
+			int idx = joint->getIndexInSkeleton(0);
+			Eigen::Matrix3d R = dart::dynamics::BallJoint::convertToRotation(p.segment<3>(idx));
+
+			states.emplace_back(R.col(0));
+			states.emplace_back(R.col(1));
+		}
+		else if(joint->getType()=="FreeJoint")
+		{
+			int idx = joint->getIndexInSkeleton(0);
+			Eigen::Matrix3d R = dart::dynamics::BallJoint::convertToRotation(p.segment<3>(idx));
+			R = R_ref_inv*R;
+			
+			states.emplace_back(R.col(0));
+			states.emplace_back(R.col(1));
+		}
+	}
+	
+	for(int i=0;i<mEndEffectors.size();i++){
+		if(mEndEffectors[i]->getName().find("Hand") != std::string::npos)
+			states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());
+	}
+
+	for(int i=0;i<mUpperBodyNodes.size();i++)
+	{
+		auto joint = mUpperBodyNodes[i]->getParentJoint();
+		if(joint->getType()=="BallJoint")
+		{
+			int idx = joint->getIndexInSkeleton(0);
+			states.emplace_back(v.segment<3>(idx));
+		}
+	}
+	return MathUtils::ravel(states);
+}
 Eigen::VectorXd
 Character::
 saveState()

@@ -33,7 +33,7 @@ Window()
 	// ,mCurrentForceSensor(nullptr)
 {
 	mTimePoint = std::chrono::system_clock::now();
-	mEnvironment = new Environment();
+	mEnvironment = new Environment(false);
 	mBarPlot.min_val = 0.0;
 	mBarPlot.max_val = 1.0;
 	mBarPlot.base_val = 0.0;
@@ -67,8 +67,22 @@ render()
 	
 	
 
-	if(mDrawSimPose)
+	if(mDrawSimPose){
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
+		if(mEnvironment->getObstacle()!=nullptr)
+			DARTRendering::drawSkeleton(mEnvironment->getObstacle(),mSimRenderOption);
+		DARTRendering::drawSkeleton(mEnvironment->getDoor(),mKinRenderOption);
+		glColor4f(1.0,1.0,1.0,0.2);
+		Eigen::VectorXd p_save = mEnvironment->getDoor()->getPositions();
+		Eigen::VectorXd p = p_save;
+		p[0] = mEnvironment->getTargetDoorAngle();
+		mEnvironment->getDoor()->setPositions(p);
+		DARTRendering::drawSkeleton(mEnvironment->getDoor(),mTargetRenderOption);
+		mEnvironment->getDoor()->setPositions(p_save);
+		glColor4f(1.0,1.0,1.0,1.0);
+
+		
+	}
 	
 	if(mEnvironment->isEnableGoal())
 	{
@@ -119,7 +133,7 @@ render()
 		mBarPlot.vals = Eigen::Map<Eigen::VectorXd>(mRewards.data()+offset, 30 + std::min(0,n-30));
 		mBarPlot.background_color = Eigen::Vector4d(1,1,1,0);
 		mBarPlot.color = Eigen::Vector4d(0,0,0,1);
-		DrawUtils::drawLinePlot(mBarPlot, Eigen::Vector3d(0.69,0.69,0.0),Eigen::Vector3d(0.3,0.3,0.0));	
+		// DrawUtils::drawLinePlot(mBarPlot, Eigen::Vector3d(0.69,0.69,0.0),Eigen::Vector3d(0.3,0.3,0.0));	
 		mBarPlot.vals = Eigen::Map<Eigen::VectorXd>(mRewardGoals.data()+offset, 30 + std::min(0,n-30));
 		mBarPlot.background_color = Eigen::Vector4d(1,1,1,0);
 		mBarPlot.color = Eigen::Vector4d(1,0,0,1);
@@ -144,7 +158,14 @@ reset(int frame)
 {
 	mEnvironment->reset(frame);
 	mObservation = mEnvironment->getState();
-	mObservationDiscriminator = mEnvironment->getStateAMP();
+	if(mEnvironment->isEnableLowerUpperBody())
+	{
+		mObservationDiscriminatorLowerBody = mEnvironment->getStateAMPLowerBody();
+		mObservationDiscriminatorUpperBody = mEnvironment->getStateAMPUpperBody();	
+	}
+	else
+		mObservationDiscriminator = mEnvironment->getStateAMP();
+
 	mRewards.clear();
 	mRewardGoals.clear();
 	mReward = 0.0;
@@ -170,9 +191,27 @@ step()
 		Eigen::VectorXd action = Eigen::VectorXd::Zero(mEnvironment->getDimAction());
 		mEnvironment->step(action);
 	}
+	// Eigen::MatrixXd ds_dq = mEnvironment->getSimCharacter()->getStateDeriv();
+	// Eigen::MatrixXd dphi_ds = policy.attr("compute_grad")(mObservation).cast<Eigen::MatrixXd>();
+	// Eigen::MatrixXd dphi_dq = dphi_ds*ds_dq;
+
+	// dphi_dq = Eigen::MatrixXd::Identity(dphi_dq.rows(), dphi_dq.cols()) - dphi_dq;
+
+	if(mEnvironment->isEnableLowerUpperBody())
+	{
+		mObservationDiscriminatorLowerBody = mEnvironment->getStateAMPLowerBody();
+		mObservationDiscriminatorUpperBody = mEnvironment->getStateAMPUpperBody();	
+
+		mReward = 0.5*(discriminator_lb.attr("compute_reward")(mObservationDiscriminatorLowerBody).cast<double>()
+				 +discriminator_ub.attr("compute_reward")(mObservationDiscriminatorUpperBody).cast<double>());
+	}
+	else{
+		mObservationDiscriminator = mEnvironment->getStateAMP();
+		mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
+	}
+
 	mObservation = mEnvironment->getState();
-	mObservationDiscriminator = mEnvironment->getStateAMP();
-	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
+	
 	mRewardGoal = mEnvironment->getRewardGoal();
 	
 	mRewardGoals.push_back(0.5*mRewardGoal);
@@ -207,7 +246,14 @@ initNN(const std::string& config)
 	discriminator_md = py::module::import("discriminator");
 	py::object pyconfig = policy_md.attr("load_config")(config);
 	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimAction(),pyconfig);
-	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getStateAMPExpert(), pyconfig);
+	if(mEnvironment->isEnableLowerUpperBody())
+	{
+		discriminator_lb = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMPLowerBody(), mEnvironment->getStateAMPExpertLowerBody(), pyconfig);
+		discriminator_ub = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMPUpperBody(), mEnvironment->getStateAMPExpertUpperBody(), pyconfig);
+	}
+	else
+
+		discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getStateAMPExpert(), pyconfig);
 	//TODO
 	
 	// policy0 = policy_md.attr("build_policy0")(mEnvironment->getDimState0(),mEnvironment->getDimAction0(),pyconfig);
@@ -219,7 +265,14 @@ loadNN(const std::string& checkpoint)
 {
 	//TODO
 	policy_md.attr("load_policy")(policy, checkpoint);
-	discriminator_md.attr("load_discriminator")(discriminator, checkpoint);
+
+	if(mEnvironment->isEnableLowerUpperBody())
+	{
+		discriminator_md.attr("load_discriminator_lb")(discriminator_lb, checkpoint);
+		discriminator_md.attr("load_discriminator_ub")(discriminator_ub, checkpoint);
+	}
+	else
+		discriminator_md.attr("load_discriminator")(discriminator, checkpoint);
 }
 void
 Window::
@@ -236,11 +289,13 @@ keyboard(unsigned char key, int x, int y)
 		case '6':mDrawCOMvel = !mDrawCOMvel;break;
 		case '7':mDraw2DCharacter = !mDraw2DCharacter;break;
 		case 's':this->step();break;
-		// case 'k':mEnvironment->setKinematics(!mEnvironment->getKinematics());break;
+		case '8':mEnvironment->getSimCharacter()->getStateDeriv();break;
+		case 'k':mEnvironment->setKinematics(!mEnvironment->isKinematics());break;
 		case 'r':this->reset();break;
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;
+		case 'v':mEnvironment->generateObstacle();break;
 		default:GLUTWindow3D::keyboard(key,x,y);break;
 	}
 }

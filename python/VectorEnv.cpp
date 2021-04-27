@@ -3,19 +3,25 @@
 #include <functional>
 #include <omp.h>
 VectorEnv::
-VectorEnv(int num_envs)
-	:mNumEnvs(num_envs)
+VectorEnv(int num_envs, bool enable_lower_upper_body)
+	:mNumEnvs(num_envs),mEnableLowerUpperBody(enable_lower_upper_body)
 {
 	omp_set_num_threads(mNumEnvs);
 	mEnvs.resize(mNumEnvs, nullptr);
 #pragma omp parallel for
 	for(int i=0;i<mNumEnvs;i++)
 	{	
-		mEnvs[i] = new Environment();
+		mEnvs[i] = new Environment(enable_lower_upper_body);
 	}
 
 	mStates.resize(mNumEnvs,this->getDimState());
-	mStatesAMP.resize(mNumEnvs, this->getDimStateAMP());
+	if(mEnableLowerUpperBody){
+		mStatesAMPLowerBody.resize(mNumEnvs, this->getDimStateAMPLowerBody());
+		mStatesAMPUpperBody.resize(mNumEnvs, this->getDimStateAMPUpperBody());	
+	}
+	else
+		mStatesAMP.resize(mNumEnvs, this->getDimStateAMP());
+	
 	mEOEs.resize(mNumEnvs);
 	mRewardGoals.resize(mNumEnvs);
 }
@@ -38,6 +44,18 @@ VectorEnv::
 getDimStateAMP()
 {
 	return mEnvs[0]->getDimStateAMP();
+}
+int
+VectorEnv::
+getDimStateAMPLowerBody()
+{
+	return mEnvs[0]->getDimStateAMPLowerBody();
+}
+int
+VectorEnv::
+getDimStateAMPUpperBody()
+{
+	return mEnvs[0]->getDimStateAMPUpperBody();
 }
 int
 VectorEnv::
@@ -97,6 +115,22 @@ getStatesAMP()
 		mStatesAMP.row(i) = mEnvs[i]->getStateAMP();
 	return mStatesAMP;
 }
+const Eigen::MatrixXd&
+VectorEnv::
+getStatesAMPLowerBody()
+{
+	for(int i=0;i<mNumEnvs;i++)
+		mStatesAMPLowerBody.row(i) = mEnvs[i]->getStateAMPLowerBody();
+	return mStatesAMPLowerBody;
+}
+const Eigen::MatrixXd&
+VectorEnv::
+getStatesAMPUpperBody()
+{
+	for(int i=0;i<mNumEnvs;i++)
+		mStatesAMPUpperBody.row(i) = mEnvs[i]->getStateAMPUpperBody();
+	return mStatesAMPUpperBody;
+}
 const Eigen::VectorXb&
 VectorEnv::
 inspectEndOfEpisodes()
@@ -112,6 +146,20 @@ getStatesAMPExpert()
 {
 	mStatesAMPExpert = mEnvs[0]->getStateAMPExpert();
 	return mStatesAMPExpert;
+}
+const Eigen::MatrixXd&
+VectorEnv::
+getStatesAMPExpertLowerBody()
+{
+	mStatesAMPExpertLowerBody = mEnvs[0]->getStateAMPExpertLowerBody();
+	return mStatesAMPExpertLowerBody;
+}
+const Eigen::MatrixXd&
+VectorEnv::
+getStatesAMPExpertUpperBody()
+{
+	mStatesAMPExpertUpperBody = mEnvs[0]->getStateAMPExpertUpperBody();
+	return mStatesAMPExpertUpperBody;
 }
 
 // VectorEnv::
@@ -287,10 +335,13 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(pycomcon, m){
 	py::class_<VectorEnv>(m, "vector_env")
-		.def(py::init<int>())
+		.def(py::init<int,bool>())
+		.def("is_enable_lower_upper_body", &VectorEnv::isEnableLowerUpperBody)
 		.def("get_num_envs", &VectorEnv::getNumEnvs)
 		.def("get_dim_state", &VectorEnv::getDimState)
 		.def("get_dim_state_AMP", &VectorEnv::getDimStateAMP)
+		.def("get_dim_state_AMP_lower_body", &VectorEnv::getDimStateAMPLowerBody)
+		.def("get_dim_state_AMP_upper_body", &VectorEnv::getDimStateAMPUpperBody)
 		.def("get_dim_action", &VectorEnv::getDimAction)
 		.def("reset", &VectorEnv::reset)
 		.def("resets", &VectorEnv::resets)
@@ -298,7 +349,11 @@ PYBIND11_MODULE(pycomcon, m){
 		.def("get_reward_goals", &VectorEnv::getRewardGoals)
 		.def("get_states", &VectorEnv::getStates)
 		.def("get_states_AMP", &VectorEnv::getStatesAMP)
+		.def("get_states_AMP_lower_body", &VectorEnv::getStatesAMPLowerBody)
+		.def("get_states_AMP_upper_body", &VectorEnv::getStatesAMPUpperBody)
 		.def("get_states_AMP_expert", &VectorEnv::getStatesAMPExpert)
+		.def("get_states_AMP_expert_lower_body", &VectorEnv::getStatesAMPExpertLowerBody)
+		.def("get_states_AMP_expert_upper_body", &VectorEnv::getStatesAMPExpertUpperBody)
 		.def("inspect_end_of_episodes", &VectorEnv::inspectEndOfEpisodes);
 
 		// .def(py::init<int>())

@@ -17,12 +17,12 @@ using namespace dart::simulation;
 using namespace dart::dynamics;
 
 Environment::
-Environment()
+Environment(bool enable_lower_upper_body)
 	:mWorld(std::make_shared<World>()),
 	mControlHz(30),
 	mSimulationHz(300),
 	mElapsedFrame(0),
-	mMaxElapsedFrame(300),
+	mMaxElapsedFrame(250),
 	mSimCharacter(nullptr),
 	mKinCharacter(nullptr),
 	mTargetSpeedMin(0.5),
@@ -30,7 +30,12 @@ Environment()
 	mSharpTurnProb(0.01),
 	mSpeedChangeProb(0.05),
 	mMaxHeadingTurnRate(0.15),
-	mEnableGoal(true)
+	mRewardGoal(0.0),
+	mEnableGoal(true),
+	mEnableObstacle(false),
+	mEnableGoalEOE(true),
+	mEnableLowerUpperBody(enable_lower_upper_body),
+	mKinematics(false)
 {
 	dart::math::Random::generateSeed(true);
 
@@ -42,18 +47,43 @@ Environment()
 		Motion* motion = new Motion(bvh);
 
 		int nf = bvh->getNumFrames();
-		// for(int j=0;j<5;j++)
-		for(int i=100;i<nf;i++)
+		for(int i=2910;i<3150;i++)
+			motion->append(bvh->getPosition(i), bvh->getRotation(i), false);
+		motion->computeVelocity();
+		mMotions.push_back(motion);
+		mLowerBodyMotions.push_back(motion);
+		
+	}
+
+	{
+		BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
+		Motion* motion = new Motion(bvh);
+
+		for(int i=100;i<300;i++)
+			motion->append(bvh->getPosition(i), bvh->getRotation(i), false);
+		motion->computeVelocity();
+		mMotions.push_back(motion);
+		mLowerBodyMotions.push_back(motion);
+	}
+
+	{
+		BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/open_door3.bvh");
+		Motion* motion = new Motion(bvh);
+
+		int nf = bvh->getNumFrames();
+		for(int i=0;i<nf;i++)
 			motion->append(bvh->getPosition(i), bvh->getRotation(i), false);
 		motion->computeVelocity();
 		mMotions.push_back(motion);
 
+		mUpperBodyMotions.push_back(motion);
 		mSimCharacter->buildBVHIndices(bvh->getNodeNames());
 		mKinCharacter->buildBVHIndices(bvh->getNodeNames());
 	}
 
 
-	mGround = DARTUtils::createGround(computeGroundHeight());
+	mGroungHeight = this->computeGroundHeight();
+	mGround = DARTUtils::createGround(mGroungHeight);
 	mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::BulletCollisionDetector::create());
 	// mSimCharacter->getSkeleton()->enableSelfCollisionCheck();
 	mWorld->addSkeleton(mSimCharacter->getSkeleton());
@@ -86,6 +116,18 @@ getDimStateAMP()
 {
 	return this->getStateAMP().rows();
 }
+int
+Environment::
+getDimStateAMPLowerBody()
+{
+	return this->getStateAMPLowerBody().rows();
+}
+int
+Environment::
+getDimStateAMPUpperBody()
+{
+	return this->getStateAMPUpperBody().rows();
+}
 void
 Environment::
 reset(int frame)
@@ -93,36 +135,79 @@ reset(int frame)
 	mElapsedFrame = 0;
 
 	mContactEOE = false;
-	
-	int mi = dart::math::Random::uniform<int>(0, mMotions.size()-1);
-	auto motion = mMotions[mi];
+	mRewardGoals.clear();
+	for(int i=0;i<mControlHz;i++)
+		mRewardGoals.emplace_back(1.0);
+	int mi = dart::math::Random::uniform<int>(0, mMotions.size()-2);
+	auto motion = mMotions.back();
+	auto motion_lb = mMotions[mi];
 	int nf = motion->getNumFrames();
-	if(frame<0)
-		frame = dart::math::Random::uniform<int>(0, nf-1);
+	mFrame = frame;
+	if(mFrame<0)
+		mFrame = dart::math::Random::uniform<int>(0, nf-1);
+	mFrame = 0;
 
-	mSimCharacter->setPose(motion->getPosition(frame),
-						motion->getRotation(frame),
-						motion->getLinearVelocity(frame),
-						motion->getAngularVelocity(frame));
+	Eigen::Vector3d position = motion->getPosition(mFrame);
+	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
+	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
+	Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(mFrame);
+
+	int frame_lb = dart::math::Random::uniform<int>(0, motion_lb->getNumFrames()-1);
+	Eigen::MatrixXd rotation_lb = motion_lb->getRotation(frame_lb);
+	Eigen::MatrixXd angular_velocity_lb = motion_lb->getAngularVelocity(frame_lb);
+
+	auto bvh = motion->getBVH();
+	auto parents = motion->getParents();
+	int lf = bvh->getNodeIndex("simLeftFoot");
+	int rf = bvh->getNodeIndex("simRightFoot");
+	rotation.block<3,3>(0,lf*3) = rotation_lb.block<3,3>(0,lf*3); angular_velocity.col(lf) = angular_velocity_lb.col(lf); lf = parents[lf];
+	rotation.block<3,3>(0,rf*3) = rotation_lb.block<3,3>(0,rf*3); angular_velocity.col(rf) = angular_velocity_lb.col(rf); rf = parents[rf];
+
+	rotation.block<3,3>(0,lf*3) = rotation_lb.block<3,3>(0,lf*3); angular_velocity.col(lf) = angular_velocity_lb.col(lf); lf = parents[lf];
+	rotation.block<3,3>(0,rf*3) = rotation_lb.block<3,3>(0,rf*3); angular_velocity.col(rf) = angular_velocity_lb.col(rf); rf = parents[rf];
+
+	rotation.block<3,3>(0,lf*3) = rotation_lb.block<3,3>(0,lf*3); angular_velocity.col(lf) = angular_velocity_lb.col(lf);
+	rotation.block<3,3>(0,rf*3) = rotation_lb.block<3,3>(0,rf*3); angular_velocity.col(rf) = angular_velocity_lb.col(rf);
+
+	mSimCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
 
 	mSimCharacter->getSkeleton()->clearConstraintImpulses();
 	mSimCharacter->getSkeleton()->clearInternalForces();
 	mSimCharacter->getSkeleton()->clearExternalForces();
 
-	mKinCharacter->setPose(motion->getPosition(frame),
-						motion->getRotation(frame),
-						motion->getLinearVelocity(frame),
-						motion->getAngularVelocity(frame));
+	mKinCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
+
+
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevVelocities = mSimCharacter->getSkeleton()->getVelocities();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
+	mPrevDoorAngle = 0.0;
+	if(mDoor ==nullptr)
+	{
+		double door_size = 1.2;
+		Eigen::Vector3d door_hinge_pos(0.27-door_size,mGroungHeight+0.01,0.48);
+		mDoor = DARTUtils::createDoor(door_hinge_pos, door_size);
+		mDoorConstraint =
+	        std::make_shared<dart::constraint::BallJointConstraint>(mSimCharacter->getSkeleton()->getBodyNode("LeftHand"), 
+					mDoor->getBodyNode(1),mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getCOM());
+
+	    mWorld->getConstraintSolver()->addConstraint(mDoorConstraint);	
+		mWorld->addSkeleton(mDoor);
+	}
+	else
+	{
+		Eigen::VectorXd p = mDoor->getPositions();
+		Eigen::VectorXd v = mDoor->getVelocities();
+		p.setZero();
+		v.setZero();
+		mDoor->setPositions(p);
+		mDoor->setVelocities(v);
+	}
 	if(mEnableGoal)
 	{
 		this->resetGoal();
 		this->recordGoal();
 	}
-	
-
 	this->recordState();
 }
 void
@@ -136,27 +221,68 @@ step(const Eigen::VectorXd& _action)
 
 	auto target_pos = mSimCharacter->computeTargetPosition(action);
 
-	for(int i=0;i<num_sub_steps;i++)
+	if(mEnableObstacle)
 	{
-		mSimCharacter->actuate(target_pos);
-		mWorld->step();	
-		auto cr = mWorld->getConstraintSolver()->getLastCollisionResult();
-
-		for(auto bn : sim_skel->getBodyNodes())
-		{
-			if(bn->getName().find("Foot") != std::string::npos)
-				continue;
-			if(cr.inCollision(bn)){
-				mContactEOE = true;
-				break;
-			}
-		}
+		if(dart::math::Random::uniform<double>(0.0,1.0)<0.03)
+			this->generateObstacle();
+		this->updateObstacle();	
 	}
+		
+	if(mKinematics)
+	{
+		// mSimCharacter->setPose(mMotions.back()->getPosition(mFrame),
+		// 			mMotions.back()->getRotation(mFrame),
+		// 			mMotions.back()->getLinearVelocity(mFrame),
+		// 			mMotions.back()->getAngularVelocity(mFrame));
 
+		mDoor->setPositions(Eigen::VectorXd::Constant(1,mTargetDoorAngle));
+	}
+	else
+	{
+		for(int i=0;i<num_sub_steps;i++)
+		{
+			mSimCharacter->actuate(target_pos);
+			mWorld->step();	
+			auto cr = mWorld->getConstraintSolver()->getLastCollisionResult();
+
+
+			for(int j=0;j<cr.getNumContacts();j++)
+			{
+				auto contact = cr.getContact(j);
+				auto shapeFrame1 = const_cast<dart::dynamics::ShapeFrame*>(contact.collisionObject1->getShapeFrame());
+				auto shapeFrame2 = const_cast<dart::dynamics::ShapeFrame*>(contact.collisionObject2->getShapeFrame());
+
+				auto bn1 = shapeFrame1->asShapeNode()->getBodyNodePtr();
+				auto bn2 = shapeFrame2->asShapeNode()->getBodyNodePtr();
+
+				auto skel1 = bn1->getSkeleton();
+				auto skel2 = bn2->getSkeleton();
+
+				if(bn1->getName().find("Foot") != std::string::npos)
+					continue;
+				else if(bn2->getName().find("Foot") != std::string::npos)
+					continue;
+
+				if(skel1->getName() == "humanoid" && skel2->getName() == "ground"){
+					mContactEOE = true;
+					break;
+				}
+
+				if(skel1->getName() == "ground" && skel2->getName() == "humanoid"){
+					mContactEOE = true;
+					break;
+				}
+
+			}
+			
+
+		}	
+	}
 	if(mEnableGoal)
 	{
 		this->recordGoal();
-		this->updateGoal();	
+		this->updateGoal();
+		mRewardGoals.emplace_back(mRewardGoal);
 	}
 	
 
@@ -164,32 +290,42 @@ step(const Eigen::VectorXd& _action)
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevVelocities = mSimCharacter->getSkeleton()->getVelocities();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
+	mPrevDoorAngle = mDoor->getPositions()[0];
 	mElapsedFrame++;
+	mFrame++;
 }
 void
 Environment::
 resetGoal()
 {
-	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
-	Eigen::Matrix3d R_ref = T_ref.linear();
-	Eigen::AngleAxisd aa_ref(R_ref);
-	double heading = aa_ref.angle()*aa_ref.axis()[1];
-	mTargetHeading = heading;
+	std::vector<double> pool = {-0.5*M_PI,0.5*M_PI,0.0};
+	mTargetDoorAngle = pool[dart::math::Random::uniform<int>(0,2)];
 
-	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-	Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
-	com_vel[1] =0.0;
-	mTargetSpeed = std::max(1.0, com_vel.norm());
+	// Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
+	// Eigen::Matrix3d R_ref = T_ref.linear();
+	// Eigen::AngleAxisd aa_ref(R_ref);
+	// double heading = aa_ref.angle()*aa_ref.axis()[1];
+	// mTargetHeading = heading;
 
-	mTargetHeading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+	// // mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
+	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
+	// com_vel[1] =0.0;
+	// mTargetSpeed = std::max(1.0, com_vel.norm());
+
+	// mTargetHeading = dart::math::Random::uniform<double>(-M_PI, M_PI);
 	// mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
 }
 void
 Environment::
 updateGoal()
 {
-	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
-	double delta_heading = 0;
+	double error_door_angle = mTargetDoorAngle - mDoor->getPositions()[0];
+	if(std::abs(error_door_angle)<0.2)
+		this->resetGoal();
+	// mTargetDoorAngle = 1.7*std::sin(mElapsedFrame/50.0);
+
+	// bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+	// double delta_heading = 0;
 	// if(sharp_turn)
 	// 	delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
 	// else
@@ -200,6 +336,55 @@ updateGoal()
 	// if(change_speed)
 	// 	mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
 }
+void
+Environment::
+recordGoal()
+{
+
+	// Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
+	// Eigen::Matrix3d R_ref = T_ref.linear();
+	// Eigen::Matrix3d R_target = Eigen::AngleAxisd(mTargetHeading, Eigen::Vector3d::UnitY()).toRotationMatrix();
+	// Eigen::Matrix3d R_diff = R_ref.transpose()*R_target;
+
+	// double target_speed = mTargetSpeed;
+
+	// Eigen::VectorXd g(3);
+	// g<<R_diff(0,2), R_diff(2,2), target_speed;
+	double error_door_angle = mTargetDoorAngle - mDoor->getPositions()[0];
+
+	Eigen::Isometry3d T_door = mDoor->getBodyNode(1)->getTransform();
+
+	Eigen::Vector3d p_left_hand = mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getCOM();
+	p_left_hand = T_door.inverse()*p_left_hand;
+	Eigen::VectorXd g(3);
+	g<<p_left_hand[0],p_left_hand[2],error_door_angle;
+	mStateGoal = g;
+
+	if(mContactEOE){
+		mRewardGoal = 0.0;
+		return;
+	}
+
+	double door_dir = error_door_angle>0?1:-1;
+	double door_vel = (mDoor->getPositions()[0] - mPrevDoorAngle)*mControlHz;
+	double proj_vel = door_dir*door_vel;
+	double err = std::max(0.5 - proj_vel, 0.0);
+	mRewardGoal = std::exp(-4.0*err*err);
+	mRewardGoals.emplace_back(mRewardGoal);
+	// Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
+	// com_vel[1] = 0.0;
+
+	// Eigen::Vector3d target_direction = R_target.col(2);
+	// // Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
+	// double proj_vel = target_direction.dot(com_vel);
+	// mRewardGoal = 0.0;
+	// if(proj_vel > 0.0)
+	// {
+	// 	double err = std::max(mTargetSpeed - proj_vel, 0.0);
+	// 	mRewardGoal = std::exp(-0.25*err*err);
+	// }
+}
+
 double
 Environment::
 getRewardGoal()
@@ -225,7 +410,25 @@ const Eigen::VectorXd&
 Environment::
 getStateAMP()
 {
+	if(mEnableLowerUpperBody)
+		std::cout<<"USE upper lower body fn."<<std::endl;
 	return mStateAMP;
+}
+const Eigen::VectorXd&
+Environment::
+getStateAMPLowerBody()
+{
+	if(!mEnableLowerUpperBody)
+		std::cout<<"USE full body fn."<<std::endl;
+	return mStateAMPLowerBody;
+}
+const Eigen::VectorXd&
+Environment::
+getStateAMPUpperBody()
+{
+	if(!mEnableLowerUpperBody)
+		std::cout<<"USE full body fn."<<std::endl;
+	return mStateAMPUpperBody;
 }
 void
 Environment::
@@ -241,50 +444,41 @@ recordState()
 	else
 		mState = state;	
 	
-
-	mKinCharacter->getSkeleton()->setPositions(mPrevPositions);
-	mKinCharacter->getSkeleton()->setVelocities(mPrevVelocities);
-	Eigen::VectorXd s = mKinCharacter->getStateAMP();
-
-	mKinCharacter->getSkeleton()->setPositions(mSimCharacter->getSkeleton()->getPositions());
-	mKinCharacter->getSkeleton()->setVelocities(mSimCharacter->getSkeleton()->getVelocities());
-	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
-
-	mStateAMP.resize(s.rows() + s1.rows());
-	mStateAMP<<s, s1;
-}
-void
-Environment::
-recordGoal()
-{
-
-	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
-	Eigen::Matrix3d R_ref = T_ref.linear();
-	Eigen::Matrix3d R_target = Eigen::AngleAxisd(mTargetHeading, Eigen::Vector3d::UnitY()).toRotationMatrix();
-	Eigen::Matrix3d R_diff = R_ref.transpose()*R_target;
-
-	double target_speed = mTargetSpeed;
-
-	Eigen::VectorXd g(3);
-	g<<R_diff(0,2), R_diff(2,2), target_speed;
-	mStateGoal = g;
-
-	if(mContactEOE)
-		mRewardGoal = 0.0;
-
-	Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
-	com_vel[1] = 0.0;
-
-	Eigen::Vector3d target_direction = R_target.col(2);
-	// Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
-	double proj_vel = target_direction.dot(com_vel);
-	mRewardGoal = 0.0;
-	if(proj_vel > 0.0)
+	if(mEnableLowerUpperBody == false)
 	{
-		double err = std::max(mTargetSpeed - proj_vel, 0.0);
-		mRewardGoal = std::exp(-0.25*err*err);
+		mKinCharacter->getSkeleton()->setPositions(mPrevPositions);
+		mKinCharacter->getSkeleton()->setVelocities(mPrevVelocities);
+
+		Eigen::VectorXd s = mKinCharacter->getStateAMP();
+
+		mKinCharacter->getSkeleton()->setPositions(mSimCharacter->getSkeleton()->getPositions());
+		mKinCharacter->getSkeleton()->setVelocities(mSimCharacter->getSkeleton()->getVelocities());
+		Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
+
+		mStateAMP.resize(s.rows() + s1.rows());
+		mStateAMP<<s, s1;	
 	}
+	else
+	{
+		mKinCharacter->getSkeleton()->setPositions(mPrevPositions);
+		mKinCharacter->getSkeleton()->setVelocities(mPrevVelocities);
+
+		Eigen::VectorXd s_lower = mKinCharacter->getStateAMPLowerBody();
+		Eigen::VectorXd s_upper = mKinCharacter->getStateAMPUpperBody();
+
+		mKinCharacter->getSkeleton()->setPositions(mSimCharacter->getSkeleton()->getPositions());
+		mKinCharacter->getSkeleton()->setVelocities(mSimCharacter->getSkeleton()->getVelocities());
+		Eigen::VectorXd s1_lower = mKinCharacter->getStateAMPLowerBody();
+		Eigen::VectorXd s1_upper = mKinCharacter->getStateAMPUpperBody();
+
+		mStateAMPLowerBody.resize(s_lower.rows() + s1_lower.rows());
+		mStateAMPUpperBody.resize(s_upper.rows() + s1_upper.rows());
+		mStateAMPLowerBody<<s_lower, s1_lower;
+		mStateAMPUpperBody<<s_upper, s1_upper;
+	}
+	
 }
+
 
 Eigen::MatrixXd
 Environment::
@@ -326,6 +520,86 @@ getStateAMPExpert()
 	}
 	return state_expert;
 }
+Eigen::MatrixXd
+Environment::
+getStateAMPExpertLowerBody()
+{
+	int total_num_frames = 0;
+	int m = this->getDimStateAMPLowerBody();
+	int m2 = m/2;
+	int o = 0;
+	for(auto motion: mLowerBodyMotions)
+	{
+		int nf = motion->getNumFrames();
+		total_num_frames += nf-1;
+	}
+	Eigen::MatrixXd state_expert(total_num_frames-1,m);
+
+	for(auto motion: mLowerBodyMotions)
+	{
+		int nf = motion->getNumFrames();
+		mKinCharacter->setPose(motion->getPosition(0),
+							motion->getRotation(0),
+							motion->getLinearVelocity(0),
+							motion->getAngularVelocity(0));
+		Eigen::VectorXd s = mKinCharacter->getStateAMPLowerBody();
+
+		Eigen::VectorXd s1;
+		for(int i=0;i<nf-1;i++)
+		{
+			mKinCharacter->setPose(motion->getPosition(i+1),
+							motion->getRotation(i+1),
+							motion->getLinearVelocity(i+1),
+							motion->getAngularVelocity(i+1));
+			s1 = mKinCharacter->getStateAMPLowerBody();
+			state_expert.row(o+i).head(m2) = s.transpose();
+			state_expert.row(o+i).tail(m2) = s1.transpose();
+			s = s1;
+		}
+		o += nf - 1;
+	}
+	return state_expert;
+}
+Eigen::MatrixXd
+Environment::
+getStateAMPExpertUpperBody()
+{
+	int total_num_frames = 0;
+	int m = this->getDimStateAMPUpperBody();
+	int m2 = m/2;
+	int o = 0;
+	for(auto motion: mUpperBodyMotions)
+	{
+		int nf = motion->getNumFrames();
+		total_num_frames += nf-1;
+	}
+	Eigen::MatrixXd state_expert(total_num_frames-1,m);
+
+	for(auto motion: mUpperBodyMotions)
+	{
+		int nf = motion->getNumFrames();
+		mKinCharacter->setPose(motion->getPosition(0),
+							motion->getRotation(0),
+							motion->getLinearVelocity(0),
+							motion->getAngularVelocity(0));
+		Eigen::VectorXd s = mKinCharacter->getStateAMPUpperBody();
+
+		Eigen::VectorXd s1;
+		for(int i=0;i<nf-1;i++)
+		{
+			mKinCharacter->setPose(motion->getPosition(i+1),
+							motion->getRotation(i+1),
+							motion->getLinearVelocity(i+1),
+							motion->getAngularVelocity(i+1));
+			s1 = mKinCharacter->getStateAMPUpperBody();
+			state_expert.row(o+i).head(m2) = s.transpose();
+			state_expert.row(o+i).tail(m2) = s1.transpose();
+			s = s1;
+		}
+		o += nf - 1;
+	}
+	return state_expert;
+}
 bool
 Environment::
 inspectEndOfEpisode()
@@ -335,9 +609,68 @@ inspectEndOfEpisode()
 	else if(mElapsedFrame>mMaxElapsedFrame)
 		return true;
 
+	if(mEnableGoalEOE)
+	{
+		double r_mean = 0.0;
+		const std::vector<double>& rs = mRewardGoals;
+		int n = rs.size();
+		for(int i=n-mControlHz;i<n;i++){
+			r_mean += rs[i];
+		}
+		r_mean /= (double)mControlHz;
+		if(r_mean<0.3)
+			return true;
+	}
+
+	
+	Eigen::Matrix3d R_root = mSimCharacter->getRootTransform().linear();
+	Eigen::Quaterniond Q_root(R_root);
+	double a = Q_root.w();
+	double b = Q_root.vec()[1];
+	double theta = 2*std::atan2(b, a);
+	Eigen::Matrix3d R_y = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitY()).toRotationMatrix();
+
+	if(dart::math::logMap(R_y.transpose()*R_root).norm()>0.3)
+		return true;
 	return false;
 }
+void
+Environment::
+updateObstacle()
+{
+	if(mObstacleCount>60 && mObstacle !=nullptr){
+		if(mWorld->hasSkeleton(mObstacle))
+			mWorld->removeSkeleton(mObstacle);
+	}
+	mObstacleCount++;
+}
+void
+Environment::
+generateObstacle()
+{
+	if(mObstacle == nullptr){
+		mObstacle = DARTUtils::createBall(2000.0,0.10,"Free");
+	}
+	if(mWorld->hasSkeleton(mObstacle) == false)
+		mWorld->addSkeleton(mObstacle);
 
+	Eigen::Vector3d target = mSimCharacter->getSkeleton()->getCOM();
+	target[1] += 0.3;
+
+	Eigen::Vector3d dir = 2.0*Eigen::AngleAxisd(dart::math::Random::uniform<double>(-M_PI,M_PI), Eigen::Vector3d::UnitY()).toRotationMatrix().col(2);
+
+	Eigen::Vector3d pos = target - dir;
+	Eigen::Vector3d vel = (target - pos)*4.0;
+	vel[1] += 2.0;
+
+	Eigen::VectorXd generalized_pos = Eigen::VectorXd::Zero(6);
+	Eigen::VectorXd generalized_vel = Eigen::VectorXd::Zero(6);
+	generalized_pos.tail<3>() = pos;
+	generalized_vel.tail<3>() = vel;
+	mObstacle->setPositions(generalized_pos);
+	mObstacle->setVelocities(generalized_vel);
+	mObstacleCount = 0;
+}
 double
 Environment::
 computeGroundHeight()
@@ -393,6 +726,83 @@ convertToRealActionSpace(const Eigen::VectorXd& a_norm)
 	a_real = mActionWeight.cwiseProduct(a_real);
 	return a_real;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

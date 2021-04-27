@@ -38,7 +38,10 @@ public:
 	void actuate(const Eigen::VectorXd& target_position);
 
 	std::vector<Eigen::Vector3d> getState();
+	Eigen::MatrixXd getStateDeriv();
 	Eigen::VectorXd getStateAMP();
+	Eigen::VectorXd getStateAMPLowerBody();
+	Eigen::VectorXd getStateAMPUpperBody();
 
 	Eigen::VectorXd saveState();
 	void restoreState(const Eigen::VectorXd& state);
@@ -64,6 +67,7 @@ private:
 	dart::dynamics::SkeletonPtr mSkeleton;
 
 	std::vector<dart::dynamics::BodyNode*> mEndEffectors;
+	std::vector<dart::dynamics::BodyNode*> mLowerBodyNodes, mUpperBodyNodes;
 
 	Motion* mMotion;
 	std::vector<std::string> mBVHMap;
