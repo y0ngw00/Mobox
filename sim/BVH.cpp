@@ -1,4 +1,5 @@
 #include "BVH.h"
+#include "MathUtils.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -162,6 +163,7 @@ load(const std::string& file)
 	}
 	ifs.close();
 }
+
 std::vector<Eigen::Isometry3d>
 BVH::
 forwardKinematics(const Eigen::Vector3d& position, const Eigen::MatrixXd& rotation, int idx)

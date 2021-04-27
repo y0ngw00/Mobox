@@ -71,15 +71,19 @@ render()
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
 		if(mEnvironment->getObstacle()!=nullptr)
 			DARTRendering::drawSkeleton(mEnvironment->getObstacle(),mSimRenderOption);
-		DARTRendering::drawSkeleton(mEnvironment->getDoor(),mKinRenderOption);
-		glColor4f(1.0,1.0,1.0,0.2);
-		Eigen::VectorXd p_save = mEnvironment->getDoor()->getPositions();
-		Eigen::VectorXd p = p_save;
-		p[0] = mEnvironment->getTargetDoorAngle();
-		mEnvironment->getDoor()->setPositions(p);
-		DARTRendering::drawSkeleton(mEnvironment->getDoor(),mTargetRenderOption);
-		mEnvironment->getDoor()->setPositions(p_save);
-		glColor4f(1.0,1.0,1.0,1.0);
+		if(mEnvironment->isEnableGoal())
+		{
+			DARTRendering::drawSkeleton(mEnvironment->getDoor(),mKinRenderOption);
+			glColor4f(1.0,1.0,1.0,0.2);
+			Eigen::VectorXd p_save = mEnvironment->getDoor()->getPositions();
+			Eigen::VectorXd p = p_save;
+			p[0] = mEnvironment->getTargetDoorAngle();
+			mEnvironment->getDoor()->setPositions(p);
+			DARTRendering::drawSkeleton(mEnvironment->getDoor(),mTargetRenderOption);
+			mEnvironment->getDoor()->setPositions(p_save);
+			glColor4f(1.0,1.0,1.0,1.0);
+		}
+
 
 		
 	}

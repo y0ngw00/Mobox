@@ -25,6 +25,7 @@ public:
 
 	int getNodeIndex(const std::string& name){auto it = std::find(mNames.begin(), mNames.end(), name); return std::distance(mNames.begin(), it);}
 
+	// Eigen::Isometry3d getReferenceTransform();
 	std::vector<Eigen::Isometry3d> forwardKinematics(const Eigen::Vector3d& pos, const Eigen::MatrixXd& rot, int idx);
 private:
 	std::string mFile;

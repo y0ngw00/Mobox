@@ -78,6 +78,30 @@ class FC(nn.Module):
 	def forward(self, x):
 		return self.fn(x)
 
+class FC2(nn.Module):
+	def __init__(self, dim_in, model_config):
+		nn.Module.__init__(self)
+
+		hiddens = model_config['hiddens']
+		activations = model_config['activations']
+		init_weights = model_config['init_weights']
+		
+		layers = []
+		prev_layer_size = dim_in
+		
+		for size, activation, init_weight in zip(hiddens + [2], activations, init_weights):
+			layers.append(SlimFC(
+				prev_layer_size,
+				size,
+				xavier_initializer(init_weight),
+				activation))
+			prev_layer_size = size
+
+		self.fn = nn.Sequential(*layers)
+		self.dim_in = dim_in
+	def forward(self, x):
+		return self.fn(x)
+
 class FCModel(nn.Module):
 	def __init__(self, dim_state, dim_action, model_config):
 		nn.Module.__init__(self)

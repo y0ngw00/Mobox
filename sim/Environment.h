@@ -75,6 +75,7 @@ private:
 	int mMaxElapsedFrame;
 	bool mKinematics;
 	Character *mSimCharacter,*mKinCharacter;
+	Motion* mCurrentMotion;
 	std::vector<Motion*> mMotions;
 	std::vector<Motion*> mLowerBodyMotions;
 	std::vector<Motion*> mUpperBodyMotions;

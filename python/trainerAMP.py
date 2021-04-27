@@ -98,7 +98,8 @@ class TrainerAMP(object):
 
 			for i in range(self.num_envs):
 				if eoes[i]:
-					self.episodes.append(self.episode_buffers[i])
+					if len(self.episode_buffers[i]) != 0:
+						self.episodes.append(self.episode_buffers[i])
 					self.episode_buffers[i] = []
 					self.envs.reset(i)
 
@@ -120,8 +121,8 @@ class TrainerAMP(object):
 				ss1 = np.vstack(ss1)
 
 				r, ss1 = self.discriminator(ss1)
+
 			rg = np.array(rg)
-			
 			if self.enable_goal:
 				r = 0.5*(r + rg)
 
@@ -136,7 +137,7 @@ class TrainerAMP(object):
 			else:
 				epi_as_array['STATES_AGENT'] = ss1
 				epi_as_array['STATES_EXPERT'] = self.sample_states_expert(len(ss1))
-			epi_as_array['REWARDS'] = np.vstack(r).reshape(-1)
+			epi_as_array['REWARDS'] = r.reshape(-1)
 			epi_as_array['VF_PREDS'] = np.vstack(v).reshape(-1)
 			epi_as_array['LOG_PROBS'] = np.vstack(l).reshape(-1)
 			n = len(a)

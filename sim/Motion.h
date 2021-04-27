@@ -1,9 +1,11 @@
 #ifndef __MOTION_H__
 #define __MOTION_H__
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <vector>
 #include <string>
 class BVH;
+
 class Motion
 {
 public:
@@ -65,6 +67,9 @@ public:
 	static Eigen::MatrixXd computePoseDisplacement(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj);
 	static Eigen::MatrixXd addDisplacement(const Eigen::MatrixXd& R, const Eigen::MatrixXd& d);
 	static double easeInEaseOut(double x, double yp0 = 0.0, double yp1 = 0.0);
+
+	static Eigen::Isometry3d getReferenceTransform(const Eigen::Vector3d& pos, const Eigen::MatrixXd& rot);
+	static Motion* blendUpperLowerMotion(BVH* bvh_lb, BVH* bvh_ub, int start_lb, int start_ub);
 private:
 	// static Eigen::VectorXd gJointWeights;
 };

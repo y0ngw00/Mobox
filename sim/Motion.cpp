@@ -1,4 +1,5 @@
 #include "Motion.h"
+#include "MathUtils.h"
 #include "BVH.h"
 #include <Eigen/Geometry>
 #include <iostream>
@@ -231,4 +232,76 @@ easeInEaseOut(double x, double yp0, double yp1)
 	// double y = 2*x*x*x - 3*x*x + 1.0;
 	return y;
 	// return std::max(0.0,std::min(1.0,y));
+}
+Eigen::Isometry3d
+MotionUtils::
+getReferenceTransform(const Eigen::Vector3d& pos, const Eigen::MatrixXd& rot)
+{
+
+	Eigen::Vector3d z = rot.col(2);
+	Eigen::Vector3d p = pos;
+	Eigen::Vector3d y = Eigen::Vector3d::UnitY();
+	z -= MathUtils::projectOnVector(z, y);
+	p -= MathUtils::projectOnVector(p, y);
+
+	z.normalize();
+	Eigen::Vector3d x = y.cross(z);
+
+	Eigen::Isometry3d T_ref;
+
+	T_ref.linear().col(0) = x;
+	T_ref.linear().col(1) = y;
+	T_ref.linear().col(2) = z;
+
+	T_ref.translation() = p;
+
+	return T_ref;
+}
+
+Motion*
+MotionUtils::
+blendUpperLowerMotion(BVH* bvh_lb, BVH* bvh_ub, int start_lb, int start_ub)
+{
+	Motion* motion = new Motion(bvh_lb);
+
+	int nf = bvh_ub->getNumFrames();
+	auto parents = bvh_lb->getParents();
+	
+	Eigen::Isometry3d T_lb = getReferenceTransform(bvh_lb->getPosition(start_lb),
+													bvh_lb->getRotation(start_lb));
+	Eigen::Isometry3d T_ub = getReferenceTransform(bvh_ub->getPosition(start_ub),
+													bvh_ub->getRotation(start_ub));
+	Eigen::Isometry3d T_diff = T_ub*(T_lb.inverse());
+	for(int i=0;i<nf-start_ub;i++)
+	{
+		Eigen::Vector3d pos = bvh_lb->getPosition(start_lb+i);
+		Eigen::MatrixXd rot_lb = bvh_lb->getRotation(start_lb+i);
+		Eigen::MatrixXd rot = bvh_ub->getRotation(start_ub+i);
+		int lf = bvh_lb->getNodeIndex("simLeftFoot");
+		int rf = bvh_lb->getNodeIndex("simRightFoot");
+		rot.block<3,3>(0,0) = rot_lb.block<3,3>(0,0);
+
+		rot.block<3,3>(0,lf*3) = rot_lb.block<3,3>(0,lf*3);lf = parents[lf];
+		rot.block<3,3>(0,rf*3) = rot_lb.block<3,3>(0,rf*3);rf = parents[rf];
+
+		rot.block<3,3>(0,lf*3) = rot_lb.block<3,3>(0,lf*3);lf = parents[lf];
+		rot.block<3,3>(0,rf*3) = rot_lb.block<3,3>(0,rf*3);rf = parents[rf];
+
+		rot.block<3,3>(0,lf*3) = rot_lb.block<3,3>(0,lf*3);
+		rot.block<3,3>(0,rf*3) = rot_lb.block<3,3>(0,rf*3);
+
+		// Eigen::Isometry3d T = getReferenceTransform(pos, rot);
+
+		pos = T_diff.linear()*pos + T_diff.translation();
+
+		rot.block<3,3>(0,0) = T_diff.linear()*rot.block<3,3>(0,0);
+
+		// pos = T_ub.translation();
+		// rot.block<3,3>(0,0) = T_ub.linear();
+		// pos += T.linear()*T_diff.translation();
+		// T.linear() = T.linear()*T_diff.linear();
+		motion->append(pos, rot, false);
+	}
+	motion->computeVelocity();
+	return motion;
 }
