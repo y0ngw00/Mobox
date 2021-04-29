@@ -264,7 +264,7 @@ blendUpperLowerMotion(BVH* bvh_lb, BVH* bvh_ub, int start_lb, int start_ub)
 {
 	Motion* motion = new Motion(bvh_lb);
 
-	int nf = bvh_ub->getNumFrames();
+	int nf = bvh_lb->getNumFrames();
 	auto parents = bvh_lb->getParents();
 	
 	Eigen::Isometry3d T_lb = getReferenceTransform(bvh_lb->getPosition(start_lb),
@@ -276,7 +276,7 @@ blendUpperLowerMotion(BVH* bvh_lb, BVH* bvh_ub, int start_lb, int start_ub)
 	{
 		Eigen::Vector3d pos = bvh_lb->getPosition(start_lb+i);
 		Eigen::MatrixXd rot_lb = bvh_lb->getRotation(start_lb+i);
-		Eigen::MatrixXd rot = bvh_ub->getRotation(start_ub+i);
+		Eigen::MatrixXd rot = bvh_ub->getRotation(start_ub);
 		int lf = bvh_lb->getNodeIndex("simLeftFoot");
 		int rf = bvh_lb->getNodeIndex("simRightFoot");
 		rot.block<3,3>(0,0) = rot_lb.block<3,3>(0,0);

@@ -79,7 +79,7 @@ render()
 			Eigen::VectorXd p = p_save;
 			p[0] = mEnvironment->getTargetDoorAngle();
 			mEnvironment->getDoor()->setPositions(p);
-			DARTRendering::drawSkeleton(mEnvironment->getDoor(),mTargetRenderOption);
+			// DARTRendering::drawSkeleton(mEnvironment->getDoor(),mTargetRenderOption);
 			mEnvironment->getDoor()->setPositions(p_save);
 			glColor4f(1.0,1.0,1.0,1.0);
 		}
@@ -98,7 +98,7 @@ render()
 
 		Eigen::Vector3d dir = target_speed*R_target.col(2);
 		glColor4f(1,0,0,1);
-		DrawUtils::drawArrow3D(start, start+dir*0.7, 0.2);	
+		DrawUtils::drawArrow3D(start, start+dir*0.7, 0.2);
 	}
 	
 	if(mDrawTargetPose)

@@ -20,7 +20,7 @@ config = {
 	'policy' : {
 		'gamma' : 0.95,
 		'lb' : 0.95,
-		'lr' : 2e-6,
+		'lr' : 1e-5,
 		'policy_clip' : 0.2,
 		'value_clip' : 1.0,
 		'grad_clip' : 0.5,
@@ -41,7 +41,7 @@ config = {
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
 		'r_scale' : 2.0,
-		'lr' : 2e-6,
+		'lr' : 1e-5,
 	},
 
 	'trainer' : {

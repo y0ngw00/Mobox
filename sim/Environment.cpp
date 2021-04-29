@@ -22,7 +22,7 @@ Environment(bool enable_lower_upper_body)
 	mControlHz(30),
 	mSimulationHz(300),
 	mElapsedFrame(0),
-	mMaxElapsedFrame(250),
+	mMaxElapsedFrame(300),
 	mSimCharacter(nullptr),
 	mKinCharacter(nullptr),
 	mTargetSpeedMin(0.5),
@@ -31,8 +31,8 @@ Environment(bool enable_lower_upper_body)
 	mSpeedChangeProb(0.05),
 	mMaxHeadingTurnRate(0.15),
 	mRewardGoal(0.0),
-	mEnableGoal(true),
-	mEnableObstacle(false),
+	mEnableGoal(false),
+	mEnableObstacle(true),
 	mEnableGoalEOE(false),
 	mEnableLowerUpperBody(enable_lower_upper_body),
 	mKinematics(false)
@@ -48,20 +48,30 @@ Environment(bool enable_lower_upper_body)
 	{
 		start_frames.emplace_back(i*300+300);
 	}
-	BVH* bvh_lb = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
-	BVH* bvh_ub = new BVH(std::string(ROOT_DIR)+"/data/bvh/open_door_long.bvh");
-	for(int i=0;i<start_frames.size();i++)
-	{
-		Motion* motion = MotionUtils::blendUpperLowerMotion(bvh_lb, bvh_ub, start_frames[i], 60);
 
-		mMotions.push_back(motion);
-		if(i==0)
-		{
-			mSimCharacter->buildBVHIndices(bvh_lb->getNodeNames());
-			mKinCharacter->buildBVHIndices(bvh_lb->getNodeNames());
-		}
-	}
+	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
+	mSimCharacter->buildBVHIndices(bvh->getNodeNames());
+	mKinCharacter->buildBVHIndices(bvh->getNodeNames());
+	Motion* motion = new Motion(bvh);
+	for(int i=75;i<bvh->getNumFrames();i++)
+		motion->append(bvh->getPosition(i), bvh->getRotation(i),false);
 
+	motion->computeVelocity();
+	mMotions.emplace_back(motion);
+	// BVH* bvh_lb = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
+	// BVH* bvh_ub = new BVH(std::string(ROOT_DIR)+"/data/bvh/open_door_long.bvh");
+	// // for(int i=0;i<start_frames.size();i++)
+	// {
+	// 	Motion* motion = MotionUtils::blendUpperLowerMotion(bvh_lb, bvh_lb, 0, 120);
+
+	// 	mMotions.push_back(motion);
+	// 	// if(i==0)
+	// 	// {
+	// 	mSimCharacter->buildBVHIndices(bvh_lb->getNodeNames());
+	// 	mKinCharacter->buildBVHIndices(bvh_lb->getNodeNames());
+	// 	// }
+	// }
+	// mCurrentMotion = new Motion(bvh_lb);
 	// {
 	// 	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
 	// 	Motion* motion = new Motion(bvh);
@@ -158,21 +168,50 @@ reset(int frame)
 	mRewardGoals.clear();
 	for(int i=0;i<mControlHz;i++)
 		mRewardGoals.emplace_back(1.0);
-	int mi = dart::math::Random::uniform<int>(0, mMotions.size()-1);
-	auto motion = mMotions[mi];
-	mCurrentMotion = motion;
+	// int mi = dart::math::Random::uniform<int>(0, mMotions.size()-1);
+	// auto motion = mMotions[mi];
+	auto motion = mMotions[0];
+	mCurrentMotion = mMotions[0];
 	int nf = motion->getNumFrames();
-	mFrame = frame;
-	// if(mFrame<0)
-		// mFrame = dart::math::Random::uniform<int>(0, nf-1);
-		// mFrame = dart::math::Random::uniform<int>(0, 3000);
 	mFrame = 0;
+	// if(mFrame<0)
+		// mFrame = dart::math::Random::uniform<int>(0, nf-2);
+		// mFrame = dart::math::Random::uniform<int>(0, 3000);
+	if(0)
+	{
+		Eigen::Vector3d pos0 = motion->getPosition(0);
+		Eigen::MatrixXd rot0 = motion->getRotation(0);
+
+		Eigen::Vector3d pos1 = motion->getPosition(mFrame);
+		Eigen::MatrixXd rot1 = motion->getRotation(mFrame);
+
+		Eigen::Vector3d pos2 = motion->getPosition(mFrame+1);
+		Eigen::MatrixXd rot2 = motion->getRotation(mFrame+1);
+
+		Eigen::Isometry3d T0 = MotionUtils::getReferenceTransform(pos0, rot0);
+		Eigen::Isometry3d T1 = MotionUtils::getReferenceTransform(pos1, rot1);
+		Eigen::Isometry3d T2 = MotionUtils::getReferenceTransform(pos2, rot2);
+
+		Eigen::Isometry3d T1_inv = T1.inverse();
+
+		Eigen::Isometry3d T10 = T0*T1_inv;
+
+		pos1 = T10*pos1;
+		rot1.block<3,3>(0,0) = T10.linear()*rot1.block<3,3>(0,0);
+
+		pos2 = T10*pos2;
+		rot2.block<3,3>(0,0) = T10.linear()*rot2.block<3,3>(0,0);
+		// mCurrentMotion->clear();
+		// mCurrentMotion->append(pos1, rot1, false);
+		// mCurrentMotion->append(pos2, rot2, false);
+		// mCurrentMotion->computeVelocity();
+	}
 
 
-	Eigen::Vector3d position = motion->getPosition(mFrame);
-	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
-	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
-	Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(mFrame);
+	Eigen::Vector3d position = mCurrentMotion->getPosition(mFrame);
+	Eigen::MatrixXd rotation = mCurrentMotion->getRotation(mFrame);
+	Eigen::Vector3d linear_velocity = mCurrentMotion->getLinearVelocity(mFrame);
+	Eigen::MatrixXd angular_velocity = mCurrentMotion->getAngularVelocity(mFrame);
 
 	mSimCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
 
@@ -306,13 +345,21 @@ void
 Environment::
 resetGoal()
 {
-	std::vector<double> pool = {-0.5*M_PI,0.5*M_PI,0.0};
-	auto it = std::find(mMotions.begin(), mMotions.end(), mCurrentMotion);
-	int idx = std::distance(mMotions.begin(), it);
-	if(idx == 1)
-		mTargetDoorAngle = 0.5*M_PI;
-	else
+	// mTargetDoorAngle = dart::math::Random::uniform<double>(-0.5*M_PI, 0.5*M_PI);
+	Eigen::Vector3d z_sim = mSimCharacter->getReferenceTransform().linear().col(2);
+	Eigen::Vector3d sim_com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
+	double sign = z_sim.dot(sim_com_vel);
+	if(sign>0)
 		mTargetDoorAngle = -0.5*M_PI;
+	else
+		mTargetDoorAngle = 0.5*M_PI;
+	// std::vector<double> pool = {-0.5*M_PI,0.5*M_PI,0.0};
+	// auto it = std::find(mMotions.begin(), mMotions.end(), mCurrentMotion);
+	// int idx = std::distance(mMotions.begin(), it);
+	// if(idx == 1)
+	// 	mTargetDoorAngle = 0.5*M_PI;
+	// else
+	// 	mTargetDoorAngle = -0.5*M_PI;
 
 	// Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
 	// Eigen::Matrix3d R_ref = T_ref.linear();
@@ -333,11 +380,11 @@ Environment::
 updateGoal()
 {
 	double error_door_angle = mTargetDoorAngle - mDoor->getPositions()[0];
-	if(std::abs(error_door_angle)<0.2)
-	{
-		std::vector<double> pool = {-0.5*M_PI,0.5*M_PI,0.0};
-		mTargetDoorAngle = dart::math::Random::uniform<double>(-0.5*M_PI, 0.5*M_PI);
-	}
+	// if(std::abs(error_door_angle)<0.2)
+	// {
+	// 	std::vector<double> pool = {-0.5*M_PI,0.5*M_PI,0.0};
+	// 	mTargetDoorAngle = dart::math::Random::uniform<double>(-0.5*M_PI, 0.5*M_PI);
+	// }
 	// mTargetDoorAngle = 1.7*std::sin(mElapsedFrame/50.0);
 
 	// bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
@@ -389,6 +436,8 @@ recordGoal()
 
 	double r_angle = std::exp(-error_door_angle*error_door_angle);
 	mRewardGoal = 0.3*r_dir + 0.7*r_angle;
+	if(std::abs(error_door_angle)<0.2)
+		r_dir = 1.0;
 	mRewardGoals.emplace_back(mRewardGoal);
 	// Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
 	// com_vel[1] = 0.0;
@@ -648,7 +697,7 @@ inspectEndOfEpisode()
 	double b = Q_root.vec()[1];
 	double theta = 2*std::atan2(b, a);
 	Eigen::Matrix3d R_y = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitY()).toRotationMatrix();
-	if(dart::math::logMap(R_y.transpose()*R_root).norm()>0.22)
+	if(dart::math::logMap(R_y.transpose()*R_root).norm()>0.4)
 		return true;
 	return false;
 }
@@ -667,7 +716,7 @@ Environment::
 generateObstacle()
 {
 	if(mObstacle == nullptr){
-		mObstacle = DARTUtils::createBall(2000.0,0.10,"Free");
+		mObstacle = DARTUtils::createBall(4000.0,0.10,"Free");
 	}
 	if(mWorld->hasSkeleton(mObstacle) == false)
 		mWorld->addSkeleton(mObstacle);
