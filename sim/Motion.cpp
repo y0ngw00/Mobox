@@ -1,4 +1,5 @@
 #include "Motion.h"
+#include <sstream>
 #include "MathUtils.h"
 #include "BVH.h"
 #include <Eigen/Geometry>
@@ -303,5 +304,57 @@ blendUpperLowerMotion(BVH* bvh_lb, BVH* bvh_ub, int start_lb, int start_ub)
 		motion->append(pos, rot, false);
 	}
 	motion->computeVelocity();
+	return motion;
+}
+Motion*
+MotionUtils::
+parseMotionLabel(const std::string& line, int fps)
+{
+	std::stringstream ss(line);
+
+	std::string bvh_name;
+	std::string start_str;
+	std::string end_str;
+	ss>>bvh_name>>start_str>>end_str;
+	int start,end;
+
+	if(start_str.find(":") != std::string::npos)
+	{
+		std::stringstream ss1(start_str);
+		std::stringstream ss2(end_str);
+		std::string word;
+		int minute, second, frame;
+		std::getline(ss1, word, ':');
+		minute = std::stoi(word);
+		std::getline(ss1, word, ':');
+		second = std::stoi(word);
+		std::getline(ss1, word, ':');
+		frame = std::stoi(word);
+
+		start = (minute*60+second)*fps + frame;
+
+		std::getline(ss2, word, ':');
+		minute = std::stoi(word);
+		std::getline(ss2, word, ':');
+		second = std::stoi(word);
+		std::getline(ss2, word, ':');
+		frame = std::stoi(word);
+
+		end = (minute*60+second)*fps + frame;
+	}
+	else
+	{
+		start = std::stoi(start_str);
+		end = std::stoi(end_str);
+	}
+	
+	bvh_name = std::string(ROOT_DIR) + "/data/bvh/" + bvh_name;
+	std::cout<<"Parse "<<bvh_name<<" ["<<start<<" : "<<end<<") "<<std::endl;
+	BVH* bvh = new BVH(bvh_name);
+	Motion* motion = new Motion(bvh);
+	for(int j=start;j<end;j++)
+		motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
+	motion->computeVelocity();
+
 	return motion;
 }

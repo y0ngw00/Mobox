@@ -136,6 +136,7 @@ class FCPolicy(object):
 		self.model.load_state_dict(state['model'])
 		self.optimizer.load_state_dict(state['optimizer'])
 		self.state_filter.load_state_dict(state['state_filter'])
+		# self.model.policy_fn[3].set_value(1e-8)
 
 	'''Below function do not use when training'''
 	# def load_from_path(self, path):

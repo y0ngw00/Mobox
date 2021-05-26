@@ -1,11 +1,11 @@
 #include "Character.h"
 #include "MathUtils.h"
 #include "DARTUtils.h"
-#include "MassSpringDamperSystem.h"
 #include "Motion.h"
 #include "BVH.h"
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 using namespace dart;
 using namespace dart::dynamics;
 
@@ -36,6 +36,137 @@ Character(dart::dynamics::SkeletonPtr& skel,
 		else
 			mUpperBodyNodes.emplace_back(mSkeleton->getBodyNode(i));
 	}
+
+
+}
+void
+Character::
+parseMSD(const std::string& line, double dt)
+{
+	std::stringstream ss(line);
+	std::string token;
+	ss>>token;
+	double timestep = dt;
+	double m,s,d;
+	if(token == "ROOT")
+	{
+		ss>>m>>s>>d;
+		Eigen::Vector3d mass_coeffs(m,1e7,m);
+		Eigen::Vector3d spring_coeffs(s,0.0,s);
+		Eigen::Vector3d damper_coeffs(d,0.0,d);
+		mCartesianMSD = new CartesianMSDSystem(mass_coeffs, spring_coeffs, damper_coeffs, timestep);
+	}
+	else if(token == "JOINT")
+	{
+		std::string joint_name;
+		ss>>joint_name;
+		ss>>m>>s>>d;
+		
+		int index = std::distance(mBVHNames.begin(), std::find(mBVHNames.begin(),mBVHNames.end(), joint_name));
+		mSphereicalMSDs[index] = new SphericalMSDSystem(m,s,d,timestep);
+	}
+
+}
+void
+Character::
+applyForceMSD(dart::dynamics::BodyNode* bn,
+						const Eigen::Vector3d& local_pos,
+						const Eigen::Vector3d& force)
+{
+	mCartesianMSD->applyForce(force);
+
+	dart::math::LinearJacobian J = mSkeleton->getLinearJacobian(bn, local_pos);
+	Eigen::JacobiSVD<Eigen::MatrixXd> svd(J, Eigen::ComputeFullU | Eigen::ComputeFullV);
+	Eigen::VectorXd s = svd.singularValues();
+	Eigen::Matrix3d s_inv = Eigen::Matrix3d::Zero();
+	for(int i =0;i<3;i++)
+	{
+		if(s[0]>1e-6) s_inv(i,i) = 1.0/s[0];
+		else s_inv(i,i) = 0.0;
+	}
+	
+	Eigen::MatrixXd Jt = svd.matrixV()*s_inv*(svd.matrixU().transpose());
+	Eigen::VectorXd Jtf = Jt*(force);
+	int n_joints = mSkeleton->getNumJoints();
+	for(int i=0;i<n_joints;i++)
+	{
+		auto joint = mSkeleton->getJoint(i);
+		if(joint->getType()!="BallJoint")
+			continue;
+		int idx = mBVHIndices[i];
+		if(mSphereicalMSDs[idx] == nullptr)
+			continue;
+		int idx_in_jac = joint->getIndexInSkeleton(0);
+		mSphereicalMSDs[idx]->applyForce(Jtf.segment<3>(idx_in_jac));
+	}
+}
+void
+Character::
+resetMSD()
+{
+	mCartesianMSD->reset();
+
+	for(auto smsd: mSphereicalMSDs){
+		if(smsd==nullptr)
+			continue;
+
+		smsd->reset();
+	}
+}
+void
+Character::
+stepMSD()
+{
+	mCartesianMSD->step();
+	for(auto smsd: mSphereicalMSDs)
+	{
+		if(smsd==nullptr)
+			continue;
+		smsd->step();
+	}
+}
+Eigen::MatrixXd
+Character::
+addRotMSD(Eigen::MatrixXd rotation)
+{
+	for(int i=0;i<mSphereicalMSDs.size();i++)
+		if(mSphereicalMSDs[i] != nullptr)
+			rotation.block<3,3>(0,i*3) = rotation.block<3,3>(0,i*3)*mSphereicalMSDs[i]->getPosition();
+	return rotation;
+}
+std::vector<Eigen::VectorXd>
+Character::
+getStateMSD(const Eigen::Isometry3d& T_ref)
+{
+	std::vector<Eigen::VectorXd> states;
+	states.emplace_back(mCartesianMSD->getState(T_ref));
+	for(int i=0;i<mSphereicalMSDs.size();i++)
+		if(mSphereicalMSDs[i] != nullptr)
+			states.emplace_back(mSphereicalMSDs[i]->getState());
+
+	return states;
+}
+std::vector<Eigen::VectorXd>
+Character::
+saveStateMSD()
+{
+	std::vector<Eigen::VectorXd> states;
+	states.emplace_back(mCartesianMSD->saveState());
+	for(int i=0;i<mSphereicalMSDs.size();i++)
+		if(mSphereicalMSDs[i] != nullptr)
+			states.emplace_back(mSphereicalMSDs[i]->saveState());
+
+	return states;
+}
+void
+Character::
+restoreStateMSD(const std::vector<Eigen::VectorXd>& states)
+{
+	mCartesianMSD->restoreState(states[0]);
+	int idx = 1;
+	for(int i=0;i<mSphereicalMSDs.size();i++)
+		if(mSphereicalMSDs[i] != nullptr)
+			mSphereicalMSDs[i]->restoreState(states[idx++]);
 }
 // void
 // Character::
@@ -151,6 +282,25 @@ computeTargetPosition(const Eigen::VectorXd& action)
 {
 	int n = mSkeleton->getNumDofs();
 	mTargetPositions.tail(n-6) = action;
+
+	// int n_joints = mSkeleton->getNumJoints();
+	// for(int i=0;i<n_joints;i++)
+	// {
+	// 	auto joint = mSkeleton->getJoint(i);
+	// 	int idx = mBVHIndices[i];
+
+	// 	if(joint->getType()!="BallJoint")
+	// 		continue;
+
+	// 	if(mSphereicalMSDs[idx] == nullptr)
+	// 		continue;
+	// 	int idx_in_jac = joint->getIndexInSkeleton(0);
+	// 	Eigen::Matrix3d Rd = mSphereicalMSDs[idx]->getPosition();
+	// 	Eigen::Matrix3d R = dart::math::expMapRot(mTargetPositions.segment<3>(idx_in_jac));
+
+	// 	mTargetPositions.segment<3>(idx_in_jac) = dart::math::logMap(R*Rd);
+	// }
+
 	// int cnt = 0;
 	// for(int i=0;i<mSkeleton->getNumJoints();i++)
 	// {
@@ -164,6 +314,34 @@ computeTargetPosition(const Eigen::VectorXd& action)
 	// 	}
 	// }
 	return mTargetPositions;
+}
+Eigen::VectorXd
+Character::
+computeAvgVelocity(const Eigen::VectorXd& p0, const Eigen::VectorXd& p1, double dt)
+{
+	Eigen::VectorXd vel = Eigen::VectorXd::Zero(p0.rows());
+	for(int i=0;i<mSkeleton->getNumJoints();i++)
+	{
+		if(mSkeleton->getJoint(i)->getType()=="BallJoint")
+		{
+			int idx = mSkeleton->getJoint(i)->getIndexInSkeleton(0);
+			Eigen::Matrix3d R0 = BallJoint::convertToRotation(p0.segment<3>(idx));
+			Eigen::Matrix3d R1 = BallJoint::convertToRotation(p1.segment<3>(idx));
+			Eigen::Vector3d w = 1.0/dt*dart::math::logMap(R0.transpose()*R1);
+
+			vel.segment<3>(idx) = w;
+		}
+		else if(mSkeleton->getJoint(i)->getType()=="FreeJoint")
+		{
+			int idx = mSkeleton->getJoint(i)->getIndexInSkeleton(0);
+			Eigen::Isometry3d T0 = FreeJoint::convertToTransform(p0.segment<6>(idx));
+			Eigen::Isometry3d T1 = FreeJoint::convertToTransform(p1.segment<6>(idx));
+			Eigen::Vector6d w = 1.0/dt*dart::math::logMap(T0.inverse()*T1);
+
+			vel.segment<6>(idx) = w;
+		}
+	}
+	return vel;
 }
 void
 Character::
@@ -302,6 +480,39 @@ getStateAMP()
 	Eigen::VectorXd p = mSkeleton->getPositions();
 	Eigen::VectorXd v = mSkeleton->getVelocities();
 
+	int n_joints = mSkeleton->getNumJoints();
+	for(int i=0;i<n_joints;i++)
+	{
+		auto joint = mSkeleton->getJoint(i);
+		int idx = mBVHIndices[i];
+
+		if(joint->getType()!="BallJoint")
+			continue;
+
+		if(mSphereicalMSDs[idx] == nullptr)
+			continue;
+		int idx_in_jac = joint->getIndexInSkeleton(0);
+		Eigen::Matrix3d Rd = mSphereicalMSDs[idx]->getPosition();
+		Eigen::Vector3d wd = mSphereicalMSDs[idx]->getVelocity();
+		Eigen::Matrix3d R = dart::math::expMapRot(p.segment<3>(idx_in_jac));
+		Eigen::Vector3d w = v.segment<3>(idx_in_jac);
+		Eigen::Matrix3d R0 = R*(Rd.transpose());
+		Eigen::Vector3d w0 = w - R0*wd;
+		// Eigen::Vector3d w02 = Rd*(w - wd);
+		p.segment<3>(idx_in_jac) = dart::math::logMap(R0);
+		v.segment<3>(idx_in_jac) = w0;
+		// std::cout<<joint->getName()<<std::endl;
+		// std::cout<<" w("<<w.norm()<<") :"<<w.transpose()<<std::endl;
+		// std::cout<<" wd("<<wd.norm()<<") :"<<wd.transpose()<<std::endl;
+		// std::cout<<" w01("<<w01.norm()<<") :"<<w01.transpose()<<std::endl;
+		// std::cout<<" w02("<<w02.norm()<<") :"<<w02.transpose()<<std::endl;
+		// std::cout<<std::endl;
+	}
+	// std::cout<<v.transpose().tail<9>().transpose()<<std::endl;
+	// v.tail<9>().setZero();
+	mSkeleton->setPositions(p);
+	mSkeleton->setVelocities(v);
+
 	int n = mSkeleton->getNumBodyNodes();
 	int m = (p.rows()-6)/3;
 	std::vector<Eigen::VectorXd> states;
@@ -333,12 +544,17 @@ getStateAMP()
 	for(int i=0;i<mEndEffectors.size();i++)
 		states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());
 
-	Eigen::Vector3d v_root = R_ref_inv*mSkeleton->getBodyNode(0)->getLinearVelocity();
-	Eigen::Vector3d w_root = R_ref_inv*mSkeleton->getBodyNode(0)->getAngularVelocity();
-	states.emplace_back(v_root);
-	states.emplace_back(w_root);
+	bool use_velocity = true;
+	if(use_velocity)
+	{
+		Eigen::Vector3d v_root = R_ref_inv*mSkeleton->getBodyNode(0)->getLinearVelocity();
+		Eigen::Vector3d w_root = R_ref_inv*mSkeleton->getBodyNode(0)->getAngularVelocity();
+		states.emplace_back(v_root);
+		states.emplace_back(w_root);
 
-	states.emplace_back(v.tail(v.rows()-6));
+		states.emplace_back(v.tail(v.rows()-6));	
+	}
+	
 
 	return MathUtils::ravel(states);
 }
@@ -490,7 +706,8 @@ Character::
 buildBVHIndices(const std::vector<std::string>& bvh_names)
 {
 	mBVHIndices.reserve(mBVHMap.size());
-
+	mBVHNames = bvh_names;
+	mSphereicalMSDs.clear();
 	for(int i=0;i<mBVHMap.size();i++)
 	{
 		int index = std::distance(bvh_names.begin(),std::find(bvh_names.begin(),bvh_names.end(), mBVHMap[i]));
@@ -498,6 +715,7 @@ buildBVHIndices(const std::vector<std::string>& bvh_names)
 			mBVHIndices.emplace_back(-1);
 		else
 			mBVHIndices.emplace_back(index);
+		mSphereicalMSDs.emplace_back(nullptr);
 	}
 }
 

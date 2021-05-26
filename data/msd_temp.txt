@@ -1,0 +1,7 @@
+ROOT 0.3 10.0 0.986
+JOINT simSpine 0.4 5.0 0.986
+JOINT simLeftArm 0.4 5.0 0.986
+JOINT simLeftForeArm 0.4 5.0 0.986
+JOINT simRightArm 0.4 5.0 0.986
+JOINT simRightForeArm 0.4 5.0 0.986
+JOINT simHead 0.4 5.0 0.986

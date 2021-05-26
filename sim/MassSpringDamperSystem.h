@@ -3,6 +3,69 @@
 #include "dart/dart.hpp"
 class TwoJointIK;
 class Character;
+
+class CartesianMSDSystem
+{
+public:
+	CartesianMSDSystem(const Eigen::Vector3d& mass_coeffs,
+		const Eigen::Vector3d& spring_coeffs,
+		const Eigen::Vector3d& damper_coeffs,
+		double timestep);
+
+	void reset();
+	void applyForce(const Eigen::Vector3d& force);
+
+	void step();
+
+	Eigen::VectorXd getState(const Eigen::Isometry3d& T_ref = Eigen::Isometry3d::Identity());
+	Eigen::VectorXd saveState();
+	void restoreState(const Eigen::VectorXd& state);
+	const Eigen::Vector3d& getPosition(){return mPosition;}
+	const Eigen::Vector3d& getVelocity(){return mVelocity;}
+
+	void setPosition(const Eigen::Vector3d& position){mPosition = position;}
+	void setVelocity(const Eigen::Vector3d& velocity){mVelocity = velocity;}
+public:
+
+	double mTimestep;
+	Eigen::Vector3d mMassCoeffs, mSpringCoeffs, mDamperCoeffs;
+
+	Eigen::Vector3d mPosition, mVelocity, mForce;
+};
+
+class SphericalMSDSystem
+{
+public:
+	SphericalMSDSystem(double mass_coeff, 
+						double spring_coeff,
+						double damper_coeff,double timestep);
+
+	void reset();
+	void applyForce(const Eigen::Vector3d& f);
+
+	void step();
+
+	Eigen::VectorXd getState();
+	Eigen::VectorXd saveState();
+	void restoreState(const Eigen::VectorXd& state);
+	
+	const Eigen::Matrix3d& getPosition(){return mPosition;}
+	const Eigen::Vector3d& getVelocity(){return mVelocity;}
+
+	void setPosition(const Eigen::Matrix3d& position){mPosition = position;}
+	void setVelocity(const Eigen::Vector3d& velocity){mVelocity = velocity;}
+public:
+	double mTimestep;
+	double mMassCoeff, mSpringCoeff, mDamperCoeff;
+
+	Eigen::Matrix3d mPosition;
+	Eigen::Vector3d mVelocity;
+	Eigen::Vector3d mForce;
+};
+
+
+
+
 class MassSpringDamperSystem
 {
 public:

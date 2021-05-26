@@ -20,13 +20,13 @@
         <Body type="Sphere" mass="5.0" radius="0.0865" contact="On">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0000 0.5704 0.0"/>
         </Body>
-        <Joint type="Ball" bvh="simHead" kp="500.0" maxf="200.0" weight="0.4" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
+        <Joint type="Weld" bvh="simHead" kp="500.0" maxf="200.0" weight="0.4" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0 0.4875 0.0"/>
         </Joint>
     </Node>
 
 	<Node name="LeftArm" parent="Spine1" >
-        <Body type="Box" mass="5.0" size="0.2200 0.045 0.045" contact="On">
+        <Body type="Box" mass="5.0" size="0.2200 0.045 0.045" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.2552 0.4261 0.0"/>
         </Body>
         <Joint type="Ball" bvh="simLeftArm" kp="400.0" maxf="400.0" weight="0.3" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
@@ -35,16 +35,16 @@
     </Node>
 
     <Node name="LeftForeArm" parent="LeftArm" >
-        <Body type="Box" mass="3.0" size="0.2346 0.044 0.044" contact="On">
+        <Body type="Box" mass="3.0" size="0.2346 0.044 0.044" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.5147 0.4261 0.0"/>
         </Body>
-        <Joint type="Ball" bvh="simLeftForeArm" kp="300.0" maxf="300.0" weight="0.2" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
+        <Joint type="Weld" bvh="simLeftForeArm" kp="300.0" maxf="300.0" weight="0.2" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.381 0.4260 0.0"/>
         </Joint>
     </Node>
 
     <Node name="LeftHand" parent="LeftForeArm" >
-        <Body type="Sphere" mass="1.0" radius="0.0312" contact="On">
+        <Body type="Sphere" mass="1.0" radius="0.0312" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.6700 0.4261 0.0085"/>
         </Body>
         <Joint type="Weld" bvh="simLeftHand" kp="0.0" maxf="0.0" weight="0.0" endeffector="True" m="1e8" d="0.0" k="0.0">
@@ -54,7 +54,7 @@
 
 
     <Node name="RightArm" parent="Spine1" >
-        <Body type="Box" mass="5.0" size="0.2200 0.045 0.045" contact="On">
+        <Body type="Box" mass="5.0" size="0.2200 0.045 0.045" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.2552 0.4261 0.0000"/>
         </Body>
         <Joint type="Ball" bvh="simRightArm" kp="400.0"  maxf="400.0" weight="0.3" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
@@ -63,16 +63,16 @@
     </Node>
 
     <Node name="RightForeArm" parent="RightArm" >
-        <Body type="Box" mass="3.0" size="0.2346 0.044 0.044" contact="On">
+        <Body type="Box" mass="3.0" size="0.2346 0.044 0.044" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.5147 0.4261 0.0000"/>
         </Body>
-        <Joint type="Ball" bvh="simRightForeArm" kp="300.0" maxf="300.0" weight="0.2" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
+        <Joint type="Weld" bvh="simRightForeArm" kp="300.0" maxf="300.0" weight="0.2" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.381 0.4260 0.0"/>
         </Joint>
     </Node>
 
     <Node name="RightHand" parent="RightForeArm" >
-        <Body type="Sphere" mass="1.0" radius="0.0312" contact="On">
+        <Body type="Sphere" mass="1.0" radius="0.0312" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.6700 0.4261 0.0085"/>
         </Body>
         <Joint type="Weld" bvh="simRightHand" kp="0.0" maxf="0.0" weight="0.0" endeffector="True" m="1e8" d="0.0" k="0.0">
@@ -83,7 +83,7 @@
         <Body type="Box" mass="7.0" size="0.1 0.3699 0.1" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0900 -0.32 0.0100"/>
         </Body>
-        <Joint type="Ball" bvh="simLeftUpLeg" kp="500.0" maxf="400.0" weight="0.5" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
+        <Joint type="Weld" bvh="simLeftUpLeg" kp="500.0" maxf="400.0" weight="0.5" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0845 -0.095 0.0084"/>
         </Joint>
     </Node>
@@ -91,7 +91,7 @@
         <Body type="Box" mass="7.0" size="0.1 0.3611 0.1" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0955 -0.72 0.0116"/>
         </Body>
-        <Joint type="Ball" bvh="simLeftLeg" kp="400.0" maxf="400.0" weight="0.3" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
+        <Joint type="Weld" bvh="simLeftLeg" kp="400.0" maxf="400.0" weight="0.3" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0845 -0.51 0.0084"/>
         </Joint>
     </Node>
@@ -100,7 +100,7 @@
         <Body type="Box" mass="1.0" size="0.1244 0.0639 0.2114" contact="On">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0927 -0.997  0.0508"/>
         </Body>
-        <Joint type="Ball" bvh="simLeftFoot" kp="300.0" maxf="400.0" weight="0.2" endeffector="True" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
+        <Joint type="Weld" bvh="simLeftFoot" kp="300.0" maxf="400.0" weight="0.2" endeffector="True" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0845 -0.915  0.0084"/>
         </Joint>
     </Node>
@@ -110,7 +110,7 @@
         <Body type="Box" mass="7.0" size="0.1 0.3611 0.1" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0900 -0.32 0.0100"/>
         </Body>
-        <Joint type="Ball" bvh="simRightUpLeg" kp="500.0" maxf="400.0" weight="0.5" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
+        <Joint type="Weld" bvh="simRightUpLeg" kp="500.0" maxf="400.0" weight="0.5" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0845 -0.095 0.0084"/>
         </Joint>
     </Node>
@@ -118,7 +118,7 @@
         <Body type="Box" mass="7.0" size="0.1 0.3699 0.1" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0955 -0.72 0.0116"/>
         </Body>
-        <Joint type="Ball" bvh="simRightLeg" kp="400.0" maxf="400.0" weight="0.3" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
+        <Joint type="Weld" bvh="simRightLeg" kp="400.0" maxf="400.0" weight="0.3" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0845 -0.51 0.0084"/>
         </Joint>
     </Node>
@@ -127,7 +127,7 @@
         <Body type="Box" mass="1.0" size="0.1244 0.0639 0.2114" contact="On">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0927 -0.997 0.0508"/>
         </Body>
-        <Joint type="Ball" bvh="simRightFoot" kp="300.0" maxf="400.0" weight="0.2" endeffector="True" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
+        <Joint type="Weld" bvh="simRightFoot" kp="300.0" maxf="400.0" weight="0.2" endeffector="True" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14" m="1e8" d="0.0" k="0.0">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.0845 -0.915 0.0084"/>
         </Joint>
     </Node>

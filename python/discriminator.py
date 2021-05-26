@@ -34,15 +34,19 @@ class FCDiscriminator(object):
 		if cuda:
 			self.model.cuda()
 
-	def __call__(self, ss1):
+	def __call__(self, ss1, _filter=True):
 		ss1 = self.convert_to_ndarray(ss1)
-		ss1_filtered = self.state_filter(ss1, update=False)
+		if _filter:
+			ss1_filtered = self.state_filter(ss1, update=False)
+		else:
+			ss1_filtered = ss1
 		ss1_tensor = self.convert_to_tensor(ss1_filtered)
 
 		d = self.model(ss1_tensor)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
+		# d = self.r_scale*d
 
 		return d, ss1
 
@@ -63,6 +67,40 @@ class FCDiscriminator(object):
 			return arr
 		return arr.cpu().detach().numpy().squeeze()
 
+	def compute_grad_and_line_search(self, s):
+		if True:
+			return s
+		n = s.shape[1]
+		n = int(n/2)
+		s = s.copy()
+		s[:,:n] = s[:,n:]
+
+		s = self.convert_to_tensor(s)
+		s.requires_grad = True
+		d = self.model(s)
+		grad = torch.autograd.grad(outputs=d, 
+									inputs=s,
+									grad_outputs=torch.ones(d.size()).cuda(),
+									create_graph=False,
+									retain_graph=False)[0]
+		# alphas = np.array([1.0,0.5,0.25,0.125])
+		grad[:,:n].fill_(0.0)
+		alphas = [200.0,100.0, 10.0, 1.0, 0.1]
+		# s + grad
+		s.requires_grad = False
+		d_n = []
+		for alpha in alphas:
+			d_n.append(self.convert_to_ndarray(self.model(s+alpha*grad)))
+		d_n.append(self.convert_to_ndarray(d))
+		d_n = np.array(d_n)
+		alphas.append(0.0)
+		alphas = np.array(alphas)
+		d_n_max = np.argmax(d_n, axis=0)
+		
+		s1 = self.convert_to_ndarray(s + self.convert_to_tensor(alphas[d_n_max].reshape(-1,1))*grad)
+		s = self.convert_to_ndarray(s)
+		s[:,n:] = s1[:,n:]
+		return s
 	def compute_loss(self, s_expert, s_agent):
 		s_expert = self.convert_to_tensor(s_expert)
 		s_expert2 = self.convert_to_tensor(s_expert)
@@ -136,8 +174,8 @@ class FCDiscriminator(object):
 
 		d = self.model(ss1)
 		d = self.convert_to_ndarray(d)
-		d = 1 - 0.25*(d-1)*(d-1)
-		d = np.clip(d, 0.0, 1.0)
+		d = np.clip(d, -1.0, 1.0)
+		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
 		return d
 
 '''Below function do not use when training'''

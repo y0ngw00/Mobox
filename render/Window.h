@@ -55,7 +55,7 @@ protected:
 	double mReward, mRewardGoal;
 	bool mPlotReward;
 
-	Eigen::VectorXd mObservation, mObservationDiscriminator, mObservationDiscriminatorLowerBody, mObservationDiscriminatorUpperBody;
+	Eigen::VectorXd mObservation, mObservationDiscriminator;
 	DrawUtils::BarPlot mBarPlot;
 	py::scoped_interpreter guard;
 	std::vector<double> mRewards, mRewardGoals;

@@ -42,7 +42,9 @@ class AppendLogStd(nn.Module):
 			torch.as_tensor([init_log_std] * dim).type(torch.float32))
 		self.register_parameter("log_std", self.log_std)
 		self.log_std.requires_grad = not fixed_grad
+	def set_value(self, val):
 
+		self.log_std.data = torch.full(self.log_std.shape,np.log(val),device=self.log_std.device)
 	def forward(self, x):
 		x = torch.cat([x, self.log_std.unsqueeze(0).repeat([len(x), 1])], axis=-1)
 		return x

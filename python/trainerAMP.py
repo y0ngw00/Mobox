@@ -1,4 +1,6 @@
 import time
+import math
+import colorsys
 
 import torch
 import torch.optim as optim
@@ -15,7 +17,8 @@ import os
 
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-
+from matplotlib import cm
+import matplotlib.tri as tri
 from replay_buffer_rand_storage import ReplayBufferRandStorage
 Sample = namedtuple('Sample',('s', 'a', 'rg', 'ss1', 'vf_pred', 'log_prob'))
 Samplelub = namedtuple('Samplelub',('s', 'a', 'rg', 'ss1_lb', 'ss1_ub', 'vf_pred', 'log_prob'))
@@ -23,7 +26,6 @@ Samplelub = namedtuple('Samplelub',('s', 'a', 'rg', 'ss1_lb', 'ss1_ub', 'vf_pred
 class TrainerAMP(object):
 	def __init__(self, envs, policy, discriminator, config):
 		self.envs = envs
-		self.enable_AMP_lower_upper_body = envs.is_enable_lower_upper_body()
 
 		self.policy = policy
 		self.discriminator = discriminator
@@ -39,12 +41,15 @@ class TrainerAMP(object):
 		self.disc_sgd_minibatch_size = config['disc_sgd_minibatch_size']
 
 		self.save_iteration = config['save_iteration']
-		if self.enable_AMP_lower_upper_body:
-			self.states_expert_lb = self.envs.get_states_AMP_expert_lower_body()
-			self.states_expert_ub = self.envs.get_states_AMP_expert_upper_body()
-		else:
-			self.states_expert = self.envs.get_states_AMP_expert()
+		self.states_expert = self.envs.get_states_AMP_expert()
 
+		plt.ion()
+
+		self.figure = plt.figure()
+		self.figure.set_figwidth(1920 / self.figure.dpi)
+		self.figure.set_figheight(1080 / self.figure.dpi)
+		mng = plt.get_current_fig_manager()
+		# mng.full_screen_toggle()
 		self.envs.resets()
 		self.episode_buffers = []
 		for j in range(self.num_envs):
@@ -56,8 +61,9 @@ class TrainerAMP(object):
 		self.state_dict['elapsed_time'] = 0.0
 		self.state_dict['num_iterations_so_far'] = 0
 		self.state_dict['num_samples_so_far'] = 0
-		self.enable_goal = False
+		self.enable_goal = self.envs.is_enable_goal()
 		self.pca = PCA(n_components=2)
+		
 	def _tic(self):
 		self.tic = time.time()
 
@@ -74,6 +80,7 @@ class TrainerAMP(object):
 		self.log['mean_episode_reward'] = []
 		self.log['mean_episode_reward_goal'] = []
 		self.log['num_samples'] = 0
+		self.log['episode_lens'] = []
 
 		self.episodes = []
 		for j in range(self.sample_epoch):
@@ -81,20 +88,13 @@ class TrainerAMP(object):
 			s = s.astype(np.float32)
 
 			self.envs.steps(a)
-			if self.enable_AMP_lower_upper_body:
-				ss1_lb = self.envs.get_states_AMP_lower_body()
-				ss1_ub = self.envs.get_states_AMP_upper_body()
-			else:
-				ss1 = self.envs.get_states_AMP()
+			ss1 = self.envs.get_states_AMP()
 
 			eoes = self.envs.inspect_end_of_episodes()
 			rgs = self.envs.get_reward_goals()
 			self.states = self.envs.get_states()
 			for i in range(self.num_envs):
-				if self.enable_AMP_lower_upper_body:
-					self.episode_buffers[i].append(Samplelub(s[i], a[i], rgs[i], ss1_lb[i], ss1_ub[i], vf_pred[i], log_prob[i]))
-				else:
-					self.episode_buffers[i].append(Sample(s[i], a[i], rgs[i], ss1[i], vf_pred[i], log_prob[i]))
+				self.episode_buffers[i].append(Sample(s[i], a[i], rgs[i], ss1[i], vf_pred[i], log_prob[i]))
 
 			for i in range(self.num_envs):
 				if eoes[i]:
@@ -105,43 +105,28 @@ class TrainerAMP(object):
 
 
 		for i, epi in enumerate(self.episodes):
-			if self.enable_AMP_lower_upper_body:
-				s, a, rg, ss1_lb, ss1_ub, v, l = Samplelub(*zip(*epi))
+			s, a, rg, ss1, v, l = Sample(*zip(*epi))
 
-				ss1_lb = np.vstack(ss1_lb)
-				ss1_ub = np.vstack(ss1_ub)
-				
-				r_lb, ss1_lb = self.discriminator[0](ss1_lb)
-				r_ub, ss1_ub = self.discriminator[1](ss1_ub)
+			ss1 = np.vstack(ss1)
 
-				r = 0.5*(r_lb + r_ub)
-			else:
-				s, a, rg, ss1, v, l = Sample(*zip(*epi))
-
-				ss1 = np.vstack(ss1)
-
-				r, ss1 = self.discriminator(ss1)
+			r, ss1 = self.discriminator(ss1)
 
 			rg = np.array(rg)
 			if self.enable_goal:
-				r = 0.5*(r + rg)
+				# r = 0.5*(r + rg)
+				r = r*rg
+				# r[np.logical_and(r>0, rg<0)] = -r[np.logical_and(r>0, rg<0)]
 
 			epi_as_array = {}
 			epi_as_array['STATES'] = np.vstack(s)
 			epi_as_array['ACTIONS'] = np.vstack(a)
-			if self.enable_AMP_lower_upper_body:
-				epi_as_array['STATES_AGENT_LB'] = ss1_lb
-				epi_as_array['STATES_AGENT_UB'] = ss1_ub
-				epi_as_array['STATES_EXPERT_LB'] = self.sample_states_expert_lb(len(ss1_lb))
-				epi_as_array['STATES_EXPERT_UB'] = self.sample_states_expert_ub(len(ss1_ub))
-			else:
-				epi_as_array['STATES_AGENT'] = ss1
-				epi_as_array['STATES_EXPERT'] = self.sample_states_expert(len(ss1))
+			epi_as_array['STATES_AGENT'] = ss1
+			epi_as_array['STATES_EXPERT'] = self.sample_states_expert(len(ss1))
 			epi_as_array['REWARDS'] = r.reshape(-1)
 			epi_as_array['VF_PREDS'] = np.vstack(v).reshape(-1)
 			epi_as_array['LOG_PROBS'] = np.vstack(l).reshape(-1)
 			n = len(a)
-			self.log['mean_episode_len'].append(n)
+			self.log['episode_lens'].append(n)
 			self.log['mean_episode_reward'].append(epi_as_array['REWARDS'].mean())
 			self.log['mean_episode_reward_goal'].append(rg.mean())
 			self.log['num_samples'] += n
@@ -153,7 +138,7 @@ class TrainerAMP(object):
 			self.log['mean_episode_reward'] = 0.0
 			self.log['mean_episode_reward_goal'] = 0.0
 		else:
-			self.log['mean_episode_len'] = np.mean(self.log['mean_episode_len'])
+			self.log['mean_episode_len'] = np.mean(self.log['episode_lens'])
 			self.log['mean_episode_reward'] = np.mean(self.log['mean_episode_reward'])
 			self.log['mean_episode_reward_goal']= np.mean(self.log['mean_episode_reward_goal'])
 
@@ -209,26 +194,172 @@ class TrainerAMP(object):
 	def optimize(self):
 		if self.log['num_samples'] == 0:
 			self.log['std'] = np.mean(np.exp(self.policy.model.policy_fn[-1].log_std.cpu().detach().numpy()))
-			
-			
-			if self.enable_AMP_lower_upper_body:
-				self.log['disc_loss_lb'] = 0.0
-				self.log['disc_grad_loss_lb'] = 0.0
-				self.log['disc_loss_ub'] = 0.0
-				self.log['disc_grad_loss_ub'] = 0.0
-				self.log['expert_accuracy_lb'] = 0.0
-				self.log['agent_accuracy_lb'] = 0.0
-				self.log['expert_accuracy_ub'] = 0.0
-				self.log['agent_accuracy_ub'] = 0.0
-			else:
-				self.log['disc_loss'] = 0.0
-				self.log['disc_grad_loss'] = 0.0
-				self.log['expert_accuracy'] = 0.0
-				self.log['agent_accuracy'] = 0.0
+			self.log['disc_loss'] = 0.0
+			self.log['disc_grad_loss'] = 0.0
+			self.log['expert_accuracy'] = 0.0
+			self.log['agent_accuracy'] = 0.0
 			t = self._toc()
 			self.log['t'] = t
 
 			return
+		cond0 = self.state_dict['num_iterations_so_far'] % self.save_iteration[0] == 0
+		cond0 = False
+		if cond0:
+			state_expert_filtered = self.discriminator.state_filter(self.states_expert[1:], update=False)
+			state_agent_filtered = self.discriminator.state_filter(self.samples['STATES_AGENT'], update=False)
+			self.log['episode_lens'] = np.array(self.log['episode_lens'])
+			for i in range(1,len(self.log['episode_lens'])):
+				self.log['episode_lens'][i] += self.log['episode_lens'][i-1]
+			self.log['episode_lens'] = self.log['episode_lens'][:-1]
+			state_agent_filtered_split = np.split(state_agent_filtered, self.log['episode_lens'])
+			self.pca.fit(state_expert_filtered)
+
+			state_filtered = np.vstack([state_expert_filtered, state_agent_filtered])
+			embedding_2d = self.pca.transform(state_filtered)
+
+			expert_embed_2d, agent_embed_2d = np.split(embedding_2d, [len(state_expert_filtered)])
+			agent_trajectory_embed_2d = []
+			for state_agent in state_agent_filtered_split:
+				agent_trajectory_embed_2d.append(self.pca.transform(state_agent))
+
+			expert_embed_min = np.min(expert_embed_2d,axis=0)
+			expert_embed_max = np.max(expert_embed_2d,axis=0)
+			agent_embed_min = np.min(agent_embed_2d,axis=0)
+			agent_embed_max = np.max(agent_embed_2d,axis=0)
+
+			embed_min = np.vstack([expert_embed_min,agent_embed_min])
+			embed_max = np.vstack([expert_embed_max,agent_embed_max])
+
+			embed_min = np.min(embed_min,axis=0)
+			embed_max = np.max(embed_max,axis=0)
+
+
+			X = embedding_2d[:,0]
+			Y = embedding_2d[:,1]
+			Z,_ = self.discriminator(state_filtered,False)
+			s_new = self.discriminator.compute_grad_and_line_search(state_filtered)
+			embedding_2d_new = self.pca.transform(s_new)
+			X_new = embedding_2d_new[:,0]
+			Y_new = embedding_2d_new[:,1]
+
+			n = state_filtered.shape[1]
+			n = int(n/2)
+			# print(state_filtered[:,:n]-state_filtered[:,n:])
+			# print(state_filtered[0].reshape(2,-1))
+			# from IPython import embed; embed();exit()
+			# masked_value = 0.2
+			# Z[Z<masked_value] = masked_value
+			# masked_value = 0.6
+			# Z[Z>masked_value] = masked_value
+
+			# slices = 32
+			# embed_X = np.arange(embed_min[0],embed_max[0],(embed_max[0] - embed_min[0])/slices)
+			# embed_Y = np.arange(embed_min[1],embed_max[1],(embed_max[1] - embed_min[1])/slices)
+			# embed_X, embed_Y = np.meshgrid(embed_X, embed_Y)
+			# embed_XY = np.vstack([embed_X.reshape(-1),embed_Y.reshape(-1)]).transpose()
+			# XY = self.pca.inverse_transform(embed_XY)
+			# X = embed_XY[:,0]
+			# Y = embed_XY[:,1]
+			# Z,_ = self.discriminator(XY,False)
+			# if 0:
+			ngridx = 100
+			ngridy = 100
+			xi = np.linspace(embed_min[0], embed_max[0], ngridx)
+			yi = np.linspace(embed_min[1], embed_max[1], ngridy)
+			triang = tri.Triangulation(X, Y)
+			interpolator = tri.LinearTriInterpolator(triang, Z)
+			Xi, Yi = np.meshgrid(xi, yi)
+			zi = interpolator(Xi, Yi)
+			self.figure.clf()
+			self.figure.set_figwidth(1280 / self.figure.dpi)
+			self.figure.set_figheight(720 / self.figure.dpi)	
+			plt.clf()
+			plt.contour(xi, yi, zi, levels=15, linewidths=0.5, colors='k')
+			cntr = plt.contourf(xi, yi, zi, levels=15, cmap="jet")
+			# plt.colorbar(cntr)
+			
+			# for xx,trj in enumerate(agent_trajectory_embed_2d):
+			# 	plt.plot(trj[:,0], trj[:,1],ms=3)
+			# 	if xx>1:
+			# 		break
+			x = expert_embed_2d[:,0]
+			y = expert_embed_2d[:,1]
+			X = X[len(state_expert_filtered):]
+			Y = Y[len(state_expert_filtered):]
+			X_new = X_new[len(state_expert_filtered):]
+			Y_new = Y_new[len(state_expert_filtered):]
+			X = np.split(X, self.log['episode_lens'])
+			Y = np.split(Y, self.log['episode_lens'])
+			X_new = np.split(X_new, self.log['episode_lens'])
+			Y_new = np.split(Y_new, self.log['episode_lens'])
+			plt.plot(agent_trajectory_embed_2d[0][:,0], agent_trajectory_embed_2d[0][:,1],'k',dashes=[6, 2],ms=30)
+			# for i, p in enumerate(agent_trajectory_embed_2d[0]):
+			# 	plt.plot(agent_trajectory_embed_2d[0][i:i+2,0], agent_trajectory_embed_2d[0][i:i+2,1],color=colorsys.hsv_to_rgb(i/len(agent_trajectory_embed_2d[0]),1.0,1.0),ms=20)
+			# plt.quiver(X[0],Y[0], (X_new[0]-X[0]), (Y_new[0]-Y[0]), width=0.003,angles='xy', scale_units='xy', scale=1.,color='k')
+			plt.plot(expert_embed_2d[:,0], expert_embed_2d[:,1], 'k', ms=5)
+			# for xx,trj, in enumerate(agent_trajectory_embed_2d):
+				
+				# if xx>1:
+					# break
+			# 
+
+			# plt.plot(X,Y, 'ko', ms=5)
+			# plt.plot(X_new,Y_new, 'k+', ms=5)
+
+			# plt.quiver(x[:-1], y[:-1], x[1:]-x[:-1],y[1:]-y[:-1])
+			
+			
+			plt.show()
+			plt.pause(0.001)
+			# from IPython import embed; embed();exit()
+			# from IPython import embed; embed();exit()
+			
+
+			# stride = 60
+
+
+
+
+			if 0:
+			# if len(agent_trajectory_embed_2d)<3:
+				self.figure.clf()
+				ax = self.figure.add_subplot(111, projection='3d')
+				for i,trj in enumerate(agent_trajectory_embed_2d):
+					
+					# surf= ax.plot_surface(embed_XY[:,0].reshape(slices,slices),
+					# 						embed_XY[:,1].reshape(slices,slices),
+					# 						Z.reshape(slices,slices),
+					# 						cmap=cm.RdPu,
+					# 						antialiased=True)
+					# ax.plot(expert_embed_2d[:,0], expert_embed_2d[:,1], 'k', zdir='z', zs=-0.5)
+					# for j in range(2):
+					# 	# p_data = expert_embed_2d[stride*j:stride*(j+1)]
+					# 	# start = np.random.randint(0, len(expert_embed_2d)-stride)
+					# 	start = j*stride
+					# 	p_data = expert_embed_2d[start:start+stride]
+					# 	# p_data = p_data[::10]
+					# 	z_dir = np.linspace(0, 1,num=len(p_data))
+					# 	ax.plot3D(p_data[:,0], p_data[:,1], z_dir)
+					# 	ax.plot3D(p_data[0,0], p_data[0,1], z_dir[0],'k+')
+					# 	ax.plot3D(p_data[-1,0], p_data[-1,1], z_dir[-1],'r+')
+					# ax.plot(agent_embed_2d[::10,0], agent_embed_2d[::10,1], 'b+', zdir='z', zs=-0.5)
+					
+					z_dir = np.linspace(0, 1,num=len(trj))
+					
+
+					x = trj[:,0]
+					y = trj[:,1]
+					z = np.linspace(0, 1,num=len(trj))
+					ax.quiver(x[:-1], y[:-1], z[:-1], x[1:]-x[:-1], y[1:]-y[:-1], z[1:]-z[:-1],length=0.8,arrow_length_ratio=0.1)
+					# ax.plot3D(trj[:,0], trj[:,1], z_dir)
+					# ax.plot3D(trj[:,0][0], trj[:,1][0], z_dir[0],'k+')
+					# self.figure.colorbar(surf, shrink=0.5, aspect=5)
+				ax.view_init(elev=30,azim=70)
+				ax.dist=8 
+				plt.show()
+				plt.savefig(f'fig{i:03d}.png', dpi=300)
+				plt.pause(0.001)
+				
 		''' Policy '''
 		state_filtered = self.policy.state_filter(self.samples['STATES'], update=False)
 		self.policy.state_filter(self.samples['STATES'])
@@ -264,88 +395,33 @@ class TrainerAMP(object):
 		while cursor < self.log['num_samples']:
 			minibatches.append((cursor, cursor + self.disc_sgd_minibatch_size))
 			cursor += self.disc_sgd_minibatch_size
+		
+		state_expert_filtered = self.discriminator.state_filter(self.samples['STATES_EXPERT'], update=False)
+		save_sample_agents = self.samples['STATES_AGENT'].copy()
+		state_agent_filtered = self.discriminator.state_filter(self.samples['STATES_AGENT'], update=False)
+		self.discriminator.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
+		self.samples['STATES_EXPERT'] = state_expert_filtered
+		self.samples['STATES_AGENT'] = state_agent_filtered
 
+		self.log['disc_loss'] = 0.0
+		self.log['disc_grad_loss'] = 0.0
+		for _ in range(self.num_disc_sgd_iter):
+			self.shuffle_samples()
+			np.random.shuffle(minibatches)
+			for minibatch in minibatches:
+				states_expert = self.samples['STATES_EXPERT'][minibatch[0]:minibatch[1]]
+				states_agent = self.samples['STATES_AGENT'][minibatch[0]:minibatch[1]]
+				
+				self.discriminator.compute_loss(states_expert, states_agent)
+				self.log['disc_loss'] += self.discriminator.loss.cpu().detach().numpy()
+				self.log['disc_grad_loss'] += self.discriminator.grad_loss.cpu().detach().numpy()
+				self.discriminator.backward_and_apply_gradients()
+		self.samples['STATES_AGENT'] = save_sample_agents
+		self.log['disc_loss'] = self.log['disc_loss']/self.log['num_samples']
+		self.log['disc_grad_loss'] = self.log['disc_grad_loss']/self.log['num_samples']
 
-		if self.enable_AMP_lower_upper_body:
-			'''Lower Body'''
-			state_expert_lb_filtered = self.discriminator[0].state_filter(self.samples['STATES_EXPERT_LB'], update=False)
-			state_agent_lb_filtered = self.discriminator[0].state_filter(self.samples['STATES_AGENT_LB'], update=False)
-			self.discriminator[0].state_filter(np.vstack([self.samples['STATES_EXPERT_LB'], self.samples['STATES_AGENT_LB']]))
-			self.samples['STATES_EXPERT_LB'] = state_expert_lb_filtered
-			self.samples['STATES_AGENT_LB'] = state_agent_lb_filtered
-
-			self.log['disc_loss_lb'] = 0.0
-			self.log['disc_grad_loss_lb'] = 0.0
-			for _ in range(self.num_disc_sgd_iter):
-				self.shuffle_samples()
-				np.random.shuffle(minibatches)
-				for minibatch in minibatches:
-					states_expert = self.samples['STATES_EXPERT_LB'][minibatch[0]:minibatch[1]]
-					states_agent = self.samples['STATES_AGENT_LB'][minibatch[0]:minibatch[1]]
-					
-					self.discriminator[0].compute_loss(states_expert, states_agent)
-					self.log['disc_loss_lb'] += self.discriminator[0].loss.cpu().detach().numpy()
-					self.log['disc_grad_loss_lb'] += self.discriminator[0].grad_loss.cpu().detach().numpy()
-					self.discriminator[0].backward_and_apply_gradients()
-					
-			self.log['disc_loss_lb'] = self.log['disc_loss_lb']/self.log['num_samples']
-			self.log['disc_grad_loss_lb'] = self.log['disc_grad_loss_lb']/self.log['num_samples']
-
-			self.log['expert_accuracy_lb'] = self.discriminator[0].expert_accuracy
-			self.log['agent_accuracy_lb'] = self.discriminator[0].agent_accuracy
-
-			'''Upper Body'''
-			state_expert_ub_filtered = self.discriminator[1].state_filter(self.samples['STATES_EXPERT_UB'], update=False)
-			state_agent_ub_filtered = self.discriminator[1].state_filter(self.samples['STATES_AGENT_UB'], update=False)
-			self.discriminator[1].state_filter(np.vstack([self.samples['STATES_EXPERT_UB'], self.samples['STATES_AGENT_UB']]))
-			self.samples['STATES_EXPERT_UB'] = state_expert_ub_filtered
-			self.samples['STATES_AGENT_UB'] = state_agent_ub_filtered
-
-			self.log['disc_loss_ub'] = 0.0
-			self.log['disc_grad_loss_ub'] = 0.0
-			for _ in range(self.num_disc_sgd_iter):
-				self.shuffle_samples()
-				np.random.shuffle(minibatches)
-				for minibatch in minibatches:
-					states_expert = self.samples['STATES_EXPERT_UB'][minibatch[0]:minibatch[1]]
-					states_agent = self.samples['STATES_AGENT_UB'][minibatch[0]:minibatch[1]]
-					
-					self.discriminator[1].compute_loss(states_expert, states_agent)
-					self.log['disc_loss_ub'] += self.discriminator[1].loss.cpu().detach().numpy()
-					self.log['disc_grad_loss_ub'] += self.discriminator[1].grad_loss.cpu().detach().numpy()
-					self.discriminator[1].backward_and_apply_gradients()
-
-			self.log['disc_loss_ub'] = self.log['disc_loss_ub']/self.log['num_samples']
-			self.log['disc_grad_loss_ub'] = self.log['disc_grad_loss_ub']/self.log['num_samples']
-
-			self.log['expert_accuracy_ub'] = self.discriminator[1].expert_accuracy
-			self.log['agent_accuracy_ub'] = self.discriminator[1].agent_accuracy
-		else:
-			state_expert_filtered = self.discriminator.state_filter(self.samples['STATES_EXPERT'], update=False)
-			state_agent_filtered = self.discriminator.state_filter(self.samples['STATES_AGENT'], update=False)
-			self.discriminator.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
-			self.samples['STATES_EXPERT'] = state_expert_filtered
-			self.samples['STATES_AGENT'] = state_agent_filtered
-
-			self.log['disc_loss'] = 0.0
-			self.log['disc_grad_loss'] = 0.0
-			for _ in range(self.num_disc_sgd_iter):
-				self.shuffle_samples()
-				np.random.shuffle(minibatches)
-				for minibatch in minibatches:
-					states_expert = self.samples['STATES_EXPERT'][minibatch[0]:minibatch[1]]
-					states_agent = self.samples['STATES_AGENT'][minibatch[0]:minibatch[1]]
-					
-					self.discriminator.compute_loss(states_expert, states_agent)
-					self.log['disc_loss'] += self.discriminator.loss.cpu().detach().numpy()
-					self.log['disc_grad_loss'] += self.discriminator.grad_loss.cpu().detach().numpy()
-					self.discriminator.backward_and_apply_gradients()
-
-			self.log['disc_loss'] = self.log['disc_loss']/self.log['num_samples']
-			self.log['disc_grad_loss'] = self.log['disc_grad_loss']/self.log['num_samples']
-
-			self.log['expert_accuracy'] = self.discriminator.expert_accuracy
-			self.log['agent_accuracy'] = self.discriminator.agent_accuracy
+		self.log['expert_accuracy'] = self.discriminator.expert_accuracy
+		self.log['agent_accuracy'] = self.discriminator.agent_accuracy
 		t = self._toc()
 		self.log['t'] = t
 
@@ -370,17 +446,8 @@ class TrainerAMP(object):
 																						log['mean_episode_reward_goal'],
 																						log['std'],
 																						self.state_dict['num_samples_so_far']))
-		if self.enable_AMP_lower_upper_body:
-			print('lb discriminator loss : {:.3f} grad_loss : {:.3f} acc_expert : {:.3f}, acc_agent : {:.3f}'.format(log['disc_loss_lb'],
-																						log['disc_grad_loss_lb'],
-																						log['expert_accuracy_lb'],
-																						log['agent_accuracy_lb']))
-			print('ub discriminator loss : {:.3f} grad_loss : {:.3f} acc_expert : {:.3f}, acc_agent : {:.3f}'.format(log['disc_loss_ub'],
-																						log['disc_grad_loss_ub'],
-																						log['expert_accuracy_ub'],
-																						log['agent_accuracy_ub']))
-		else:
-			print('discriminator loss : {:.3f} grad_loss : {:.3f} acc_expert : {:.3f}, acc_agent : {:.3f}'.format(log['disc_loss'],
+
+		print('discriminator loss : {:.3f} grad_loss : {:.3f} acc_expert : {:.3f}, acc_agent : {:.3f}'.format(log['disc_loss'],
 																						log['disc_grad_loss'],
 																						log['expert_accuracy'],
 																						log['agent_accuracy']))
@@ -399,42 +466,103 @@ class TrainerAMP(object):
 			writer.add_scalar('policy/reward_mean_goal',log['mean_episode_reward_goal'],
 				self.state_dict['num_samples_so_far'])
 
-			if self.enable_AMP_lower_upper_body:
-				writer.add_scalar('discriminator_lb/loss',log['disc_loss_lb'],
+			cond0 = self.state_dict['num_iterations_so_far'] % self.save_iteration[0] == 0
+			cond0 = False
+			if cond0 and self.log['num_samples'] != 0:
+				state_expert_filtered = self.discriminator.state_filter(self.states_expert[1:], update=False)
+				
+				self.log['episode_lens'] = np.array(self.log['episode_lens'])
+				for i in range(1,len(self.log['episode_lens'])):
+					self.log['episode_lens'][i] += self.log['episode_lens'][i-1]
+				self.log['episode_lens'] = self.log['episode_lens'][:-1]
+				state_agent_filtered = self.discriminator.state_filter(self.samples['STATES_AGENT'], update=False)
+				state_agent_filtered = self.samples['STATES_AGENT'].copy()
+				state_agent_filtered_split = np.split(state_agent_filtered, self.log['episode_lens'])
+				# state_agent_filtered = state_agent_filtered_split[0]
+				self.pca.fit(state_expert_filtered)
+
+				state_filtered = np.vstack([state_expert_filtered, state_agent_filtered])
+				embedding_2d = self.pca.transform(state_filtered)
+
+				expert_embed_2d, agent_embed_2d = np.split(embedding_2d, [len(state_expert_filtered)])
+				agent_trajectory_embed_2d = []
+				for state_agent in state_agent_filtered_split:
+					agent_trajectory_embed_2d.append(self.pca.transform(state_agent))
+
+				expert_embed_min = np.min(expert_embed_2d,axis=0)
+				expert_embed_max = np.max(expert_embed_2d,axis=0)
+				agent_embed_min = np.min(agent_embed_2d,axis=0)
+				agent_embed_max = np.max(agent_embed_2d,axis=0)
+
+
+				embed_min = np.vstack([expert_embed_min,agent_embed_min])
+				embed_max = np.vstack([expert_embed_max,agent_embed_max])
+
+				embed_min = np.min(embed_min,axis=0)
+				embed_max = np.max(embed_max,axis=0)
+
+				X = embedding_2d[:,0]
+				Y = embedding_2d[:,1]
+				Z,_ = self.discriminator(state_filtered,False)
+				s_new = self.discriminator.compute_grad_and_line_search(state_filtered)
+				embedding_2d_new = self.pca.transform(s_new)
+				X_new = embedding_2d_new[:,0]
+				Y_new = embedding_2d_new[:,1]
+
+				n = state_filtered.shape[1]
+				n = int(n/2)
+
+				ngridx = 100
+				ngridy = 100
+				xi = np.linspace(embed_min[0], embed_max[0], ngridx)
+				yi = np.linspace(embed_min[1], embed_max[1], ngridy)
+				triang = tri.Triangulation(X, Y)
+				interpolator = tri.LinearTriInterpolator(triang, Z)
+				Xi, Yi = np.meshgrid(xi, yi)
+				zi = interpolator(Xi, Yi)
+				
+				# self.figure = plt.figure(0)
+				# self.figure = plt.gcf()
+				# self.figure.clf()
+				plt.clf()
+
+				plt.gcf().set_figwidth(1920 / plt.gcf().dpi)
+				plt.gcf().set_figheight(1080 / plt.gcf().dpi)
+				# self.figure.set_figwidth(320 / self.figure.dpi)
+				# self.figure.set_figheight(240 / self.figure.dpi)
+				plt.contour(xi, yi, zi, levels=15, linewidths=0.5, colors='k')
+				cntr = plt.contourf(xi, yi, zi, levels=15, cmap="jet")
+
+				x = expert_embed_2d[:,0]
+				y = expert_embed_2d[:,1]
+				X = X[len(state_expert_filtered):]
+				Y = Y[len(state_expert_filtered):]
+				X_new = X_new[len(state_expert_filtered):]
+				Y_new = Y_new[len(state_expert_filtered):]
+				X = np.split(X, self.log['episode_lens'])
+				Y = np.split(Y, self.log['episode_lens'])
+				X_new = np.split(X_new, self.log['episode_lens'])
+				Y_new = np.split(Y_new, self.log['episode_lens'])
+				plt.plot(agent_trajectory_embed_2d[0][:,0], agent_trajectory_embed_2d[0][:,1],'k',linestyle='--', dashes=(5, 5),ms=10)
+				# plt.quiver(X[0],Y[0], (X_new[0]-X[0]), (Y_new[0]-Y[0]), width=0.003,angles='xy', scale_units='xy', scale=1.,color='k')
+				plt.plot(expert_embed_2d[:,0], expert_embed_2d[:,1], 'k', ms=20)
+				plt.show()
+				plt.pause(0.001)
+
+				writer.add_figure('figure/discriminator',plt.gcf(),
 					self.state_dict['num_samples_so_far'])
 
-				writer.add_scalar('discriminator_lb/grad_loss',log['disc_grad_loss_lb'],
-					self.state_dict['num_samples_so_far'])
+			writer.add_scalar('discriminator/loss',log['disc_loss'],
+				self.state_dict['num_samples_so_far'])
 
-				writer.add_scalar('discriminator_lb/expert_accuracy',log['expert_accuracy_lb'],
-					self.state_dict['num_samples_so_far'])
+			writer.add_scalar('discriminator/grad_loss',log['disc_grad_loss'],
+				self.state_dict['num_samples_so_far'])
 
-				writer.add_scalar('discriminator_lb/agent_accuracy',log['agent_accuracy_lb'],
-					self.state_dict['num_samples_so_far'])
+			writer.add_scalar('discriminator/expert_accuracy',log['expert_accuracy'],
+				self.state_dict['num_samples_so_far'])
 
-				writer.add_scalar('discriminator_ub/loss',log['disc_loss_ub'],
-					self.state_dict['num_samples_so_far'])
-
-				writer.add_scalar('discriminator_ub/grad_loss',log['disc_grad_loss_ub'],
-					self.state_dict['num_samples_so_far'])
-
-				writer.add_scalar('discriminator_ub/expert_accuracy',log['expert_accuracy_ub'],
-					self.state_dict['num_samples_so_far'])
-
-				writer.add_scalar('discriminator_ub/agent_accuracy',log['agent_accuracy_ub'],
-					self.state_dict['num_samples_so_far'])
-			else:
-				writer.add_scalar('discriminator/loss',log['disc_loss'],
-					self.state_dict['num_samples_so_far'])
-
-				writer.add_scalar('discriminator/grad_loss',log['disc_grad_loss'],
-					self.state_dict['num_samples_so_far'])
-
-				writer.add_scalar('discriminator/expert_accuracy',log['expert_accuracy'],
-					self.state_dict['num_samples_so_far'])
-
-				writer.add_scalar('discriminator/agent_accuracy',log['agent_accuracy'],
-					self.state_dict['num_samples_so_far'])
+			writer.add_scalar('discriminator/agent_accuracy',log['agent_accuracy'],
+				self.state_dict['num_samples_so_far'])
 
 	def save(self, path):
 		cond0 = self.state_dict['num_iterations_so_far'] % self.save_iteration[0] == 0
@@ -444,11 +572,7 @@ class TrainerAMP(object):
 			state = {}
 			
 			state['policy_state_dict'] = self.policy.state_dict()
-			if self.enable_AMP_lower_upper_body:
-				state['discriminator_lb_state_dict'] = self.discriminator[0].state_dict()
-				state['discriminator_ub_state_dict'] = self.discriminator[1].state_dict()
-			else:
-				state['discriminator_state_dict'] = self.discriminator.state_dict()
+			state['discriminator_state_dict'] = self.discriminator.state_dict()
 
 
 			for key, item in self.state_dict.items():
@@ -458,17 +582,13 @@ class TrainerAMP(object):
 				torch.save(state, os.path.join(path,'current.pt'))
 				print('save at {}'.format(os.path.join(path,'current.pt')))
 			if cond1:
-				torch.save(state, os.path.join(path,str(self.state_dict['num_iterations_so_far'])+'.pt'))
-				print('save at {}'.format(os.path.join(path,str(self.state_dict['num_iterations_so_far'])+'.pt')))
+				torch.save(state, os.path.join(path,str(math.floor(self.state_dict['num_samples_so_far']/1e6))+'.pt'))
+				print('save at {}'.format(os.path.join(path,str(math.floor(self.state_dict['num_samples_so_far']/1e6))+'.pt')))
 
 	def load(self, path):
 		state = torch.load(path)
 		self.policy.load_state_dict(state['policy_state_dict'])
-		if self.enable_AMP_lower_upper_body:
-			self.discriminator[0].load_state_dict(state['discriminator_lb_state_dict'])
-			self.discriminator[1].load_state_dict(state['discriminator_ub_state_dict'])
-		else:
-			self.discriminator.load_state_dict(state['discriminator_state_dict'])
+		self.discriminator.load_state_dict(state['discriminator_state_dict'])
 
 		for key in self.state_dict.keys():
 			self.state_dict[key] = state[key]

@@ -66,30 +66,16 @@ if __name__ == "__main__":
 	save_path = define_save_path(args.name)
 	writer = create_summary_writer(save_path,launch=False)
 
-	envs = pycomcon.vector_env(config['num_envs'], config['use_lower_upper_body'])
-	if config['use_lower_upper_body']:
-		state_experts_lb = envs.get_states_AMP_expert_lower_body()
-		state_experts_ub = envs.get_states_AMP_expert_upper_body()
+	envs = pycomcon.vector_env(config['num_envs'])
+	state_experts = envs.get_states_AMP_expert()
 
-		policy_model = model.FCModel(envs.get_dim_state(), envs.get_dim_action(), config['model'])
-		discriminator_model_lb = model.FC(envs.get_dim_state_AMP_lower_body(), config['discriminator_model'])
-		discriminator_model_ub = model.FC(envs.get_dim_state_AMP_upper_body(), config['discriminator_model'])
-
-		policy = ppo.FCPolicy(policy_model, config['policy'])
-		discriminator_lb = discriminator.FCDiscriminator(discriminator_model_lb, state_experts_lb, config['discriminator'])
-		discriminator_ub = discriminator.FCDiscriminator(discriminator_model_ub, state_experts_ub, config['discriminator'])
-
-		trainer = trainerAMP.TrainerAMP(envs, policy, [discriminator_lb, discriminator_ub], config['trainer'])
-	else:
-		state_experts = envs.get_states_AMP_expert()
+	policy_model = model.FCModel(envs.get_dim_state(), envs.get_dim_action(), config['model'])
+	discriminator_model = model.FC(envs.get_dim_state_AMP(), config['discriminator_model'])
 	
-		policy_model = model.FCModel(envs.get_dim_state(), envs.get_dim_action(), config['model'])
-		discriminator_model = model.FC(envs.get_dim_state_AMP(), config['discriminator_model'])
-		
-		policy = ppo.FCPolicy(policy_model, config['policy'])
-		discriminator = discriminator.FCDiscriminator(discriminator_model, state_experts, config['discriminator'])
+	policy = ppo.FCPolicy(policy_model, config['policy'])
+	discriminator = discriminator.FCDiscriminator(discriminator_model, state_experts, config['discriminator'])
 
-		trainer = trainerAMP.TrainerAMP(envs, policy, discriminator, config['trainer'])
+	trainer = trainerAMP.TrainerAMP(envs, policy, discriminator, config['trainer'])
 
 	if args.checkpoint is not None:
 		trainer.load(args.checkpoint)

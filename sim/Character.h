@@ -1,6 +1,7 @@
 #ifndef __CHARACTER_H__
 #define __CHARACTER_H__
 #include "dart/dart.hpp"
+#include "MassSpringDamperSystem.h"
 #include "ForceSensor.h"
 class MassSpringDamperSystem;
 class Motion;
@@ -14,12 +15,19 @@ public:
 			const Eigen::VectorXd& kp,
 			const Eigen::VectorXd& maxf);
 
-	// void setBaseMotion(Motion* m);
-
-	// const Eigen::Vector3d& getPosition(int idx);
-	// const Eigen::MatrixXd& getRotation(int idx);
-	// const Eigen::Vector3d& getLinearVelocity(int idx);
-	// const Eigen::MatrixXd& getAngularVelocity(int idx);
+	void parseMSD(const std::string& line , double dt );
+	void applyForceMSD(dart::dynamics::BodyNode* bn,
+						const Eigen::Vector3d& local_pos,
+						const Eigen::Vector3d& force);
+	void resetMSD();
+	void stepMSD();
+	Eigen::MatrixXd addRotMSD(Eigen::MatrixXd rotation);
+	std::vector<Eigen::VectorXd> getStateMSD(const Eigen::Isometry3d& T_ref = Eigen::Isometry3d::Identity());
+	std::vector<Eigen::VectorXd> saveStateMSD();
+	void restoreStateMSD(const std::vector<Eigen::VectorXd>& states);
+	CartesianMSDSystem* getCartesianMSD(){return mCartesianMSD;}
+	SphericalMSDSystem* getSphereicalMSD(int i){return mSphereicalMSDs[i];}
+	const std::vector<SphericalMSDSystem*>& getSphereicalMSDs(){return mSphereicalMSDs;}
 
 	Eigen::Isometry3d getRootTransform();
 	void setRootTransform(const Eigen::Isometry3d& T);
@@ -35,6 +43,7 @@ public:
 				const Eigen::MatrixXd& angular_velocity);
 
 	Eigen::VectorXd computeTargetPosition(const Eigen::VectorXd& action);
+	Eigen::VectorXd computeAvgVelocity(const Eigen::VectorXd& p0, const Eigen::VectorXd& p1, double dt);
 	void actuate(const Eigen::VectorXd& target_position);
 
 	std::vector<Eigen::Vector3d> getState();
@@ -54,9 +63,11 @@ public:
 	const std::vector<dart::dynamics::BodyNode*>& getEndEffectors(){return mEndEffectors;}
 	int getBVHIndex(int idx){return mBVHIndices[idx];}
 	const std::vector<int>& getBVHIndices(){return mBVHIndices;}
-private:
+	const Eigen::VectorXd& getJointWeights(){return mJointWeights;}
 	std::map<std::string, Eigen::MatrixXd> getStateBody();
 	std::map<std::string, Eigen::MatrixXd> getStateJoint();
+private:
+
 	Eigen::VectorXd toSimPose(const Eigen::Vector3d& position,
 							const Eigen::MatrixXd& rotation);
 	Eigen::VectorXd toSimVel(const Eigen::Vector3d& position,
@@ -70,12 +81,16 @@ private:
 	std::vector<dart::dynamics::BodyNode*> mLowerBodyNodes, mUpperBodyNodes;
 
 	Motion* mMotion;
+	std::vector<std::string> mBVHNames;
 	std::vector<std::string> mBVHMap;
 	std::vector<int> mBVHIndices;
 
 	Eigen::VectorXd mJointWeights;
 
 	Eigen::VectorXd mKp, mKv, mMinForces, mMaxForces, mTargetPositions;
+
+	CartesianMSDSystem* mCartesianMSD;
+	std::vector<SphericalMSDSystem*> mSphereicalMSDs;
 };
 
 

@@ -27,14 +27,14 @@ Window()
 	mDrawSimPose(true),
 	mPlotReward(true),
 	mFocus(false),
-	mDrawCOMvel(true),
+	mDrawCOMvel(false),
 	mDraw2DCharacter(true),
 	mCapture(false)
 	// ,mCurrentForceSensor(nullptr)
 {
 	mTimePoint = std::chrono::system_clock::now();
-	mEnvironment = new Environment(false);
-	mBarPlot.min_val = 0.0;
+	mEnvironment = new Environment();
+	mBarPlot.min_val = -1.0;
 	mBarPlot.max_val = 1.0;
 	mBarPlot.base_val = 0.0;
 	mBarPlot.color = Eigen::Vector4d(0.8,0.8,0.8,0.6);
@@ -43,6 +43,14 @@ Window()
 	mCamera->setEye( Eigen::Vector3d(-2.0,1.3,-0.8));
 
 	this->reset();
+
+	float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
+			dynamic_cast<const BoxShape*>(mEnvironment->getGround()->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get())->getSize()[1]*0.5;
+	Eigen::Vector3d com = mEnvironment->getSimCharacter()->getSkeleton()->getCOM();
+	com[1] = y+1.0;
+	Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
+	mCamera->setLookAt(com);
+	mCamera->setEye( com + dir );
 }
 void
 Window::
@@ -69,37 +77,50 @@ render()
 
 	if(mDrawSimPose){
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
+		auto msd_system = mEnvironment->getSimCharacter()->getCartesianMSD();
+		Eigen::Vector3d dir = msd_system->getPosition();
+		Eigen::Vector3d pos = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getCOM();
+		if(mDrawCOMvel)
+		DrawUtils::drawArrow3D(pos, pos+dir, 0.2);
+
+		// Eigen::Vector3d com_vel = mEnvironment->getStateGoal();
+		// glColor3f(1,0,0);
+		// DrawUtils::drawArrow3D(pos, pos+com_vel, 0.2);
+		// Eigen::Vector3d com_vel = (mEnvironment->getSimCharacter()->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
+		// com_vel[1] = 0.0;
 		if(mEnvironment->getObstacle()!=nullptr)
 			DARTRendering::drawSkeleton(mEnvironment->getObstacle(),mSimRenderOption);
-		if(mEnvironment->isEnableGoal())
-		{
-			DARTRendering::drawSkeleton(mEnvironment->getDoor(),mKinRenderOption);
-			glColor4f(1.0,1.0,1.0,0.2);
-			Eigen::VectorXd p_save = mEnvironment->getDoor()->getPositions();
-			Eigen::VectorXd p = p_save;
-			p[0] = mEnvironment->getTargetDoorAngle();
-			mEnvironment->getDoor()->setPositions(p);
-			// DARTRendering::drawSkeleton(mEnvironment->getDoor(),mTargetRenderOption);
-			mEnvironment->getDoor()->setPositions(p_save);
-			glColor4f(1.0,1.0,1.0,1.0);
-		}
+		// if(mEnvironment->isEnableGoal())
+		// {
+		// 	DARTRendering::drawSkeleton(mEnvironment->getDoor(),mKinRenderOption);
+		// 	glColor4f(1.0,1.0,1.0,0.2);
+		// 	Eigen::VectorXd p_save = mEnvironment->getDoor()->getPositions();
+		// 	Eigen::VectorXd p = p_save;
+		// 	p[0] = mEnvironment->getTargetDoorAngle();
+		// 	mEnvironment->getDoor()->setPositions(p);
+		// 	// DARTRendering::drawSkeleton(mEnvironment->getDoor(),mTargetRenderOption);
+		// 	mEnvironment->getDoor()->setPositions(p_save);
+		// 	glColor4f(1.0,1.0,1.0,1.0);
+		// }
 
 
 		
 	}
-	
-	if(mEnvironment->isEnableGoal())
-	{
-		double target_heading = mEnvironment->getTargetHeading();
-		double target_speed = mEnvironment->getTargetSpeed();
-		Eigen::Vector3d start = mEnvironment->getSimCharacter()->getReferenceTransform().translation();
-		Eigen::Matrix3d R_target = Eigen::AngleAxisd(target_heading, Eigen::Vector3d::UnitY()).toRotationMatrix();
-		Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
+	if(mDrawKinPose)
+		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
 
-		Eigen::Vector3d dir = target_speed*R_target.col(2);
-		glColor4f(1,0,0,1);
-		DrawUtils::drawArrow3D(start, start+dir*0.7, 0.2);
-	}
+	// if(mEnvironment->isEnableGoal())
+	// {
+	// 	double target_heading = mEnvironment->getTargetHeading();
+	// 	double target_speed = mEnvironment->getTargetSpeed();
+	// 	Eigen::Vector3d start = mEnvironment->getSimCharacter()->getReferenceTransform().translation();
+	// 	Eigen::Matrix3d R_target = Eigen::AngleAxisd(target_heading, Eigen::Vector3d::UnitY()).toRotationMatrix();
+	// 	Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
+
+	// 	Eigen::Vector3d dir = target_speed*R_target.col(2);
+	// 	glColor4f(1,0,0,1);
+	// 	DrawUtils::drawArrow3D(start, start+dir*0.7, 0.2);
+	// }
 	
 	if(mDrawTargetPose)
 	{
@@ -137,7 +158,7 @@ render()
 		mBarPlot.vals = Eigen::Map<Eigen::VectorXd>(mRewards.data()+offset, 30 + std::min(0,n-30));
 		mBarPlot.background_color = Eigen::Vector4d(1,1,1,0);
 		mBarPlot.color = Eigen::Vector4d(0,0,0,1);
-		// DrawUtils::drawLinePlot(mBarPlot, Eigen::Vector3d(0.69,0.69,0.0),Eigen::Vector3d(0.3,0.3,0.0));	
+		DrawUtils::drawLinePlot(mBarPlot, Eigen::Vector3d(0.69,0.69,0.0),Eigen::Vector3d(0.3,0.3,0.0));	
 		mBarPlot.vals = Eigen::Map<Eigen::VectorXd>(mRewardGoals.data()+offset, 30 + std::min(0,n-30));
 		mBarPlot.background_color = Eigen::Vector4d(1,1,1,0);
 		mBarPlot.color = Eigen::Vector4d(1,0,0,1);
@@ -162,21 +183,17 @@ reset(int frame)
 {
 	mEnvironment->reset(frame);
 	mObservation = mEnvironment->getState();
-	if(mEnvironment->isEnableLowerUpperBody())
-	{
-		mObservationDiscriminatorLowerBody = mEnvironment->getStateAMPLowerBody();
-		mObservationDiscriminatorUpperBody = mEnvironment->getStateAMPUpperBody();	
-	}
-	else
-		mObservationDiscriminator = mEnvironment->getStateAMP();
+	mObservationDiscriminator = mEnvironment->getStateAMP();
 
 	mRewards.clear();
 	mRewardGoals.clear();
 	mReward = 0.0;
 	if(mFocus)
 	{
+		float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
+			dynamic_cast<const BoxShape*>(mEnvironment->getGround()->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get())->getSize()[1]*0.5;
 		Eigen::Vector3d com = mEnvironment->getSimCharacter()->getSkeleton()->getCOM();
-		com[1] = 2.0;
+		com[1] = y+1.0;
 		Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
@@ -201,33 +218,25 @@ step()
 
 	// dphi_dq = Eigen::MatrixXd::Identity(dphi_dq.rows(), dphi_dq.cols()) - dphi_dq;
 
-	if(mEnvironment->isEnableLowerUpperBody())
-	{
-		mObservationDiscriminatorLowerBody = mEnvironment->getStateAMPLowerBody();
-		mObservationDiscriminatorUpperBody = mEnvironment->getStateAMPUpperBody();	
-
-		mReward = 0.5*(discriminator_lb.attr("compute_reward")(mObservationDiscriminatorLowerBody).cast<double>()
-				 +discriminator_ub.attr("compute_reward")(mObservationDiscriminatorUpperBody).cast<double>());
-	}
-	else{
-		mObservationDiscriminator = mEnvironment->getStateAMP();
-		mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
-	}
+	mObservationDiscriminator = mEnvironment->getStateAMP();
+	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
 
 	mObservation = mEnvironment->getState();
 	
 	mRewardGoal = mEnvironment->getRewardGoal();
 	
-	mRewardGoals.push_back(0.5*mRewardGoal);
-	mRewards.push_back(0.5*(mReward + mRewardGoal));
+	mRewardGoals.push_back(mRewardGoal);
+	mRewards.push_back(0.5*(mReward+mRewardGoal));
 	bool eoe = mEnvironment->inspectEndOfEpisode();
 	if(eoe)
 		this->reset();
 
 	if(mFocus)
 	{
+		float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
+			dynamic_cast<const BoxShape*>(mEnvironment->getGround()->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get())->getSize()[1]*0.5;
 		Eigen::Vector3d com = mEnvironment->getSimCharacter()->getSkeleton()->getCOM();
-		com[1] = 2.0;
+		com[1] = y+1.0;
 		Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
@@ -250,14 +259,7 @@ initNN(const std::string& config)
 	discriminator_md = py::module::import("discriminator");
 	py::object pyconfig = policy_md.attr("load_config")(config);
 	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimAction(),pyconfig);
-	if(mEnvironment->isEnableLowerUpperBody())
-	{
-		discriminator_lb = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMPLowerBody(), mEnvironment->getStateAMPExpertLowerBody(), pyconfig);
-		discriminator_ub = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMPUpperBody(), mEnvironment->getStateAMPExpertUpperBody(), pyconfig);
-	}
-	else
-
-		discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getStateAMPExpert(), pyconfig);
+	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getStateAMPExpert(), pyconfig);
 	//TODO
 	
 	// policy0 = policy_md.attr("build_policy0")(mEnvironment->getDimState0(),mEnvironment->getDimAction0(),pyconfig);
@@ -270,13 +272,7 @@ loadNN(const std::string& checkpoint)
 	//TODO
 	policy_md.attr("load_policy")(policy, checkpoint);
 
-	if(mEnvironment->isEnableLowerUpperBody())
-	{
-		discriminator_md.attr("load_discriminator_lb")(discriminator_lb, checkpoint);
-		discriminator_md.attr("load_discriminator_ub")(discriminator_ub, checkpoint);
-	}
-	else
-		discriminator_md.attr("load_discriminator")(discriminator, checkpoint);
+	discriminator_md.attr("load_discriminator")(discriminator, checkpoint);
 }
 void
 Window::
@@ -299,7 +295,7 @@ keyboard(unsigned char key, int x, int y)
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;
-		case 'v':mEnvironment->generateObstacle();break;
+		case 'v':mEnvironment->generateObstacleForce();break;
 		default:GLUTWindow3D::keyboard(key,x,y);break;
 	}
 }

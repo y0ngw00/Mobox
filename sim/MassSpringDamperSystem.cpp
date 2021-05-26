@@ -4,6 +4,228 @@
 #include "Character.h"
 #include "TwoJointIK.h"
 using namespace dart::dynamics;
+
+CartesianMSDSystem::
+CartesianMSDSystem(const Eigen::Vector3d& mass_coeffs,
+	const Eigen::Vector3d& spring_coeffs,
+	const Eigen::Vector3d& damper_coeffs,
+	double timestep)
+	:mMassCoeffs(mass_coeffs),
+	mSpringCoeffs(spring_coeffs),
+	mDamperCoeffs(damper_coeffs),
+	mTimestep(timestep)
+{
+	this->reset();
+}
+
+void
+CartesianMSDSystem::
+reset()
+{
+	mPosition.setZero();
+	mVelocity.setZero();
+	mForce.setZero();
+}
+void
+CartesianMSDSystem::
+applyForce(const Eigen::Vector3d& force)
+{
+	mForce += force;
+}
+void
+CartesianMSDSystem::
+step()
+{
+	for(int i=0;i<3;i++)
+	{
+		mVelocity[i] += mTimestep/(mMassCoeffs[i])*(-mSpringCoeffs[i]*mPosition[i] + mForce[i]);
+		mVelocity[i] *= mDamperCoeffs[i];
+		mPosition[i] += mTimestep*mVelocity[i];
+	}
+	mForce.setZero();
+}
+Eigen::VectorXd
+CartesianMSDSystem::
+saveState()
+{
+	Eigen::VectorXd state(6);
+	state<<mPosition, mVelocity;
+
+	return state;
+}
+void
+CartesianMSDSystem::
+restoreState(const Eigen::VectorXd& state)
+{
+	mPosition = state.head<3>();
+	mVelocity = state.tail<3>();
+}
+Eigen::VectorXd
+CartesianMSDSystem::
+getState(const Eigen::Isometry3d& T_ref)
+{
+	Eigen::VectorXd state(6);
+	state<<T_ref.linear().transpose()*mPosition, T_ref.linear().transpose()*mVelocity;
+	return state;
+}
+
+SphericalMSDSystem::
+SphericalMSDSystem(double mass_coeff, 
+					double spring_coeff,
+					double damper_coeff,double timestep)
+	:mMassCoeff(mass_coeff),
+	mSpringCoeff(spring_coeff),
+	mDamperCoeff(damper_coeff),
+	mTimestep(timestep)
+{
+	this->reset();
+}
+
+
+void
+SphericalMSDSystem::
+reset()
+{
+	mPosition.setIdentity();
+	mVelocity.setZero();
+	mForce.setZero();
+}
+void
+SphericalMSDSystem::
+applyForce(const Eigen::Vector3d& f)
+{
+	mForce += f;
+}
+void
+SphericalMSDSystem::
+step()
+{
+	mVelocity += mTimestep/(mMassCoeff)*(-mSpringCoeff*dart::math::logMap(mPosition) + mForce); //maybe incorrect?
+
+	mVelocity *= mDamperCoeff;
+	mPosition = mPosition*dart::math::expMapRot(mTimestep*mVelocity);
+	mForce.setZero();
+}
+
+Eigen::VectorXd
+SphericalMSDSystem::
+getState()
+{
+	Eigen::VectorXd state(9);
+	state<<mPosition.col(0), mPosition.col(1), mVelocity;
+
+	return state;	
+}
+Eigen::VectorXd
+SphericalMSDSystem::
+saveState()
+{
+	Eigen::VectorXd state(12);
+	state<<mPosition.col(0), mPosition.col(1), mPosition.col(2), mVelocity;
+
+	return state;
+}
+void
+SphericalMSDSystem::
+restoreState(const Eigen::VectorXd& state)
+{
+	mPosition.col(0) = state.segment<3>(0);
+	mPosition.col(1) = state.segment<3>(3);
+	mPosition.col(2) = state.segment<3>(6);
+
+	mVelocity = state.tail<3>();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 MassSpringDamperSystem::
 MassSpringDamperSystem(Character* character,
 					const Eigen::VectorXd& mass_coeffs,

@@ -498,7 +498,7 @@ createBox(double density, const Eigen::Vector3d& size, const std::string& type)
 {
 	SkeletonPtr skel = Skeleton::create("Box");
 	ShapePtr shape = makeBoxShape(size);
-	double mass = density*size[0]*size[1]*size[2];	
+	double mass = density*size[0]*size[1]*size[2];
 	dart::dynamics::Inertia inertia = makeInertia(shape,mass);
 	Joint::Properties* props;
 	if(type == "Free")
