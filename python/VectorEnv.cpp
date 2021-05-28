@@ -122,6 +122,92 @@ getStatesAMPExpert()
 }
 
 
+Env::
+Env()
+{
+	mEnv = new Environment();
+
+	mState.resize(this->getDimState());
+	mStateAMP.resize(this->getDimStateAMP());
+	
+	mEOE = false;
+	mRewardGoal = 1.0;
+}
+bool
+Env::
+isEnableGoal()
+{
+	return mEnv->isEnableGoal();
+}
+int
+Env::
+getDimState()
+{
+	return mEnv->getDimState();
+}
+int
+Env::
+getDimStateAMP()
+{
+	return mEnv->getDimStateAMP();
+}
+int
+Env::
+getDimAction()
+{
+	return mEnv->getDimAction();
+}
+void
+Env::
+reset()
+{
+	mEnv->reset();
+}
+void
+Env::
+step(const Eigen::VectorXd& action)
+{
+	mEnv->step(action);
+}
+double
+Env::
+getRewardGoal()
+{
+	mRewardGoal = mEnv->getRewardGoal();
+
+	return mRewardGoal;
+}
+const Eigen::VectorXd&
+Env::
+getState()
+{
+	mState = mEnv->getState();
+	return mState;
+}
+const Eigen::VectorXd&
+Env::
+getStateAMP()
+{
+	mStateAMP = mEnv->getStateAMP();
+	return mStateAMP;
+}
+const bool&
+Env::
+inspectEndOfEpisode()
+{
+	mEOE = mEnv->inspectEndOfEpisode();
+	return mEOE;
+}
+
+const Eigen::MatrixXd&
+Env::
+getStatesAMPExpert()
+{
+	mStatesAMPExpert = mEnv->getStateAMPExpert();
+	return mStatesAMPExpert;
+}
+
+
 namespace py = pybind11;
 
 PYBIND11_MODULE(pycomcon, m){
@@ -141,19 +227,17 @@ PYBIND11_MODULE(pycomcon, m){
 		.def("get_states_AMP_expert", &VectorEnv::getStatesAMPExpert)
 		.def("inspect_end_of_episodes", &VectorEnv::inspectEndOfEpisodes);
 
-		// .def(py::init<int>())
-		// .def("get_num_envs", &VectorEnv::getNumEnvs)
-		// .def("get_dim_state0", &VectorEnv::getDimState0)
-		// .def("get_dim_action0", &VectorEnv::getDimAction0)
-		// .def("get_dim_state1", &VectorEnv::getDimState1)
-		// .def("get_dim_action1", &VectorEnv::getDimAction1)
-		// .def("reset", &VectorEnv::reset)
-		// .def("resets", &VectorEnv::resets)
-		// .def("steps", &VectorEnv::steps)
-		// .def("get_states", &VectorEnv::getStates)
-		// .def("get_rewards", &VectorEnv::getRewards)
-		// .def("inspect_end_of_episodes", &VectorEnv::inspectEndOfEpisodes)
-		// .def("is_sleeps", &VectorEnv::isSleeps)
-		// .def("sync_envs", &VectorEnv::syncEnvs)
-		// .def("set_kinematics", &VectorEnv::setKinematics);
+	py::class_<Env>(m, "env")
+		.def(py::init<>())
+		.def("is_enable_goal", &Env::isEnableGoal)
+		.def("get_dim_state", &Env::getDimState)
+		.def("get_dim_state_AMP", &Env::getDimStateAMP)
+		.def("get_dim_action", &Env::getDimAction)
+		.def("reset", &Env::reset)
+		.def("step", &Env::step)
+		.def("get_reward_goal", &Env::getRewardGoal)
+		.def("get_state", &Env::getState)
+		.def("get_state_AMP", &Env::getStateAMP)
+		.def("inspect_end_of_episode", &Env::inspectEndOfEpisode)
+		.def("get_states_AMP_expert", &Env::getStatesAMPExpert);
 }

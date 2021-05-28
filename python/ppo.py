@@ -47,7 +47,6 @@ class FCPolicy(object):
 		
 		action_dists = self.distribution(mean, torch.exp(log_std))
 		actions = action_dists.sample()
-
 		logprobs = action_dists.log_prob(actions).sum(-1)
 		# actions = action_dists.loc
 

@@ -772,8 +772,8 @@ generateObstacle()
 	// target[1] -= 0.3;
 	// target[0] += 0.25;
 
-	Eigen::Vector3d dir = 2.0*Eigen::AngleAxisd(dart::math::Random::uniform<double>(-M_PI,M_PI), Eigen::Vector3d::UnitY()).toRotationMatrix().col(2);
-	// Eigen::Vector3d dir(0,0,2);
+	// Eigen::Vector3d dir = 2.0*Eigen::AngleAxisd(dart::math::Random::uniform<double>(-M_PI,M_PI), Eigen::Vector3d::UnitY()).toRotationMatrix().col(2);
+	Eigen::Vector3d dir(0,0,2);
 	// Eigen::Isometry3d T_sim_ref = mSimCharacter->getReferenceTransform();
 	// std::vector<Eigen::Vector3d> random_dir = {2.0*T_sim_ref.linear()*Eigen::Vector3d::UnitZ(), -2.0*T_sim_ref.linear()*Eigen::Vector3d::UnitZ()};
 	// Eigen::Vector3d dir = random_dir[dart::math::Random::uniform<int>(0,1)];

@@ -13,7 +13,7 @@ cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 class FCDiscriminator(object):
-	def __init__(self, model, dataset, config):
+	def __init__(self, model, config):
 		self.model = model
 
 		# self.state_filter = filter.MeanStdFilter(model.dim_in, dataset.mean(axis=0), dataset.std(axis=0))

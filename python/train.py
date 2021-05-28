@@ -73,7 +73,7 @@ if __name__ == "__main__":
 	discriminator_model = model.FC(envs.get_dim_state_AMP(), config['discriminator_model'])
 	
 	policy = ppo.FCPolicy(policy_model, config['policy'])
-	discriminator = discriminator.FCDiscriminator(discriminator_model, state_experts, config['discriminator'])
+	discriminator = discriminator.FCDiscriminator(discriminator_model, config['discriminator'])
 
 	trainer = trainerAMP.TrainerAMP(envs, policy, discriminator, config['trainer'])
 

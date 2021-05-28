@@ -46,10 +46,11 @@ config = {
 	},
 
 	'trainer' : {
-		# 'sample_size' : 2048,
 		'sample_size' : 2048,
+		# 'sample_size' : 2048,
 		'num_sgd_iter' : 3,
 		'sgd_minibatch_size' : 128,
+		# 'sample_size' : 128,
 		# 'sgd_minibatch_size' : 32,
 		
 		'num_disc_sgd_iter' : 1,

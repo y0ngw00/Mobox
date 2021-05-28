@@ -43,31 +43,34 @@ private:
 	int mNumEnvs;
 };
 
-// 	int getNumEnvs();
-// 	int getDimState0();
-// 	int getDimAction0();
-// 	int getDimState1();
-// 	int getDimAction1();
+class Env
+{
+public:
+	Env();
 
-// 	int getDimStateAMP();
-// 	const Eigen::MatrixXd& getStatesAMP();
+	bool isEnableGoal();
 
-// 	void reset(int id);
-// 	void resets();
-// 	void steps(const Eigen::MatrixXd& action);
-// 	const Eigen::MatrixXd& getStates();
-// 	const Eigen::VectorXd& getRewards();
-// 	const Eigen::VectorXb& inspectEndOfEpisodes();
-// 	const Eigen::VectorXb& isSleeps();
+	int getDimState();
+	int getDimStateAMP();
+	int getDimAction();
 
-// 	void syncEnvs();
-// 	void setKinematics(bool kin);
-// private:
-// 	std::vector<Environment*> mEnvs;
-// 	Eigen::MatrixXd mStates, mStatesAMP;
-// 	Eigen::VectorXd mRewards;
-// 	Eigen::VectorXb mEOEs;
-// 	Eigen::VectorXb mSleeps;
-// 	int mNumEnvs;
-// };
+	void reset();
+	void step(const Eigen::VectorXd& action);
+	
+	double getRewardGoal();
+	const Eigen::VectorXd& getState();
+	const Eigen::VectorXd& getStateAMP();
+	const bool& inspectEndOfEpisode();
+
+	const Eigen::MatrixXd& getStatesAMPExpert();
+private:
+	Environment* mEnv;
+
+	Eigen::VectorXd mState, mStateAMP;
+
+	double mRewardGoal;
+	bool mEOE;
+
+	Eigen::MatrixXd mStatesAMPExpert;
+};
 #endif
