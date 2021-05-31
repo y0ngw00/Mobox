@@ -33,7 +33,6 @@ class FCPolicy(object):
 		
 		self.device = device
 		self.model.to(self.device)
-		# (torch.device("cuda") if cuda else torch.device("cpu"))
 
 	def __call__(self, state):
 		if len(state.shape) == 1:
@@ -100,14 +99,6 @@ class FCPolicy(object):
 
 		return ret
 	def compute_loss(self, states, actions, vf_preds, log_probs, advantages, value_targets):
-		# curr_action_dist = 
-		states = self.convert_to_tensor(states)
-		actions = self.convert_to_tensor(actions)
-		vf_preds = self.convert_to_tensor(vf_preds)
-		log_probs = self.convert_to_tensor(log_probs)
-		advantages = self.convert_to_tensor(advantages)
-		value_targets = self.convert_to_tensor(value_targets)
-		
 		logits, curr_vf_pred = self.model(states)
 		
 		mean, log_std = torch.chunk(logits, 2, dim = 1)
@@ -121,7 +112,7 @@ class FCPolicy(object):
 			advantages * torch.clamp(logp_ratio, 1.0 - self.policy_clip, 1.0 + self.policy_clip))
 
 		entropy_loss = self.w_entropy * curr_action_dist.entropy().sum(-1)
-		# print(entropy_loss)
+
 		curr_vf_pred = curr_vf_pred.reshape(-1)
 		vf_loss1 = torch.pow(curr_vf_pred - value_targets , 2.0)
 		vf_clipped = vf_preds + torch.clamp(curr_vf_pred - vf_preds, -self.value_clip, self.value_clip)

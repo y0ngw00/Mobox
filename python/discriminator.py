@@ -85,7 +85,7 @@ class FCDiscriminator(object):
 		d = self.model(s)
 		grad = torch.autograd.grad(outputs=d, 
 									inputs=s,
-									grad_outputs=torch.ones(d.size()).cuda(),
+									grad_outputs=torch.ones(d.size()).to(self.device),
 									create_graph=False,
 									retain_graph=False)[0]
 		# alphas = np.array([1.0,0.5,0.25,0.125])
@@ -106,24 +106,16 @@ class FCDiscriminator(object):
 		s = self.convert_to_ndarray(s)
 		s[:,n:] = s1[:,n:]
 		return s
-	def compute_loss(self, s_expert, s_agent):
-		s_expert = self.convert_to_tensor(s_expert)
-		s_expert2 = self.convert_to_tensor(s_expert)
-		s_agent  = self.convert_to_tensor(s_agent)
-		
-		
+	def compute_loss(self, s_expert, s_expert2, s_agent):
 		d_expert = self.model(s_expert)
 		d_agent  = self.model(s_agent)
 		loss_pos = 0.5 * torch.mean(torch.pow(d_expert - 1.0, 2.0))
 		loss_neg = 0.5 * torch.mean(torch.pow(d_agent  + 1.0, 2.0))
 		''' Compute Accuracy'''
-		# self.expert_accuracy = self.convert_to_ndarray(torch.mean((d_expert>0).type(torch.float32)))
-		# self.agent_accuracy = self.convert_to_ndarray(torch.mean((d_agent<0).type(torch.float32)))
-		self.expert_accuracy = self.convert_to_ndarray(torch.mean((d_expert).type(torch.float32)))
-		self.agent_accuracy = self.convert_to_ndarray(torch.mean((d_agent).type(torch.float32)))
+		self.expert_accuracy = torch.sum(d_expert)
+		self.agent_accuracy = torch.sum(d_agent)
+
 		self.loss = 0.5 * (loss_pos + loss_neg)
-		# self.loss = 0.5 * (loss_pos)
-		
 
 		if self.w_decay>0:
 			for i in range(len(self.model.fn)):
@@ -142,7 +134,7 @@ class FCDiscriminator(object):
 			
 			grad = torch.autograd.grad(outputs=d_expert2, 
 										inputs=s_expert2,
-										grad_outputs=torch.ones(d_expert2.size()).cuda(),
+										grad_outputs=torch.ones(d_expert2.size()).to(self.device),
 										create_graph=True,
 										retain_graph=True)[0]
 			

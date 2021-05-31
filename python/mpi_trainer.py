@@ -85,17 +85,13 @@ class Trainer(object):
 		self.postprocess_episodes()
 		self.gather_episodes()
 
-
 		if is_root_proc():
 			valid_samples = self.concat_samples()
 			if valid_samples:
 				self.update_filter()
-				# self.optimize()
-			print(self.log)
-			# if valid_samples:
-			# 	
-			# self.print_log(self.writer)
-			# self.save(self.path)
+				self.optimize()
+			self.print_log(self.writer)
+			self.save(self.path)
 
 	def _tic(self):
 		self.tic = time.time()
@@ -104,7 +100,6 @@ class Trainer(object):
 		t = 0.0
 		t = time.time() - self.tic
 		self.state_dict['elapsed_time'] += t
-		# self.tic = None
 		return t
 
 	def sample_states_expert(self, n):
@@ -147,7 +142,7 @@ class Trainer(object):
 			rg = np.array(rg)
 
 			if self.enable_goal:
-				r = r*rg
+				r = 0.5*(r+rg)
 			epi_as_array = {}
 			epi_as_array['STATES'] = np.vstack(s)
 			epi_as_array['ACTIONS'] = np.vstack(a)
@@ -213,85 +208,84 @@ class Trainer(object):
 		self.samples['STATES_EXPERT'] = state[:n]
 		self.samples['STATES_AGENT'] = state[n:]
 
-	# def shuffle_samples(self):
-	# 	permutation = np.random.permutation(self.log['num_samples'])
+	def generate_shuffle_indices(self, batch_size, minibatch_size):
+		n = batch_size
+		m = minibatch_size
+		p = np.random.permutation(n)
 
-	# 	for key, item in self.samples.items():
-	# 		self.samples[key] = item[permutation]
-	
+		r = m - n%m
+		if r>0:
+			p = np.hstack([p,np.random.randint(0,n,r)])
+
+		p = p.reshape(-1,m)
+		return p
+
 	def optimize(self):
 		# XXXXXXXXXXXXXX
-
-		if len(self.samples['STATES']) == 0:
+		n = len(self.samples['STATES'])
+		if n == 0:
 			self.log['std'] = np.mean(np.exp(self.policy_loc.model.policy_fn[-1].log_std.cpu().detach().numpy()))
 			self.log['disc_loss'] = 0.0
 			self.log['disc_grad_loss'] = 0.0
 			self.log['expert_accuracy'] = 0.0
 			self.log['agent_accuracy'] = 0.0
-			t = self._toc()
-			self.log['t'] = t
+			self.log['t'] = self._toc()
 
 			return
 
 		''' Policy '''
-		minibatches = []
+		self.samples['STATES'] = self.policy_loc.convert_to_tensor(self.samples['STATES'])
+		self.samples['ACTIONS'] = self.policy_loc.convert_to_tensor(self.samples['ACTIONS'])
+		self.samples['VF_PREDS'] = self.policy_loc.convert_to_tensor(self.samples['VF_PREDS'])
+		self.samples['LOG_PROBS'] = self.policy_loc.convert_to_tensor(self.samples['LOG_PROBS'])
+		self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
+		self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
 
-		cursor = 0
-		while cursor < self.log['num_samples']:
-			minibatches.append((cursor, cursor + self.sgd_minibatch_size))
-			cursor += self.sgd_minibatch_size
-		
 		for _ in range(self.num_sgd_iter):
-			self.shuffle_samples()
-			np.random.shuffle(minibatches)
+			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 			for minibatch in minibatches:
-				states = self.samples['STATES'][minibatch[0]:minibatch[1]]
-				actions = self.samples['ACTIONS'][minibatch[0]:minibatch[1]]
-				vf_preds = self.samples['VF_PREDS'][minibatch[0]:minibatch[1]]
-				log_probs = self.samples['LOG_PROBS'][minibatch[0]:minibatch[1]]
-				advantages = self.samples['ADVANTAGES'][minibatch[0]:minibatch[1]]
-				value_targets = self.samples['VALUE_TARGETS'][minibatch[0]:minibatch[1]]
+				states = self.samples['STATES'][minibatch]
+				actions = self.samples['ACTIONS'][minibatch]
+				vf_preds = self.samples['VF_PREDS'][minibatch]
+				log_probs = self.samples['LOG_PROBS'][minibatch]
+				advantages = self.samples['ADVANTAGES'][minibatch]
+				value_targets = self.samples['VALUE_TARGETS'][minibatch]
 
-				self.policy.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
-				self.policy.backward_and_apply_gradients()
+				self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
+				self.policy_loc.backward_and_apply_gradients()
 
-		self.log['std'] = np.mean(np.exp(self.policy.model.policy_fn[-1].log_std.cpu().detach().numpy()))
 		''' Discriminator '''
-		minibatches = []
+		self.samples['STATES_EXPERT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
+		self.samples['STATES_EXPERT2'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
+		self.samples['STATES_AGENT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_AGENT'])
 
-		cursor = 0
-		while cursor < self.log['num_samples']:
-			minibatches.append((cursor, cursor + self.disc_sgd_minibatch_size))
-			cursor += self.disc_sgd_minibatch_size
-		
-		state_expert_filtered = self.disc.state_filter(self.samples['STATES_EXPERT'], update=False)
-		save_sample_agents = self.samples['STATES_AGENT'].copy()
-		state_agent_filtered = self.disc.state_filter(self.samples['STATES_AGENT'], update=False)
-		self.disc.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
-		self.samples['STATES_EXPERT'] = state_expert_filtered
-		self.samples['STATES_AGENT'] = state_agent_filtered
-
-		self.log['disc_loss'] = 0.0
-		self.log['disc_grad_loss'] = 0.0
+		disc_loss = 0.0
+		disc_grad_loss = 0.0
+		expert_accuracy = 0.0
+		agent_accuracy = 0.0
 		for _ in range(self.num_disc_sgd_iter):
-			self.shuffle_samples()
-			np.random.shuffle(minibatches)
+			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 			for minibatch in minibatches:
-				states_expert = self.samples['STATES_EXPERT'][minibatch[0]:minibatch[1]]
-				states_agent = self.samples['STATES_AGENT'][minibatch[0]:minibatch[1]]
-				
-				self.disc.compute_loss(states_expert, states_agent)
-				self.log['disc_loss'] += self.disc.loss.cpu().detach().numpy()
-				self.log['disc_grad_loss'] += self.disc.grad_loss.cpu().detach().numpy()
-				self.disc.backward_and_apply_gradients()
-		self.samples['STATES_AGENT'] = save_sample_agents
-		self.log['disc_loss'] = self.log['disc_loss']/self.log['num_samples']
-		self.log['disc_grad_loss'] = self.log['disc_grad_loss']/self.log['num_samples']
+				states_expert = self.samples['STATES_EXPERT'][minibatch]
+				states_expert2 = self.samples['STATES_EXPERT2'][minibatch]
+				states_agent = self.samples['STATES_AGENT'][minibatch]
 
-		self.log['expert_accuracy'] = self.disc.expert_accuracy
-		self.log['agent_accuracy'] = self.disc.agent_accuracy
-		t = self._toc()
-		self.log['t'] = t
+				self.disc_loc.compute_loss(states_expert, states_expert2, states_agent)
+
+				disc_loss += self.disc_loc.loss.detach()
+				disc_grad_loss += self.disc_loc.grad_loss.detach()
+				expert_accuracy += self.disc_loc.expert_accuracy.detach()
+				agent_accuracy += self.disc_loc.agent_accuracy.detach()
+				self.disc_loc.backward_and_apply_gradients()
+		
+		'''logging'''
+		self.log['std'] = np.mean(np.exp(self.policy_loc.model.policy_fn[-1].log_std.cpu().detach().numpy()))
+
+		self.log['disc_loss'] = disc_loss.cpu().numpy()
+		self.log['disc_grad_loss'] = disc_grad_loss.cpu().numpy()
+		self.log['expert_accuracy'] = expert_accuracy.cpu().numpy()/n
+		self.log['agent_accuracy'] = agent_accuracy.cpu().numpy()/n
+		self.log['t'] = self._toc()
 
 		return self.log
 
