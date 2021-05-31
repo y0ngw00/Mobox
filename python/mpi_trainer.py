@@ -231,8 +231,7 @@ class Trainer(object):
 		self.samples['LOG_PROBS'] = self.policy_loc.convert_to_tensor(self.samples['LOG_PROBS'])
 		self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
 		self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
-		
-		self.log['ctt'] = None
+		self.log['ctt'] = 0.0
 		for _ in range(self.num_sgd_iter):
 			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 			for minibatch in minibatches:
@@ -243,11 +242,7 @@ class Trainer(object):
 				advantages = self.samples['ADVANTAGES'][minibatch]
 				value_targets = self.samples['VALUE_TARGETS'][minibatch]
 
-
-				if self.log['ctt'] is None:
-					self.log['ctt'] = self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
-				else:
-					self.log['ctt'] += self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
+				self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
 				self.policy_loc.backward_and_apply_gradients()
 
 		''' Discriminator '''

@@ -101,11 +101,8 @@ class FCPolicy(object):
 
 		return ret
 	def compute_loss(self, states, actions, vf_preds, log_probs, advantages, value_targets):
-		ts = []
-		ts.append(time.time())
 		logits, curr_vf_pred = self.model(states)
-		ts[-1] = time.time() - ts[-1]
-		ts.append(time.time())
+		print(self.model.t)
 		mean, log_std = torch.chunk(logits, 2, dim = 1)
 		curr_action_dist = self.distribution(mean, torch.exp(log_std))
 
@@ -117,8 +114,6 @@ class FCPolicy(object):
 			advantages * torch.clamp(logp_ratio, 1.0 - self.policy_clip, 1.0 + self.policy_clip))
 
 		entropy_loss = self.w_entropy * curr_action_dist.entropy().sum(-1)
-		ts[-1] = time.time() - ts[-1]
-		ts.append(time.time())
 
 		curr_vf_pred = curr_vf_pred.reshape(-1)
 		vf_loss1 = torch.pow(curr_vf_pred - value_targets , 2.0)
@@ -127,8 +122,7 @@ class FCPolicy(object):
 		vf_loss2 = torch.pow(vf_clipped - value_targets, 2.0)
 		vf_loss = torch.max(vf_loss1, vf_loss2)
 		self.loss = - torch.mean(surrogate_loss) + torch.mean(vf_loss) - torch.mean(entropy_loss)
-		ts[-1] = time.time() - ts[-1]
-		return np.array(ts)
+
 	def backward_and_apply_gradients(self):
 		self.optimizer.zero_grad()
 		self.loss.backward(retain_graph = True)

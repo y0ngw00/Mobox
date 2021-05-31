@@ -7,6 +7,8 @@ import numpy as np
 
 import filter
 
+import time
+
 def xavier_initializer(gain=1.0):
 	def initializer(tensor):
 		torch.nn.init.xavier_uniform_(tensor,gain=gain)
@@ -31,7 +33,7 @@ class SlimFC(nn.Module):
 		if activation == "relu":
 			layers.append(nn.ReLU())
 		self.model = nn.Sequential(*layers)
-		
+
 	def forward(self, x):
 		return self.model(x)
 
@@ -133,9 +135,7 @@ class FCModel(nn.Module):
 		layers.append(AppendLogStd(init_log_std=np.log(sample_std), dim=dim_action, fixed_grad = fixed_std))
 
 		self.policy_fn = nn.Sequential(*layers)
-		# from IPython import embed; embed();exit()
-		# print(self.policy_fn[0].model[0].weight.data[0][0])
-		# print(self.policy_fn[0].data)
+
 		layers = []
 		prev_layer_size = dim_state
 
@@ -154,5 +154,7 @@ class FCModel(nn.Module):
 
 	def forward(self, x):
 		logits = self.policy_fn(x)
+		self.t = time.time()
 		value = self.value_fn(x)
+		self.t = time.time() - self.t
 		return logits, value
