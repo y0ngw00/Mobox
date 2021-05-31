@@ -232,7 +232,7 @@ class Trainer(object):
 		self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
 		self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
 		
-		self.log['ctt'] = 0.0
+		self.log['ctt'] = None
 		for _ in range(self.num_sgd_iter):
 			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 			for minibatch in minibatches:
@@ -244,10 +244,11 @@ class Trainer(object):
 				value_targets = self.samples['VALUE_TARGETS'][minibatch]
 
 
-				t1 = time.time()
-				self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
+				if self.log['ctt'] is None:
+					self.log['ctt'] = self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
+				else:
+					self.log['ctt'] += self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
 				self.policy_loc.backward_and_apply_gradients()
-				self.log['ctt'] += time.time() - t1
 
 		''' Discriminator '''
 
@@ -299,7 +300,7 @@ class Trainer(object):
 		
 		h,m,s=time_to_hms(self.state_dict['elapsed_time'])
 		end = '\n'
-		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s, {:.4f})- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t_sample'],self.log['t_learn'], self.log['ctt']),end=end)
+		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s, {})- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t_sample'],self.log['t_learn'], self.log['ctt']),end=end)
 		print('policy   len : {:.1f}, rew : {:.3f}, rew_goal : {:.3f}, std : {:.3f} samples : {:,}'.format(log['mean_episode_len'],
 																						log['mean_episode_reward'],
 																						log['mean_episode_reward_goal'],
