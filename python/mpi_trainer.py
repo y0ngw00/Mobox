@@ -86,7 +86,9 @@ class Trainer(object):
 		self.gather_episodes()
 
 		if is_root_proc():
+			
 			valid_samples = self.concat_samples()
+
 			if valid_samples:
 				self.update_filter()
 				self.optimize()
@@ -194,7 +196,8 @@ class Trainer(object):
 		self.log['mean_episode_len'] = len(self.samples['REWARDS'])/m
 		self.log['mean_episode_reward'] = np.sum(self.samples['REWARDS'])/m
 		self.log['mean_episode_reward_goal'] = np.sum(self.samples['REWARD_GOALS'])/m
-
+		self.log['t_sample'] = self._toc()
+		self._tic()
 		self.state_dict['num_iterations_so_far'] += 1
 		self.state_dict['num_samples_so_far'] += len(self.samples['REWARDS'])
 		return True
@@ -276,7 +279,7 @@ class Trainer(object):
 		self.log['disc_grad_loss'] = disc_grad_loss.cpu().numpy()
 		self.log['expert_accuracy'] = expert_accuracy.cpu().numpy()/n
 		self.log['agent_accuracy'] = agent_accuracy.cpu().numpy()/n
-		self.log['t'] = self._toc()
+		self.log['t_learn'] = self._toc()
 
 		return self.log
 
@@ -293,7 +296,7 @@ class Trainer(object):
 		
 		h,m,s=time_to_hms(self.state_dict['elapsed_time'])
 		end = '\n'
-		print('# {}, {}h:{}m:{:.1f}s ({:.1f}s)- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t']),end=end)
+		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s)- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t_sample'],self.log['t_learn']),end=end)
 		print('policy   len : {:.1f}, rew : {:.3f}, rew_goal : {:.3f}, std : {:.3f} samples : {:,}'.format(log['mean_episode_len'],
 																						log['mean_episode_reward'],
 																						log['mean_episode_reward_goal'],
