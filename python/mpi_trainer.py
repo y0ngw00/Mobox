@@ -21,7 +21,7 @@ import ppo
 import discriminator
 
 from torch.utils.tensorboard import SummaryWriter
-from mpi_utils import get_num_procs, get_proc_rank, is_root_proc, broadcast, gather, scatter
+from mpi_utils import get_num_procs, get_proc_rank, is_root_proc, is_root2_proc,get_root_proc, get_root2_proc, broadcast, gather, scatter, send, recv
 
 Sample = namedtuple('Sample',('s', 'a', 'rg', 'ss1', 'vf_pred', 'log_prob'))
 
@@ -34,6 +34,7 @@ class Trainer(object):
 		self.disc = self.create_disc(torch.device("cpu"), config['discriminator_model'], config['discriminator'])
 		if is_root_proc():
 			self.policy_loc = self.create_policy(torch.device("cuda"), config['model'], config['policy'])
+		if is_root2_proc():
 			self.disc_loc = self.create_disc(torch.device("cuda"), config['discriminator_model'], config['discriminator'])
 
 		self.num_envs = get_num_procs()
@@ -86,12 +87,29 @@ class Trainer(object):
 		self.gather_episodes()
 
 		if is_root_proc():
-			valid_samples = self.concat_samples()
+			t = self._toc()
+			
+			log = {}
+			log['t_sample'] = t
+
+			self._tic()
+			valid_samples = self.concat_samples(self.policy_episode_list)
+
+			if valid_samples:
+				self.standarize_samples()
+				self.update_filter()
+				log_policy = self.optimize()
+				log_disc = recv(source=get_root2_proc())
+				log['t_learn'] = self._toc()
+				self.print_log(log, log_policy, log_disc, self.writer)
+				self.save(self.path)
+		if is_root2_proc():
+			valid_samples = self.concat_samples(self.disc_episode_list)
 			if valid_samples:
 				self.update_filter()
-				self.optimize()
-				self.print_log(self.writer)
-			self.save(self.path)
+				log = self.optimize()
+				send(log, dest=get_root_proc())
+			
 
 	def _tic(self):
 		self.tic = time.time()
@@ -110,12 +128,13 @@ class Trainer(object):
 		if is_root_proc():
 			state_dict = self.policy_loc.state_dict()
 			self.policy.load_state_dict(state_dict)
-			
+
+		if is_root2_proc():
 			state_dict = self.disc_loc.state_dict()
 			self.disc.load_state_dict(state_dict)
 
-		self.policy = broadcast(self.policy)
-		self.disc = broadcast(self.disc)
+		self.policy = broadcast(self.policy, root=get_root_proc())
+		self.disc = broadcast(self.disc, root=get_root2_proc())
 
 	def generate_episodes(self):
 		for j in range(self.sample_epoch):
@@ -133,7 +152,9 @@ class Trainer(object):
 					self.episode_buffers.append([])
 				self.env.reset()
 	def postprocess_episodes(self):
-		self.episodes = []
+		self.policy_episodes = []
+		self.disc_episodes = []
+
 		for epi in self.episode_buffers[:-1]:
 			s, a, rg, ss1, v, l = Sample(*zip(*epi))
 			ss1 = np.vstack(ss1)
@@ -142,41 +163,43 @@ class Trainer(object):
 			rg = np.array(rg)
 
 			if self.enable_goal:
-				r = 0.5*(r+rg)
-			epi_as_array = {}
-			epi_as_array['STATES'] = np.vstack(s)
-			epi_as_array['ACTIONS'] = np.vstack(a)
-			epi_as_array['STATES_AGENT'] = ss1
-			epi_as_array['STATES_EXPERT'] = self.sample_states_expert(len(ss1))
-			epi_as_array['REWARD_GOALS'] = rg.reshape(-1)
-			epi_as_array['REWARDS'] = r.reshape(-1)
-			epi_as_array['VF_PREDS'] = np.vstack(v).reshape(-1)
-			epi_as_array['LOG_PROBS'] = np.vstack(l).reshape(-1)
+				r = r*rg
 
-			td_gae = self.policy.compute_ppo_td_gae(epi_as_array)
+			policy_epi = {}
+			policy_epi['STATES'] = np.vstack(s)
+			policy_epi['ACTIONS'] = np.vstack(a)
+			policy_epi['REWARD_GOALS'] = rg.reshape(-1)
+			policy_epi['REWARDS'] = r.reshape(-1)
+			policy_epi['VF_PREDS'] = np.vstack(v).reshape(-1)
+			policy_epi['LOG_PROBS'] = np.vstack(l).reshape(-1)
+
+			td_gae = self.policy.compute_ppo_td_gae(policy_epi)
 
 			for key, item in td_gae.items():
-				epi_as_array[key] = item
+				policy_epi[key] = item
+			self.policy_episodes.append(policy_epi)
 
-			self.episodes.append(epi_as_array)
+			disc_epi = {}
+			disc_epi['STATES_AGENT'] = ss1
+			disc_epi['STATES_EXPERT'] = self.sample_states_expert(len(ss1))
+
+			self.disc_episodes.append(disc_epi)
 
 		self.episode_buffers = self.episode_buffers[-1:]
 
 	def gather_episodes(self):
-		self.episode_list = gather(self.episodes)
+		self.policy_episode_list = gather(self.policy_episodes, root=get_root_proc())
+		self.disc_episode_list = gather(self.disc_episodes, root=get_root2_proc())
+		# self.episode_list = gather(self.episodes)
 
-	def concat_samples(self):
-		self.log = {}
+	def concat_samples(self, episode_list):
 		samples = []
-		for epis in self.episode_list:
+		for epis in episode_list:
 			for epi in epis:
 				samples.append(epi)
 		if len(samples) == 0:
-			self.log['mean_episode_len'] = 0.0
-			self.log['mean_episode_reward'] = 0.0
-			self.log['mean_episode_reward_goal'] = 0.0
 			return False
-		'''vectorize samples'''
+
 		self.samples = {}
 		for key, item in samples[0].items():
 			self.samples[key] = []
@@ -188,26 +211,22 @@ class Trainer(object):
 		for key in self.samples.keys():
 			self.samples[key] = np.concatenate(self.samples[key])
 
-		self.samples['ADVANTAGES'] = (self.samples['ADVANTAGES'] - self.samples['ADVANTAGES'].mean())/(1e-4 + self.samples['ADVANTAGES'].std())
-		m = len(samples)
-
-		self.log['mean_episode_len'] = len(self.samples['REWARDS'])/m
-		self.log['mean_episode_reward'] = np.sum(self.samples['REWARDS'])/m
-		self.log['mean_episode_reward_goal'] = np.sum(self.samples['REWARD_GOALS'])/m
-		self.log['t_sample'] = self._toc()
-		self._tic()
-		self.state_dict['num_iterations_so_far'] += 1
-		self.state_dict['num_samples_so_far'] += len(self.samples['REWARDS'])
+		self.samples['NUM_EPISODES'] = len(samples)
 		return True
+	
+	def standarize_samples(self):
+		self.samples['ADVANTAGES'] = (self.samples['ADVANTAGES'] - self.samples['ADVANTAGES'].mean())/(1e-4 + self.samples['ADVANTAGES'].std())
 
 	def update_filter(self):
-		self.samples['STATES'] = self.policy_loc.state_filter(self.samples['STATES'])
+		if is_root_proc():
+			self.samples['STATES'] = self.policy_loc.state_filter(self.samples['STATES'])
 
-		n = len(self.samples['STATES_EXPERT'])
-		state = self.disc_loc.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
+		if is_root2_proc():
+			n = len(self.samples['STATES_EXPERT'])
+			state = self.disc_loc.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
 
-		self.samples['STATES_EXPERT'] = state[:n]
-		self.samples['STATES_AGENT'] = state[n:]
+			self.samples['STATES_EXPERT'] = state[:n]
+			self.samples['STATES_AGENT'] = state[n:]
 
 	def generate_shuffle_indices(self, batch_size, minibatch_size):
 		n = batch_size
@@ -222,66 +241,73 @@ class Trainer(object):
 		return p
 
 	def optimize(self):
-		n = len(self.samples['STATES'])
+		if is_root_proc():
+			n = len(self.samples['STATES'])
+			''' Policy '''
+			log = {}
 
-		''' Policy '''
-		self.samples['STATES'] = self.policy_loc.convert_to_tensor(self.samples['STATES'])
-		self.samples['ACTIONS'] = self.policy_loc.convert_to_tensor(self.samples['ACTIONS'])
-		self.samples['VF_PREDS'] = self.policy_loc.convert_to_tensor(self.samples['VF_PREDS'])
-		self.samples['LOG_PROBS'] = self.policy_loc.convert_to_tensor(self.samples['LOG_PROBS'])
-		self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
-		self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
-		for _ in range(self.num_sgd_iter):
-			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
-			for minibatch in minibatches:
-				states = self.samples['STATES'][minibatch]
-				actions = self.samples['ACTIONS'][minibatch]
-				vf_preds = self.samples['VF_PREDS'][minibatch]
-				log_probs = self.samples['LOG_PROBS'][minibatch]
-				advantages = self.samples['ADVANTAGES'][minibatch]
-				value_targets = self.samples['VALUE_TARGETS'][minibatch]
+			log['mean_episode_len'] = len(self.samples['REWARDS'])/self.samples['NUM_EPISODES']
+			log['mean_episode_reward'] = np.mean(self.samples['REWARDS'])
+			log['mean_episode_reward_goal'] = np.mean(self.samples['REWARD_GOALS'])
 
-				self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
-				self.policy_loc.backward_and_apply_gradients()
+			self.samples['STATES'] = self.policy_loc.convert_to_tensor(self.samples['STATES'])
+			self.samples['ACTIONS'] = self.policy_loc.convert_to_tensor(self.samples['ACTIONS'])
+			self.samples['VF_PREDS'] = self.policy_loc.convert_to_tensor(self.samples['VF_PREDS'])
+			self.samples['LOG_PROBS'] = self.policy_loc.convert_to_tensor(self.samples['LOG_PROBS'])
+			self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
+			self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
+			for _ in range(self.num_sgd_iter):
+				minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
+				for minibatch in minibatches:
+					states = self.samples['STATES'][minibatch]
+					actions = self.samples['ACTIONS'][minibatch]
+					vf_preds = self.samples['VF_PREDS'][minibatch]
+					log_probs = self.samples['LOG_PROBS'][minibatch]
+					advantages = self.samples['ADVANTAGES'][minibatch]
+					value_targets = self.samples['VALUE_TARGETS'][minibatch]
 
-		''' Discriminator '''
+					self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
+					self.policy_loc.backward_and_apply_gradients()
 
-		self.samples['STATES_EXPERT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
-		self.samples['STATES_EXPERT2'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
-		self.samples['STATES_AGENT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_AGENT'])
+			log['std'] = np.mean(np.exp(self.policy_loc.model.policy_fn[-1].log_std.cpu().detach().numpy()))
+			self.state_dict['num_iterations_so_far'] += 1
+			self.state_dict['num_samples_so_far'] += len(self.samples['REWARDS'])
+			
+			return log
+		if is_root2_proc():
+			n = len(self.samples['STATES_EXPERT'])
+			''' Discriminator '''
+			self.samples['STATES_EXPERT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
+			self.samples['STATES_EXPERT2'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
+			self.samples['STATES_AGENT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_AGENT'])
+			
+			disc_loss = 0.0
+			disc_grad_loss = 0.0
+			expert_accuracy = 0.0
+			agent_accuracy = 0.0
 
-		
-		disc_loss = 0.0
-		disc_grad_loss = 0.0
-		expert_accuracy = 0.0
-		agent_accuracy = 0.0
+			for _ in range(self.num_disc_sgd_iter):
+				minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
+				for minibatch in minibatches:
+					states_expert = self.samples['STATES_EXPERT'][minibatch]
+					states_expert2 = self.samples['STATES_EXPERT2'][minibatch]
+					states_agent = self.samples['STATES_AGENT'][minibatch]
 
-		for _ in range(self.num_disc_sgd_iter):
-			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
-			for minibatch in minibatches:
-				states_expert = self.samples['STATES_EXPERT'][minibatch]
-				states_expert2 = self.samples['STATES_EXPERT2'][minibatch]
-				states_agent = self.samples['STATES_AGENT'][minibatch]
+					self.disc_loc.compute_loss(states_expert, states_expert2, states_agent)
+					disc_loss += self.disc_loc.loss.detach()
+					disc_grad_loss += self.disc_loc.grad_loss.detach()
+					expert_accuracy += self.disc_loc.expert_accuracy.detach()
+					agent_accuracy += self.disc_loc.agent_accuracy.detach()
+					self.disc_loc.backward_and_apply_gradients()
+			
+			log = {}
+			log['disc_loss'] = disc_loss.cpu().numpy()
+			log['disc_grad_loss'] = disc_grad_loss.cpu().numpy()
+			log['expert_accuracy'] = expert_accuracy.cpu().numpy()/n
+			log['agent_accuracy'] = agent_accuracy.cpu().numpy()/n
+			return log
 
-				self.disc_loc.compute_loss(states_expert, states_expert2, states_agent)
-				disc_loss += self.disc_loc.loss.detach()
-				disc_grad_loss += self.disc_loc.grad_loss.detach()
-				expert_accuracy += self.disc_loc.expert_accuracy.detach()
-				agent_accuracy += self.disc_loc.agent_accuracy.detach()
-				self.disc_loc.backward_and_apply_gradients()
-		
-		'''logging'''
-		self.log['std'] = np.mean(np.exp(self.policy_loc.model.policy_fn[-1].log_std.cpu().detach().numpy()))
-
-		self.log['disc_loss'] = disc_loss.cpu().numpy()
-		self.log['disc_grad_loss'] = disc_grad_loss.cpu().numpy()
-		self.log['expert_accuracy'] = expert_accuracy.cpu().numpy()/n
-		self.log['agent_accuracy'] = agent_accuracy.cpu().numpy()/n
-		self.log['t_learn'] = self._toc()
-
-		return self.log
-
-	def print_log(self, writer = None):
+	def print_log(self, log, log_policy, log_disc, writer = None):
 		def time_to_hms(t):
 			h = int((t)//3600.0)
 			m = int((t)//60.0)
@@ -290,40 +316,39 @@ class Trainer(object):
 			s = t
 			s = s - h*3600 - m*60
 			return h,m,s
-		log = self.log
 		
 		h,m,s=time_to_hms(self.state_dict['elapsed_time'])
 		end = '\n'
-		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s)- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t_sample'],self.log['t_learn']),end=end)
-		print('policy   len : {:.1f}, rew : {:.3f}, rew_goal : {:.3f}, std : {:.3f} samples : {:,}'.format(log['mean_episode_len'],
-																						log['mean_episode_reward'],
-																						log['mean_episode_reward_goal'],
-																						log['std'],
+		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s) '.format(self.state_dict['num_iterations_so_far'],h,m,s, log['t_sample'], log['t_learn']),end=end)
+		print('policy   len : {:.1f}, rew : {:.3f}, rew_goal : {:.3f}, std : {:.3f} samples : {:,}'.format(log_policy['mean_episode_len'],
+																						log_policy['mean_episode_reward'],
+																						log_policy['mean_episode_reward_goal'],
+																						log_policy['std'],
 																						self.state_dict['num_samples_so_far']))
-		print('discriminator loss : {:.3f} grad_loss : {:.3f} acc_expert : {:.3f}, acc_agent : {:.3f}'.format(log['disc_loss'],
-																						log['disc_grad_loss'],
-																						log['expert_accuracy'],
-																						log['agent_accuracy']))
+		print('discriminator loss : {:.3f} grad_loss : {:.3f} acc_expert : {:.3f}, acc_agent : {:.3f}'.format(log_disc['disc_loss'],
+																						log_disc['disc_grad_loss'],
+																						log_disc['expert_accuracy'],
+																						log_disc['agent_accuracy']))
 		if writer is not None:
-			writer.add_scalar('policy/episode_len',log['mean_episode_len'],
+			writer.add_scalar('policy/episode_len',log_policy['mean_episode_len'],
 				self.state_dict['num_samples_so_far'])
 
-			writer.add_scalar('policy/reward_mean',log['mean_episode_reward'],
+			writer.add_scalar('policy/reward_mean',log_policy['mean_episode_reward'],
 				self.state_dict['num_samples_so_far'])
 
-			writer.add_scalar('policy/reward_mean_goal',log['mean_episode_reward_goal'],
+			writer.add_scalar('policy/reward_mean_goal',log_policy['mean_episode_reward_goal'],
 				self.state_dict['num_samples_so_far'])
 
-			writer.add_scalar('discriminator/loss',log['disc_loss'],
+			writer.add_scalar('discriminator/loss',log_disc['disc_loss'],
 				self.state_dict['num_samples_so_far'])
 
-			writer.add_scalar('discriminator/grad_loss',log['disc_grad_loss'],
+			writer.add_scalar('discriminator/grad_loss',log_disc['disc_grad_loss'],
 				self.state_dict['num_samples_so_far'])
 
-			writer.add_scalar('discriminator/expert_accuracy',log['expert_accuracy'],
+			writer.add_scalar('discriminator/expert_accuracy',log_disc['expert_accuracy'],
 				self.state_dict['num_samples_so_far'])
 
-			writer.add_scalar('discriminator/agent_accuracy',log['agent_accuracy'],
+			writer.add_scalar('discriminator/agent_accuracy',log_disc['agent_accuracy'],
 				self.state_dict['num_samples_so_far'])
 
 	def save(self, path):

@@ -11,12 +11,27 @@ def is_root_proc():
 	rank = get_proc_rank()
 	return rank == 0
 
-def broadcast(x):
-	return MPI.COMM_WORLD.bcast(x, root=0)
+def is_root2_proc():
+	rank = get_proc_rank()
+	return rank == 1	
 
-def gather(x):
-	return MPI.COMM_WORLD.gather(x, root=0)
+def get_root_proc():
+	return 0
 
-def scatter(x):
-	return MPI.COMM_WORLD.scatter(x, root=0)
+def get_root2_proc():
+	return 1
+	
+def broadcast(x, root):
+	return MPI.COMM_WORLD.bcast(x, root=root)
 
+def gather(x, root):
+	return MPI.COMM_WORLD.gather(x, root=root)
+
+def scatter(x, root):
+	return MPI.COMM_WORLD.scatter(x, root=root)
+
+def send(x, dest):
+	MPI.COMM_WORLD.send(x, dest=dest, tag=33)
+
+def recv(source):
+	return MPI.COMM_WORLD.recv(source=source, tag=33)

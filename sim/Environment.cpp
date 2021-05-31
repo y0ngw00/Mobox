@@ -488,14 +488,14 @@ recordGoal()
 		// std::cout<<target_com_vel.norm()<<" "<<MathUtils::projectOnVector(com_vel, target_com_vel).norm()<<std::endl;
 		// if(vel > 0.0){
 			// mRewardGoal = 2*std::exp(-0.25*vel*vel) - 1.0;
-		mRewardGoal = 2.0*std::exp(-0.25*vel*vel) - 1.0;
+		mRewardGoal = std::exp(-0.25*vel*vel);
 		// }
 	}
 	else
 	{
 		com_vel[1] = 0.0;
 		double vel = com_vel.norm();
-		mRewardGoal = 2.0*std::exp(-0.25*vel*vel) - 1.0;
+		mRewardGoal = std::exp(-0.25*vel*vel);
 	}
 	// std::cout<<mRewardGoal<<std::endl;
 	mRewardGoals.emplace_back(mRewardGoal);
