@@ -86,9 +86,7 @@ class Trainer(object):
 		self.gather_episodes()
 
 		if is_root_proc():
-			
 			valid_samples = self.concat_samples()
-
 			if valid_samples:
 				self.update_filter()
 				self.optimize()
@@ -224,10 +222,10 @@ class Trainer(object):
 		return p
 
 	def optimize(self):
-		# XXXXXXXXXXXXXX
 		n = len(self.samples['STATES'])
 
 		''' Policy '''
+		t1 = time.time()
 		self.samples['STATES'] = self.policy_loc.convert_to_tensor(self.samples['STATES'])
 		self.samples['ACTIONS'] = self.policy_loc.convert_to_tensor(self.samples['ACTIONS'])
 		self.samples['VF_PREDS'] = self.policy_loc.convert_to_tensor(self.samples['VF_PREDS'])
@@ -235,6 +233,7 @@ class Trainer(object):
 		self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
 		self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
 
+		t1 = time.time() - t1
 		for _ in range(self.num_sgd_iter):
 			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 			for minibatch in minibatches:
@@ -249,10 +248,14 @@ class Trainer(object):
 				self.policy_loc.backward_and_apply_gradients()
 
 		''' Discriminator '''
+		t2 = time.time()
+
 		self.samples['STATES_EXPERT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
 		self.samples['STATES_EXPERT2'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
 		self.samples['STATES_AGENT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_AGENT'])
 
+		t2 = time.time() - t2
+		self.log['ctt'] = t1+t2
 		disc_loss = 0.0
 		disc_grad_loss = 0.0
 		expert_accuracy = 0.0
@@ -296,7 +299,7 @@ class Trainer(object):
 		
 		h,m,s=time_to_hms(self.state_dict['elapsed_time'])
 		end = '\n'
-		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s)- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t_sample'],self.log['t_learn']),end=end)
+		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s, {:.4f})- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t_sample'],self.log['t_learn'], self.log['ctt']),end=end)
 		print('policy   len : {:.1f}, rew : {:.3f}, rew_goal : {:.3f}, std : {:.3f} samples : {:,}'.format(log['mean_episode_len'],
 																						log['mean_episode_reward'],
 																						log['mean_episode_reward_goal'],
