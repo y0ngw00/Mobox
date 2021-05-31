@@ -31,7 +31,7 @@ class SlimFC(nn.Module):
 		if activation == "relu":
 			layers.append(nn.ReLU())
 		self.model = nn.Sequential(*layers)
-
+		
 	def forward(self, x):
 		return self.model(x)
 

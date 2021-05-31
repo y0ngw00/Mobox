@@ -19,8 +19,8 @@ config = {
 	'policy' : {
 		'gamma' : 0.95,
 		'lb' : 0.95,
-		# 'lr' : 1e-5,
-		'lr' : 1e-4,
+		'lr' : 1e-5,
+		# 'lr' : 1e-4,
 		'policy_clip' : 0.2,
 		'value_clip' : 1.0,
 		'grad_clip' : 0.5,
@@ -41,15 +41,15 @@ config = {
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
 		'r_scale' : 2.0,
-		# 'lr' : 1e-5,
-		'lr' : 1e-4,
+		'lr' : 1e-5,
+		# 'lr' : 1e-4,
 	},
 
 	'trainer' : {
+		# 'sample_size' : 8096,
 		'sample_size' : 2048,
-		# 'sample_size' : 2048,
 		'num_sgd_iter' : 3,
-		'sgd_minibatch_size' : 128,
+		'sgd_minibatch_size' : 256,
 		# 'sample_size' : 128,
 		# 'sgd_minibatch_size' : 32,
 		

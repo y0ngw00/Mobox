@@ -17,7 +17,6 @@ import discriminator
 import trainerAMP
 
 from torch.utils.tensorboard import SummaryWriter
-cuda = torch.cuda.is_available()
 
 
 def load_config(path):

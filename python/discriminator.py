@@ -9,11 +9,9 @@ import numpy as np
 
 import filter
 
-cuda = torch.cuda.is_available()
-FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 class FCDiscriminator(object):
-	def __init__(self, model, config):
+	def __init__(self, model, device, config):
 		self.model = model
 
 		# self.state_filter = filter.MeanStdFilter(model.dim_in, dataset.mean(axis=0), dataset.std(axis=0))
@@ -29,36 +27,43 @@ class FCDiscriminator(object):
 		self.optimizer = optim.Adam(self.model.parameters(),lr=config['lr'])
 
 		self.loss = None
-		self.device = (torch.device("cuda") if cuda else torch.device("cpu"))
+		self.device = device
+		self.model.to(self.device)
 
-		if cuda:
-			self.model.cuda()
-
-	def __call__(self, ss1, _filter=True):
-		ss1 = self.convert_to_ndarray(ss1)
-		if _filter:
-			ss1_filtered = self.state_filter(ss1, update=False)
-		else:
-			ss1_filtered = ss1
+	def __call__(self, ss1):
+		if len(ss1.shape) == 1:
+			ss1 = ss1.reshape(1, -1)
+		ss1_filtered = self.state_filter(ss1, update=False)
 		ss1_tensor = self.convert_to_tensor(ss1_filtered)
 
 		d = self.model(ss1_tensor)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
-		# d = self.r_scale*d
 
-		return d, ss1
+		return d
+	# def __call__(self, ss1, _filter=True):
+	# 	ss1 = self.convert_to_ndarray(ss1)
+	# 	if _filter:
+	# 		ss1_filtered = self.state_filter(ss1, update=False)
+	# 	else:
+	# 		ss1_filtered = ss1
+	# 	ss1_tensor = self.convert_to_tensor(ss1_filtered)
 
-	def convert_to_tensor(self, arr, use_cuda=True):
+	# 	d = self.model(ss1_tensor)
+	# 	d = self.convert_to_ndarray(d)
+	# 	d = np.clip(d, -1.0, 1.0)
+	# 	d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
+
+	# 	return d, ss1
+
+	def convert_to_tensor(self, arr):
 		if torch.is_tensor(arr):
 			return arr.to(self.device)
 		tensor = torch.from_numpy(np.asarray(arr))
 		if tensor.dtype == torch.double:
 			tensor = tensor.float()
-		if use_cuda:
-			return tensor.to(self.device)
-		return tensor
+		return tensor.to(self.device)
 
 	def convert_to_ndarray(self, arr):
 		if isinstance(arr, np.ndarray):

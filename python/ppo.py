@@ -9,14 +9,12 @@ import scipy.signal
 
 import filter
 
-cuda = torch.cuda.is_available()
-FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def discount(x, gamma):
 	return scipy.signal.lfilter([1],[1, -gamma], x[::-1], axis=0)[::-1]
 
 class FCPolicy(object):
-	def __init__(self, model, config):
+	def __init__(self, model, device, config):
 		self.model = model
 
 		self.state_filter = filter.MeanStdRuntimeFilter(shape=model.dim_state)
@@ -33,38 +31,56 @@ class FCPolicy(object):
 
 		self.loss = None
 		
-		self.device = (torch.device("cuda") if cuda else torch.device("cpu"))
-		if cuda:
-			self.model.cuda()
+		self.device = device
+		self.model.to(self.device)
+		# (torch.device("cuda") if cuda else torch.device("cpu"))
 
-	def __call__(self, states):
-		states = self.convert_to_ndarray(states)
-		states_filtered = self.state_filter(states, update=False)
-		_states = self.convert_to_tensor(states_filtered)
+	def __call__(self, state):
+		if len(state.shape) == 1:
+			state = state.reshape(1, -1)
+		state_filtered = self.state_filter(state, update=False)
+		state_tensor = self.convert_to_tensor(state_filtered)
 
-		logits, vf_pred = self.model(_states)
-		mean, log_std = torch.chunk(logits, 2, dim = 1)
+		logit, vf_pred = self.model(state_tensor)
+		mean, log_std = torch.chunk(logit, 2, dim = 1)
 		
-		action_dists = self.distribution(mean, torch.exp(log_std))
-		actions = action_dists.sample()
-		logprobs = action_dists.log_prob(actions).sum(-1)
-		# actions = action_dists.loc
+		action_dist = self.distribution(mean, torch.exp(log_std))
+		action = action_dist.sample()
+		logprob = action_dist.log_prob(action).sum(-1)
 
-		actions = self.convert_to_ndarray(actions)
-		logprobs = self.convert_to_ndarray(logprobs)
-		vf_preds = self.convert_to_ndarray(vf_pred)
+		action = self.convert_to_ndarray(action)
+		logprob = self.convert_to_ndarray(logprob)
+		vf_pred = self.convert_to_ndarray(vf_pred)
 
-		return states, actions, logprobs, vf_preds
+		return action, logprob, vf_pred
 
-	def convert_to_tensor(self, arr, use_cuda=True):
+
+	# def __call__(self, states):
+	# 	states = self.convert_to_ndarray(states)
+	# 	states_filtered = self.state_filter(states, update=False)
+	# 	_states = self.convert_to_tensor(states_filtered)
+
+	# 	logits, vf_pred = self.model(_states)
+	# 	mean, log_std = torch.chunk(logits, 2, dim = 1)
+		
+	# 	action_dists = self.distribution(mean, torch.exp(log_std))
+	# 	actions = action_dists.sample()
+	# 	logprobs = action_dists.log_prob(actions).sum(-1)
+	# 	# actions = action_dists.loc
+
+	# 	actions = self.convert_to_ndarray(actions)
+	# 	logprobs = self.convert_to_ndarray(logprobs)
+	# 	vf_preds = self.convert_to_ndarray(vf_pred)
+
+	# 	return states, actions, logprobs, vf_preds
+
+	def convert_to_tensor(self, arr):
 		if torch.is_tensor(arr):
 			return arr.to(self.device)
 		tensor = torch.from_numpy(np.asarray(arr))
 		if tensor.dtype == torch.double:
 			tensor = tensor.float()
-		if use_cuda:
-			return tensor.to(self.device)
-		return tensor
+		return tensor.to(self.device)
 
 	def convert_to_ndarray(self, arr):
 		if isinstance(arr, np.ndarray):

@@ -20,7 +20,6 @@ import mpi_trainer
 from mpi4py import MPI
 
 from torch.utils.tensorboard import SummaryWriter
-cuda = torch.cuda.is_available()
 
 
 def load_config(path):

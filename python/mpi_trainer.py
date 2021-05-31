@@ -29,10 +29,13 @@ class Trainer(object):
 	def __init__(self, env_cls, config, path):
 		self.env = env_cls()
 		self.path = path
+
+		self.policy = self.create_policy(torch.device("cpu"), config['model'], config['policy'])
+		self.disc = self.create_disc(torch.device("cpu"), config['discriminator_model'], config['discriminator'])
 		if is_root_proc():
-			self.create_summary_writer(path)
-			self.create_policy(config['model'], config['policy'])
-			self.create_disc(config['discriminator_model'], config['discriminator'])
+			self.policy_loc = self.create_policy(torch.device("cuda"), config['model'], config['policy'])
+			self.disc_loc = self.create_disc(torch.device("cuda"), config['discriminator_model'], config['discriminator'])
+
 		self.num_envs = get_num_procs()
 
 		trainer_config = config['trainer']
@@ -52,39 +55,47 @@ class Trainer(object):
 
 		self.episode_buffers = []
 		self.episode_buffers.append([])
+		self.states_expert = self.env.get_states_AMP_expert()
+		self.enable_goal = self.env.is_enable_goal()
 
 		if is_root_proc():
-			self.states_expert = self.env.get_states_AMP_expert()
 			self.state_dict = {}
 			self.state_dict['elapsed_time'] = 0.0
 			self.state_dict['num_iterations_so_far'] = 0
 			self.state_dict['num_samples_so_far'] = 0
-			self.enable_goal = self.env.is_enable_goal()
+
+			self.create_summary_writer(path)
+
+	def create_policy(self, device, model_config, policy_config):
+		p_model = model.FCModel(self.env.get_dim_state(), self.env.get_dim_action(), model_config)
+		return ppo.FCPolicy(p_model, device, policy_config)
+
+	def create_disc(self, device, model_config, disc_config):
+		d_model = model.FC(self.env.get_dim_state_AMP(), model_config)
+		return discriminator.FCDiscriminator(d_model, device, disc_config)
 
 	def create_summary_writer(self, path):
 		self.writer = SummaryWriter(path)
 
-	def create_policy(self, model_config, policy_config):
-		p_model = model.FCModel(self.env.get_dim_state(), self.env.get_dim_action(), model_config)
-		self.policy = ppo.FCPolicy(p_model, policy_config)
-
-	def create_disc(self, model_config, disc_config):
-		d_model = model.FC(self.env.get_dim_state_AMP(), model_config)
-		self.disc = discriminator.FCDiscriminator(d_model, disc_config)
-
 	def step(self):
 		if is_root_proc():
 			self._tic()
-		self.generate_samples()
-		valid_samples = self.gather_samples()
+		self.sync()
+		self.generate_episodes()
+		self.postprocess_episodes()
+		self.gather_episodes()
+
+
 		if is_root_proc():
-			if valid_samples is False:
-				return 
-			self.compute_TD_GAE()
-			self.concat_samples()
-			self.optimize()
-			self.print_log(self.writer)
-			self.save(self.path)
+			valid_samples = self.concat_samples()
+			if valid_samples:
+				self.update_filter()
+				# self.optimize()
+			print(self.log)
+			# if valid_samples:
+			# 	
+			# self.print_log(self.writer)
+			# self.save(self.path)
 
 	def _tic(self):
 		self.tic = time.time()
@@ -100,126 +111,119 @@ class Trainer(object):
 		m = len(self.states_expert)
 		return self.states_expert[np.random.randint(0, m, n)]
 
-	def generate_samples(self):
+	def sync(self):
 		if is_root_proc():
-			self.log = {}
-			self.log['mean_episode_len'] = []
-			self.log['mean_episode_reward'] = []
-			self.log['mean_episode_reward_goal'] = []
-			self.log['num_samples'] = 0
-			self.log['episode_lens'] = []
+			state_dict = self.policy_loc.state_dict()
+			self.policy.load_state_dict(state_dict)
+			
+			state_dict = self.disc_loc.state_dict()
+			self.disc.load_state_dict(state_dict)
 
-		
+		self.policy = broadcast(self.policy)
+		self.disc = broadcast(self.disc)
+
+	def generate_episodes(self):
 		for j in range(self.sample_epoch):
-			self.states = gather(self.state)
-			if is_root_proc():
-				self.states = np.vstack(self.states)
-				s, a, log_prob, vf_pred = self.policy(self.states)
-				s = s.astype(np.float32)
-			else:
-				s = None
-				a = None
-				log_prob = None
-				vf_pred = None
-			s = scatter(s)
-			a = scatter(a)
-			log_prob = scatter(log_prob)
-			vf_pred = scatter(vf_pred)
-
+			a, lp, vf = self.policy(self.state)
 			self.env.step(a)
+
 			ss1 = self.env.get_state_AMP()
 			eoe = self.env.inspect_end_of_episode()
 			rg = self.env.get_reward_goal()
 			self.state = self.env.get_state()
 
-			self.episode_buffers[-1].append(Sample(s, a, rg, ss1, vf_pred, log_prob))
-
+			self.episode_buffers[-1].append(Sample(self.state, a, rg, ss1, vf, lp))
 			if eoe:
 				if len(self.episode_buffers[-1]) != 0:
 					self.episode_buffers.append([])
 				self.env.reset()
-		
-	def compute_TD_GAE(self):
-		for i in range(len(self.episodes)):
-			td_gae = self.policy.compute_ppo_td_gae(self.episodes[i])
+	def postprocess_episodes(self):
+		self.episodes = []
+		for epi in self.episode_buffers[:-1]:
+			s, a, rg, ss1, v, l = Sample(*zip(*epi))
+			ss1 = np.vstack(ss1)
+			r = self.disc(ss1)
+
+			rg = np.array(rg)
+
+			if self.enable_goal:
+				r = r*rg
+			epi_as_array = {}
+			epi_as_array['STATES'] = np.vstack(s)
+			epi_as_array['ACTIONS'] = np.vstack(a)
+			epi_as_array['STATES_AGENT'] = ss1
+			epi_as_array['STATES_EXPERT'] = self.sample_states_expert(len(ss1))
+			epi_as_array['REWARD_GOALS'] = rg.reshape(-1)
+			epi_as_array['REWARDS'] = r.reshape(-1)
+			epi_as_array['VF_PREDS'] = np.vstack(v).reshape(-1)
+			epi_as_array['LOG_PROBS'] = np.vstack(l).reshape(-1)
+
+			td_gae = self.policy.compute_ppo_td_gae(epi_as_array)
 
 			for key, item in td_gae.items():
-				self.episodes[i][key] = item
+				epi_as_array[key] = item
 
-	def gather_samples(self):
-		episodes = gather(self.episode_buffers[:-1])
+			self.episodes.append(epi_as_array)
+
 		self.episode_buffers = self.episode_buffers[-1:]
 
-		if is_root_proc():
-			self.episodes = []
-			for epis in episodes:
-				for epi in epis:
-					self.episodes.append(epi)
-			for i, epi in enumerate(self.episodes):
-
-				s, a, rg, ss1, v, l = Sample(*zip(*epi))
-				ss1 = np.vstack(ss1)
-
-				r, ss1 = self.disc(ss1)
-
-				rg = np.array(rg)
-				if self.enable_goal:
-					r = r*rg
-				epi_as_array = {}
-				epi_as_array['STATES'] = np.vstack(s)
-				epi_as_array['ACTIONS'] = np.vstack(a)
-				epi_as_array['STATES_AGENT'] = ss1
-				epi_as_array['STATES_EXPERT'] = self.sample_states_expert(len(ss1))
-				epi_as_array['REWARDS'] = r.reshape(-1)
-				epi_as_array['VF_PREDS'] = np.vstack(v).reshape(-1)
-				epi_as_array['LOG_PROBS'] = np.vstack(l).reshape(-1)
-				n = len(a)
-
-				self.log['episode_lens'].append(n)
-				self.log['mean_episode_reward'].append(epi_as_array['REWARDS'].mean())
-				self.log['mean_episode_reward_goal'].append(rg.mean())
-				self.log['num_samples'] += n
-
-				self.episodes[i] = epi_as_array
-			self.state_dict['num_iterations_so_far'] += 1
-			if self.log['num_samples'] == 0:
-				self.log['mean_episode_len'] = 0.0
-				self.log['mean_episode_reward'] = 0.0
-				self.log['mean_episode_reward_goal'] = 0.0
-				return False 
-			else:
-				self.log['mean_episode_len'] = np.mean(self.log['episode_lens'])
-				self.log['mean_episode_reward'] = np.mean(self.log['mean_episode_reward'])
-				self.log['mean_episode_reward_goal']= np.mean(self.log['mean_episode_reward_goal'])
-
-				self.state_dict['num_samples_so_far'] += self.log['num_samples']
-				return True
-		else:
-			return False
+	def gather_episodes(self):
+		self.episode_list = gather(self.episodes)
 
 	def concat_samples(self):
+		self.log = {}
+		samples = []
+		for epis in self.episode_list:
+			for epi in epis:
+				samples.append(epi)
+		if len(samples) == 0:
+			self.log['mean_episode_len'] = 0.0
+			self.log['mean_episode_reward'] = 0.0
+			self.log['mean_episode_reward_goal'] = 0.0
+			return False
+		'''vectorize samples'''
 		self.samples = {}
-		for key, item in self.episodes[0].items():
+		for key, item in samples[0].items():
 			self.samples[key] = []
 
-		for epi in self.episodes:
-			for key, item in epi.items():
+		for sample in samples:
+			for key, item in sample.items():
 				self.samples[key].append(item)
 
 		for key in self.samples.keys():
 			self.samples[key] = np.concatenate(self.samples[key])
 
 		self.samples['ADVANTAGES'] = (self.samples['ADVANTAGES'] - self.samples['ADVANTAGES'].mean())/(1e-4 + self.samples['ADVANTAGES'].std())
+		m = len(samples)
 
-	def shuffle_samples(self):
-		permutation = np.random.permutation(self.log['num_samples'])
+		self.log['mean_episode_len'] = len(self.samples['REWARDS'])/m
+		self.log['mean_episode_reward'] = np.sum(self.samples['REWARDS'])/m
+		self.log['mean_episode_reward_goal'] = np.sum(self.samples['REWARD_GOALS'])/m
 
-		for key, item in self.samples.items():
-			self.samples[key] = item[permutation]
+		self.state_dict['num_iterations_so_far'] += 1
+		self.state_dict['num_samples_so_far'] += len(self.samples['REWARDS'])
+		return True
+
+	def update_filter(self):
+		self.samples['STATES'] = self.policy_loc.state_filter(self.samples['STATES'])
+
+		n = len(self.samples['STATES_EXPERT'])
+		state = self.disc_loc.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
+
+		self.samples['STATES_EXPERT'] = state[:n]
+		self.samples['STATES_AGENT'] = state[n:]
+
+	# def shuffle_samples(self):
+	# 	permutation = np.random.permutation(self.log['num_samples'])
+
+	# 	for key, item in self.samples.items():
+	# 		self.samples[key] = item[permutation]
 	
 	def optimize(self):
-		if self.log['num_samples'] == 0:
-			self.log['std'] = np.mean(np.exp(self.policy.model.policy_fn[-1].log_std.cpu().detach().numpy()))
+		# XXXXXXXXXXXXXX
+
+		if len(self.samples['STATES']) == 0:
+			self.log['std'] = np.mean(np.exp(self.policy_loc.model.policy_fn[-1].log_std.cpu().detach().numpy()))
 			self.log['disc_loss'] = 0.0
 			self.log['disc_grad_loss'] = 0.0
 			self.log['expert_accuracy'] = 0.0
@@ -230,11 +234,6 @@ class Trainer(object):
 			return
 
 		''' Policy '''
-		state_filtered = self.policy.state_filter(self.samples['STATES'], update=False)
-		self.policy.state_filter(self.samples['STATES'])
-		self.samples['STATES'] = state_filtered
-
-
 		minibatches = []
 
 		cursor = 0
