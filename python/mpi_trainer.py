@@ -225,15 +225,14 @@ class Trainer(object):
 		n = len(self.samples['STATES'])
 
 		''' Policy '''
-		t1 = time.time()
 		self.samples['STATES'] = self.policy_loc.convert_to_tensor(self.samples['STATES'])
 		self.samples['ACTIONS'] = self.policy_loc.convert_to_tensor(self.samples['ACTIONS'])
 		self.samples['VF_PREDS'] = self.policy_loc.convert_to_tensor(self.samples['VF_PREDS'])
 		self.samples['LOG_PROBS'] = self.policy_loc.convert_to_tensor(self.samples['LOG_PROBS'])
 		self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
 		self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
-
-		t1 = time.time() - t1
+		
+		self.log['ctt'] = 0.0
 		for _ in range(self.num_sgd_iter):
 			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 			for minibatch in minibatches:
@@ -244,22 +243,24 @@ class Trainer(object):
 				advantages = self.samples['ADVANTAGES'][minibatch]
 				value_targets = self.samples['VALUE_TARGETS'][minibatch]
 
+
+				t1 = time.time()
 				self.policy_loc.compute_loss(states, actions, vf_preds, log_probs, advantages, value_targets)
 				self.policy_loc.backward_and_apply_gradients()
+				self.log['ctt'] += time.time() - t1
 
 		''' Discriminator '''
-		t2 = time.time()
 
 		self.samples['STATES_EXPERT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
 		self.samples['STATES_EXPERT2'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
 		self.samples['STATES_AGENT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_AGENT'])
 
-		t2 = time.time() - t2
-		self.log['ctt'] = t1+t2
+		
 		disc_loss = 0.0
 		disc_grad_loss = 0.0
 		expert_accuracy = 0.0
 		agent_accuracy = 0.0
+
 		for _ in range(self.num_disc_sgd_iter):
 			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 			for minibatch in minibatches:
@@ -268,7 +269,6 @@ class Trainer(object):
 				states_agent = self.samples['STATES_AGENT'][minibatch]
 
 				self.disc_loc.compute_loss(states_expert, states_expert2, states_agent)
-
 				disc_loss += self.disc_loc.loss.detach()
 				disc_grad_loss += self.disc_loc.grad_loss.detach()
 				expert_accuracy += self.disc_loc.expert_accuracy.detach()
