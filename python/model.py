@@ -154,7 +154,5 @@ class FCModel(nn.Module):
 
 	def forward(self, x):
 		logits = self.policy_fn(x)
-		self.t = time.time()
 		value = self.value_fn(x)
-		self.t = time.time() - self.t
 		return logits, value

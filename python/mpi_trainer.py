@@ -231,7 +231,6 @@ class Trainer(object):
 		self.samples['LOG_PROBS'] = self.policy_loc.convert_to_tensor(self.samples['LOG_PROBS'])
 		self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
 		self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
-		self.log['ctt'] = 0.0
 		for _ in range(self.num_sgd_iter):
 			minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 			for minibatch in minibatches:
@@ -295,13 +294,12 @@ class Trainer(object):
 		
 		h,m,s=time_to_hms(self.state_dict['elapsed_time'])
 		end = '\n'
-		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s, {})- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t_sample'],self.log['t_learn'], self.log['ctt']),end=end)
+		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s)- '.format(self.state_dict['num_iterations_so_far'],h,m,s, self.log['t_sample'],self.log['t_learn']),end=end)
 		print('policy   len : {:.1f}, rew : {:.3f}, rew_goal : {:.3f}, std : {:.3f} samples : {:,}'.format(log['mean_episode_len'],
 																						log['mean_episode_reward'],
 																						log['mean_episode_reward_goal'],
 																						log['std'],
 																						self.state_dict['num_samples_so_far']))
-
 		print('discriminator loss : {:.3f} grad_loss : {:.3f} acc_expert : {:.3f}, acc_agent : {:.3f}'.format(log['disc_loss'],
 																						log['disc_grad_loss'],
 																						log['expert_accuracy'],

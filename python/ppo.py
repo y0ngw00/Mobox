@@ -102,7 +102,6 @@ class FCPolicy(object):
 		return ret
 	def compute_loss(self, states, actions, vf_preds, log_probs, advantages, value_targets):
 		logits, curr_vf_pred = self.model(states)
-		print(self.model.t)
 		mean, log_std = torch.chunk(logits, 2, dim = 1)
 		curr_action_dist = self.distribution(mean, torch.exp(log_std))
 
