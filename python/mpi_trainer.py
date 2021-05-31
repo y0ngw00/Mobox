@@ -90,7 +90,7 @@ class Trainer(object):
 			if valid_samples:
 				self.update_filter()
 				self.optimize()
-			self.print_log(self.writer)
+				self.print_log(self.writer)
 			self.save(self.path)
 
 	def _tic(self):
@@ -223,15 +223,6 @@ class Trainer(object):
 	def optimize(self):
 		# XXXXXXXXXXXXXX
 		n = len(self.samples['STATES'])
-		if n == 0:
-			self.log['std'] = np.mean(np.exp(self.policy_loc.model.policy_fn[-1].log_std.cpu().detach().numpy()))
-			self.log['disc_loss'] = 0.0
-			self.log['disc_grad_loss'] = 0.0
-			self.log['expert_accuracy'] = 0.0
-			self.log['agent_accuracy'] = 0.0
-			self.log['t'] = self._toc()
-
-			return
 
 		''' Policy '''
 		self.samples['STATES'] = self.policy_loc.convert_to_tensor(self.samples['STATES'])
