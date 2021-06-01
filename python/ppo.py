@@ -33,7 +33,10 @@ class FCPolicy(object):
 
 		self.loss = None
 		
-		self.device = device
+		if isinstance(device, str):
+			self.device = torch.device(device)
+		else:
+			self.device = device
 		self.model.to(self.device)
 
 	def __call__(self, state):
@@ -197,7 +200,7 @@ def load_config(path):
 
 def build_policy(dim_state, dim_action, config):
 	md = model.FCModel(dim_state, dim_action, config['model'])
-	policy = FCPolicy(md, config['policy'])
+	policy = FCPolicy(md, torch.device("cpu"), config['policy'])
 	return policy
 
 def load_policy(policy, checkpoint):

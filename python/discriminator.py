@@ -181,7 +181,7 @@ import importlib.util
 
 def build_discriminator(dim_state, state_experts, config):
 	discriminator_model = model.FC(dim_state, config['discriminator_model'])
-	return FCDiscriminator(discriminator_model, state_experts, config['discriminator'])
+	return FCDiscriminator(discriminator_model, torch.device("cpu"), config['discriminator'])
 
 def load_discriminator(discriminator, checkpoint):
 	state = torch.load(checkpoint)

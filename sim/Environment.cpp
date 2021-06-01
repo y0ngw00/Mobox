@@ -31,7 +31,7 @@ Environment()
 	mSpeedChangeProb(0.05),
 	mMaxHeadingTurnRate(0.15),
 	mRewardGoal(0.0),
-	mEnableGoal(true),
+	mEnableGoal(false),
 	mEnableObstacle(true),
 	mEnableGoalEOE(false),
 	mKinematics(false)
@@ -88,7 +88,7 @@ Environment()
 	
 	
 	
-	{
+	// {
 		BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
 		Motion* motion = new Motion(bvh);
 		for(int j=0;j<300;j++)
@@ -97,9 +97,9 @@ Environment()
 		mMotions.emplace_back(motion);
 		mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
 		mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
-	}
-	auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 1:44:04 2:24:00");
-	mMotions.emplace_back(motion);
+	// }
+	// auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 1:44:04 2:24:00");
+	// mMotions.emplace_back(motion);
 
 	Eigen::Vector3d mass_coeffs(0.01, 1e7, 0.01);
 	Eigen::Vector3d spring_coeffs(5.0, 0.0, 5.0);

@@ -87,27 +87,28 @@ class Trainer(object):
 		self.gather_episodes()
 
 		if is_root_proc():
-			t = self._toc()
 			
-			log = {}
-			log['t_sample'] = t
-
-			self._tic()
 			valid_samples = self.concat_samples(self.policy_episode_list)
+			t_sample = self._toc()
 
 			if valid_samples:
 				self.standarize_samples()
 				self.update_filter()
+				self._tic()
 				log_policy = self.optimize()
+				log_policy['t'] = self._toc()
 				log_disc = recv(source=get_root2_proc())
-				log['t_learn'] = self._toc()
-				self.print_log(log, log_policy, log_disc, self.writer)
+				
+				self.print_log(t_sample, log_policy, log_disc, self.writer)
 				self.save(self.path)
+			self.state_dict['elapsed_time'] += t_sample + np.max([log_policy['t'],log_disc['t']])
 		if is_root2_proc():
 			valid_samples = self.concat_samples(self.disc_episode_list)
 			if valid_samples:
 				self.update_filter()
+				self._tic()
 				log = self.optimize()
+				log['t'] = self._toc()
 				send(log, dest=get_root_proc())
 			
 
@@ -117,7 +118,6 @@ class Trainer(object):
 	def _toc(self):
 		t = 0.0
 		t = time.time() - self.tic
-		self.state_dict['elapsed_time'] += t
 		return t
 
 	def sample_states_expert(self, n):
@@ -144,13 +144,14 @@ class Trainer(object):
 			ss1 = self.env.get_state_AMP()
 			eoe = self.env.inspect_end_of_episode()
 			rg = self.env.get_reward_goal()
-			self.state = self.env.get_state()
-
+			
 			self.episode_buffers[-1].append(Sample(self.state, a, rg, ss1, vf, lp))
+			self.state = self.env.get_state()
 			if eoe:
 				if len(self.episode_buffers[-1]) != 0:
 					self.episode_buffers.append([])
 				self.env.reset()
+				
 	def postprocess_episodes(self):
 		self.policy_episodes = []
 		self.disc_episodes = []
@@ -190,7 +191,6 @@ class Trainer(object):
 	def gather_episodes(self):
 		self.policy_episode_list = gather(self.policy_episodes, root=get_root_proc())
 		self.disc_episode_list = gather(self.disc_episodes, root=get_root2_proc())
-		# self.episode_list = gather(self.episodes)
 
 	def concat_samples(self, episode_list):
 		samples = []
@@ -223,6 +223,7 @@ class Trainer(object):
 
 		if is_root2_proc():
 			n = len(self.samples['STATES_EXPERT'])
+
 			state = self.disc_loc.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
 
 			self.samples['STATES_EXPERT'] = state[:n]
@@ -303,11 +304,11 @@ class Trainer(object):
 			log = {}
 			log['disc_loss'] = disc_loss.cpu().numpy()
 			log['disc_grad_loss'] = disc_grad_loss.cpu().numpy()
-			log['expert_accuracy'] = expert_accuracy.cpu().numpy()/n
-			log['agent_accuracy'] = agent_accuracy.cpu().numpy()/n
+			log['expert_accuracy'] = expert_accuracy.cpu().numpy()/n/self.num_disc_sgd_iter
+			log['agent_accuracy'] = agent_accuracy.cpu().numpy()/n/self.num_disc_sgd_iter
 			return log
 
-	def print_log(self, log, log_policy, log_disc, writer = None):
+	def print_log(self, t_sample, log_policy, log_disc, writer = None):
 		def time_to_hms(t):
 			h = int((t)//3600.0)
 			m = int((t)//60.0)
@@ -319,7 +320,7 @@ class Trainer(object):
 		
 		h,m,s=time_to_hms(self.state_dict['elapsed_time'])
 		end = '\n'
-		print('# {}, {}h:{}m:{:.1f}s ({:.2f}s, {:.2f}s) '.format(self.state_dict['num_iterations_so_far'],h,m,s, log['t_sample'], log['t_learn']),end=end)
+		print('# {}, {}h:{}m:{:.1f}s ({:.1f}s [s:{:.2f} p:{:.2f}, d:{:.2f}]s) '.format(self.state_dict['num_iterations_so_far'],h,m,s, t_sample + np.max([log_policy['t'], log_disc['t']]), t_sample, log_policy['t'], log_disc['t']),end=end)
 		print('policy   len : {:.1f}, rew : {:.3f}, rew_goal : {:.3f}, std : {:.3f} samples : {:,}'.format(log_policy['mean_episode_len'],
 																						log_policy['mean_episode_reward'],
 																						log_policy['mean_episode_reward_goal'],
