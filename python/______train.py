@@ -3,7 +3,6 @@ import importlib.util
 import datetime
 import os
 import threading
-import time
 
 import torch
 import torch.optim as optim
@@ -15,9 +14,7 @@ import pycomcon
 import model
 import ppo
 import discriminator
-import mpi_trainer
-
-from mpi4py import MPI
+import trainerAMP
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -66,14 +63,29 @@ if __name__ == "__main__":
 	
 	config = load_config(args.config)
 	save_path = define_save_path(args.name)
+	writer = create_summary_writer(save_path,launch=False)
 
-	trainer = mpi_trainer.Trainer(pycomcon.env, config, save_path)
+	envs = pycomcon.vector_env(config['num_envs'])
+	state_experts = envs.get_states_AMP_expert()
+
+	policy_model = model.FCModel(envs.get_dim_state(), envs.get_dim_action(), config['model'])
+	discriminator_model = model.FC(envs.get_dim_state_AMP(), config['discriminator_model'])
+	
+	policy = ppo.FCPolicy(policy_model, config['policy'])
+	discriminator = discriminator.FCDiscriminator(discriminator_model, config['discriminator'])
+
+	trainer = trainerAMP.TrainerAMP(envs, policy, discriminator, config['trainer'])
+
 	if args.checkpoint is not None:
 		trainer.load(args.checkpoint)
-	done = False
-	try:
-		while not done:
-			trainer.step()
-	except KeyboardInterrupt:
-		print('abort mpi')
-		MPI.COMM_WORLD.Abort(1)
+	if config['save_at_start']:
+		trainer.save(save_path)
+
+	while True:
+		trainer.generate_samples()
+		trainer.compute_TD_GAE()
+		trainer.concat_samples()
+		trainer.standarize_samples('ADVANTAGES')
+		trainer.optimize()
+		trainer.print_log(writer)
+		trainer.save(save_path)

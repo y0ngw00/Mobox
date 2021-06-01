@@ -332,10 +332,10 @@ step(const Eigen::VectorXd& _action)
 				auto skel1 = bn1->getSkeleton();
 				auto skel2 = bn2->getSkeleton();
 
-				// if(skel1 == mObstacle && skel2->getName() == "humanoid")
-				// 	mSimCharacter->applyForceMSD(bn2, bn2->getTransform().inverse()*(contact.point),-contact.force);
-				// else if(skel1->getName() == "humanoid" && skel2 == mObstacle)
-				// 	mSimCharacter->applyForceMSD(bn1, bn1->getTransform().inverse()*(contact.point), contact.force);
+				if(skel1 == mObstacle && skel2->getName() == "humanoid")
+					mSimCharacter->applyForceMSD(bn2, bn2->getTransform().inverse()*(contact.point),-10.0*contact.force);
+				else if(skel1->getName() == "humanoid" && skel2 == mObstacle)
+					mSimCharacter->applyForceMSD(bn1, bn1->getTransform().inverse()*(contact.point), 10.0*contact.force);
 
 				if(bn1->getName().find("Foot") != std::string::npos)
 					continue;
@@ -743,7 +743,7 @@ Environment::
 generateObstacle()
 {
 	if(mObstacle == nullptr){
-		mObstacle = DARTUtils::createBox(100.0,Eigen::Vector3d::Constant(0.4),"Free");
+		mObstacle = DARTUtils::createBox(10.0,Eigen::Vector3d::Constant(0.4),"Free");
 		// mObstacle = DARTUtils::createBox(80.0,Eigen::Vector3d::Constant(0.2),"Free");
 		mObstacle->getJoint(0)->setDampingCoefficient(0,0.2);
 		mObstacle->getJoint(0)->setDampingCoefficient(1,0.2);

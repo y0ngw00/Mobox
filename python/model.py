@@ -63,13 +63,6 @@ class FC(nn.Module):
 		prev_layer_size = dim_in
 		
 		for size, activation, init_weight in zip(hiddens + [1], activations, init_weights):
-			# if size == 1:
-			# 	layers.append(SlimFC(
-			# 	prev_layer_size,
-			# 	size,
-			# 	uniform_initializer(-init_weight, init_weight),
-			# 	activation))
-			# else:
 			layers.append(SlimFC(
 				prev_layer_size,
 				size,

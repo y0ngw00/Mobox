@@ -375,9 +375,14 @@ class Trainer(object):
 				print('save at {}'.format(os.path.join(path,str(math.floor(self.state_dict['num_samples_so_far']/1e6))+'.pt')))
 
 	def load(self, path):
-		state = torch.load(path)
-		self.policy.load_state_dict(state['policy_state_dict'])
-		self.discriminator.load_state_dict(state['discriminator_state_dict'])
+		if is_root_proc():
+			print(f'load {path}')
+			state = torch.load(path)
+			self.policy_loc.load_state_dict(state['policy_state_dict'])
+			for key in self.state_dict.keys():
+				self.state_dict[key] = state[key]
+		elif is_root_proc():
+			state = torch.load(path)
+			self.disc_loc.load_state_dict(state['discriminator_state_dict'])
 
-		for key in self.state_dict.keys():
-			self.state_dict[key] = state[key]
+			
