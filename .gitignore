@@ -9,3 +9,5 @@ data/png/
 .tags
 .tags_sorted_by_file
 *.json
+*.out
+*/*.out
