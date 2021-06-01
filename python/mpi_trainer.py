@@ -101,7 +101,9 @@ class Trainer(object):
 				
 				self.print_log(t_sample, log_policy, log_disc, self.writer)
 				self.save(self.path)
-			self.state_dict['elapsed_time'] += t_sample + np.max([log_policy['t'],log_disc['t']])
+				self.state_dict['elapsed_time'] += t_sample + np.max([log_policy['t'],log_disc['t']])
+			else:
+				self.state_dict['elapsed_time'] += t_sample
 		if is_root2_proc():
 			valid_samples = self.concat_samples(self.disc_episode_list)
 			if valid_samples:
@@ -151,7 +153,7 @@ class Trainer(object):
 				if len(self.episode_buffers[-1]) != 0:
 					self.episode_buffers.append([])
 				self.env.reset()
-				
+
 	def postprocess_episodes(self):
 		self.policy_episodes = []
 		self.disc_episodes = []

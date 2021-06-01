@@ -332,10 +332,10 @@ step(const Eigen::VectorXd& _action)
 				auto skel1 = bn1->getSkeleton();
 				auto skel2 = bn2->getSkeleton();
 
-				if(skel1 == mObstacle && skel2->getName() == "humanoid")
-					mSimCharacter->applyForceMSD(bn2, bn2->getTransform().inverse()*(contact.point),-contact.force);
-				else if(skel1->getName() == "humanoid" && skel2 == mObstacle)
-					mSimCharacter->applyForceMSD(bn1, bn1->getTransform().inverse()*(contact.point), contact.force);
+				// if(skel1 == mObstacle && skel2->getName() == "humanoid")
+				// 	mSimCharacter->applyForceMSD(bn2, bn2->getTransform().inverse()*(contact.point),-contact.force);
+				// else if(skel1->getName() == "humanoid" && skel2 == mObstacle)
+				// 	mSimCharacter->applyForceMSD(bn1, bn1->getTransform().inverse()*(contact.point), contact.force);
 
 				if(bn1->getName().find("Foot") != std::string::npos)
 					continue;
