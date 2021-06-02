@@ -1,4 +1,4 @@
 ROOT 10.0 100.0 0.8
-JOINT simSpine 12.0 100.0 0.8
-JOINT simLeftArm 12.0 20.0 0.8
-JOINT simLeftForeArm 4.0 20.0 0.8
+JOINT simSpine 6.0 50.0 0.5
+JOINT simLeftArm 2.0 1.0 0.5
+JOINT simLeftForeArm 1.0 1.0 0.5

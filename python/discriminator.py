@@ -36,7 +36,8 @@ class FCDiscriminator(object):
 		ss1_filtered = self.state_filter(ss1, update=False)
 		ss1_tensor = self.convert_to_tensor(ss1_filtered)
 
-		d = self.model(ss1_tensor)
+		with torch.no_grad():
+			d = self.model(ss1_tensor)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))

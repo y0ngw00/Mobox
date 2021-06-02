@@ -118,10 +118,11 @@ private:
 	CartesianMSDSystem* mCartesianMSDSystem;
 	
 	int mForceCount;
+	dart::constraint::BallJointConstraintPtr mBallConstraint;
 
 	dart::dynamics::SkeletonPtr mWeldObstacle;
 
-	Eigen::Vector3d mInitHandPos, mCurrentTargetHandPos, mTargetHandPos, mTargetHandPos2;
+	Eigen::Vector3d mInitHandPos, mCurrentTargetHandPos, mCurrentTargetHandVel, mTargetHandPos, mTargetHandPos2;
 	void generateTargetHandPos();
 	void updateTargetHandPos();
 	int mTargetHandCount, mTargetHandFinishCount;

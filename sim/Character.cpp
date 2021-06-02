@@ -579,7 +579,7 @@ getStateAMP()
 	for(int i=0;i<mEndEffectors.size();i++)
 		states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());
 
-	bool use_velocity = false;
+	bool use_velocity = true;
 	if(use_velocity)
 	{
 		Eigen::Vector3d v_root = R_ref_inv*mSkeleton->getBodyNode(0)->getLinearVelocity();

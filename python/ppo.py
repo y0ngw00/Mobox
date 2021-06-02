@@ -45,12 +45,13 @@ class FCPolicy(object):
 		state_filtered = self.state_filter(state, update=False)
 		state_tensor = self.convert_to_tensor(state_filtered)
 
-		logit, vf_pred = self.model(state_tensor)
-		mean, log_std = torch.chunk(logit, 2, dim = 1)
-		
-		action_dist = self.distribution(mean, torch.exp(log_std))
-		action = action_dist.sample()
-		logprob = action_dist.log_prob(action).sum(-1)
+		with torch.no_grad():
+			logit, vf_pred = self.model(state_tensor)
+			mean, log_std = torch.chunk(logit, 2, dim = 1)
+			
+			action_dist = self.distribution(mean, torch.exp(log_std))
+			action = action_dist.sample()
+			logprob = action_dist.log_prob(action).sum(-1)
 
 		action = self.convert_to_ndarray(action)
 		logprob = self.convert_to_ndarray(logprob)

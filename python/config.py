@@ -40,16 +40,17 @@ config = {
 		'grad_clip' : 0.5,
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
+		# 'r_scale' : 2.0,
 		'r_scale' : 2.0,
 		'lr' : 5e-6,
 		# 'lr' : 1e-4,
 	},
 
 	'trainer' : {
-		'sample_size' : 4096,
+		'sample_size' : 2048,
 		# 'sample_size' : 2048,
-		'num_sgd_iter' : 3,
-		'sgd_minibatch_size' : 256,
+		'num_sgd_iter' : 5,
+		'sgd_minibatch_size' : 128,
 		# 'sgd_minibatch_size' : 128,
 		# 'sgd_minibatch_size' : 32,
 		
