@@ -63,6 +63,7 @@ public:
 				const Eigen::MatrixXd& rotation,
 				const Eigen::Vector3d& linear_velocity,
 				const Eigen::MatrixXd& angular_velocity);
+	const Eigen::Vector3d& getCurrentTargetHandPos(){return mCurrentTargetHandPos;}
 private:
 	double computeGroundHeight();
 	void recordState();
@@ -120,6 +121,10 @@ private:
 
 	dart::dynamics::SkeletonPtr mWeldObstacle;
 
+	Eigen::Vector3d mInitHandPos, mCurrentTargetHandPos, mTargetHandPos, mTargetHandPos2;
+	void generateTargetHandPos();
+	void updateTargetHandPos();
+	int mTargetHandCount, mTargetHandFinishCount;
 };
 
 #endif

@@ -104,6 +104,9 @@ step()
 
 	mVelocity *= mDamperCoeff;
 	mPosition = mPosition*dart::math::expMapRot(mTimestep*mVelocity);
+	Eigen::AngleAxisd aa(mPosition);
+	if(aa.angle()>0.8)
+		mPosition = Eigen::AngleAxisd(0.8,aa.axis());
 	mForce.setZero();
 }
 

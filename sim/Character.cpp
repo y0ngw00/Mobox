@@ -76,16 +76,17 @@ applyForceMSD(dart::dynamics::BodyNode* bn,
 	mCartesianMSD->applyForce(force);
 
 	dart::math::LinearJacobian J = mSkeleton->getLinearJacobian(bn, local_pos);
-	Eigen::JacobiSVD<Eigen::MatrixXd> svd(J, Eigen::ComputeFullU | Eigen::ComputeFullV);
-	Eigen::VectorXd s = svd.singularValues();
-	Eigen::Matrix3d s_inv = Eigen::Matrix3d::Zero();
-	for(int i =0;i<3;i++)
-	{
-		if(s[0]>1e-6) s_inv(i,i) = 1.0/s[0];
-		else s_inv(i,i) = 0.0;
-	}
+	// Eigen::JacobiSVD<Eigen::MatrixXd> svd(J, Eigen::ComputeFullU | Eigen::ComputeFullV);
+	// Eigen::VectorXd s = svd.singularValues();
+	// Eigen::Matrix3d s_inv = Eigen::Matrix3d::Zero();
+	// for(int i =0;i<3;i++)
+	// {
+	// 	if(s[0]>1e-6) s_inv(i,i) = 1.0/s[0];
+	// 	else s_inv(i,i) = 0.0;
+	// }
 	
-	Eigen::MatrixXd Jt = svd.matrixV()*s_inv*(svd.matrixU().transpose());
+	// Eigen::MatrixXd Jt = svd.matrixV()*s_inv*(svd.matrixU().transpose());
+	Eigen::MatrixXd Jt = J.transpose();
 	Eigen::VectorXd Jtf = Jt*(force);
 	int n_joints = mSkeleton->getNumJoints();
 	for(int i=0;i<n_joints;i++)
@@ -544,7 +545,7 @@ getStateAMP()
 	for(int i=0;i<mEndEffectors.size();i++)
 		states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());
 
-	bool use_velocity = true;
+	bool use_velocity = false;
 	if(use_velocity)
 	{
 		Eigen::Vector3d v_root = R_ref_inv*mSkeleton->getBodyNode(0)->getLinearVelocity();

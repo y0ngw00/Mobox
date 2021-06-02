@@ -11,7 +11,7 @@
         <Body type="Sphere" mass="7.0" radius="0.0951" contact="On" >
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.0000 0.3251 0.0"/>
         </Body>
-        <Joint type="Ball" bvh="simSpine" kp="500.0" maxf="400.0" weight="0.4" m="10.0" d="20.0" k="80.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
+        <Joint type="Weld" bvh="simSpine" kp="500.0" maxf="400.0" weight="0.4" m="10.0" d="20.0" k="80.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0 0.213 0.0"/>
         </Joint>
     </Node>
@@ -38,7 +38,7 @@
         <Body type="Box" mass="3.0" size="0.2346 0.044 0.044" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.5147 0.4261 0.0"/>
         </Body>
-        <Joint type="Weld" bvh="simLeftForeArm" kp="300.0" maxf="300.0" weight="0.2" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
+        <Joint type="Ball" bvh="simLeftForeArm" kp="300.0" maxf="300.0" weight="0.2" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.381 0.4260 0.0"/>
         </Joint>
     </Node>
@@ -57,7 +57,7 @@
         <Body type="Box" mass="5.0" size="0.2200 0.045 0.045" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.2552 0.4261 0.0000"/>
         </Body>
-        <Joint type="Ball" bvh="simRightArm" kp="400.0"  maxf="400.0" weight="0.3" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
+        <Joint type="Weld" bvh="simRightArm" kp="400.0"  maxf="400.0" weight="0.3" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.1352 0.4260 0.0"/>
         </Joint>
     </Node>

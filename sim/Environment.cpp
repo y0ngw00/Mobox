@@ -20,7 +20,7 @@ Environment::
 Environment()
 	:mWorld(std::make_shared<World>()),
 	mControlHz(30),
-	mSimulationHz(600),
+	mSimulationHz(300),
 	mElapsedFrame(0),
 	mMaxElapsedFrame(300),
 	mSimCharacter(nullptr),
@@ -32,7 +32,7 @@ Environment()
 	mMaxHeadingTurnRate(0.15),
 	mRewardGoal(0.0),
 	mEnableGoal(false),
-	mEnableObstacle(true),
+	mEnableObstacle(false),
 	mEnableGoalEOE(false),
 	mKinematics(false)
 {
@@ -89,17 +89,22 @@ Environment()
 	
 	
 	// {
-		BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
-		Motion* motion = new Motion(bvh);
-		for(int j=0;j<300;j++)
-			motion->append(bvh->getPosition(84), bvh->getRotation(84),false);
-		motion->computeVelocity();
-		mMotions.emplace_back(motion);
-		mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
-		mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+	// 	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
+	// 	Motion* motion = new Motion(bvh);
+	// 	// for(int j=0;j<300;j++)
+	// 	// 	motion->append(bvh->getPosition(84), bvh->getRotation(84),false);
+
+	// 	motion->computeVelocity();
+	// 	mMotions.emplace_back(motion);
+	// 	mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+	// 	mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
 	// }
 	// auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 1:44:04 2:24:00");
-	// mMotions.emplace_back(motion);
+	auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 0:04:04 2:24:00");
+
+	mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+	mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+	mMotions.emplace_back(motion);
 
 	Eigen::Vector3d mass_coeffs(0.01, 1e7, 0.01);
 	Eigen::Vector3d spring_coeffs(5.0, 0.0, 5.0);
@@ -129,7 +134,8 @@ Environment()
 	// mSimCharacter->parseMSD("JOINT simHead 0.01 20.0 0.6");
 
 	// mStartFrame = mInitialStateDistribution->sample();
-	mInitialStateDistribution = new Distribution1D<int>(motion->getNumFrames(), [=](int i){return i;}, 0.7);
+	int stride = 60;
+	mInitialStateDistribution = new Distribution1D<int>(motion->getNumFrames()/stride, [=](int i){return i*stride;}, 0.7);
 	// 	Eigen::Map<Eigen::ArrayXd> rs(mRewards["r"].data(), mRewards["r"].size());
 	
 
@@ -186,8 +192,8 @@ reset(int frame)
 	mCurrentMotion = mMotions[0];
 	int nf = motion->getNumFrames();
 	mInitialStateDistribution->update(mElapsedFrame);
-	// mFrame = mInitialStateDistribution->sample();
-	mFrame = 0;
+	mFrame = mInitialStateDistribution->sample();
+	// mFrame = 0;
 	// mFrame = 66;
 	// std::cout<<mInitialStateDistribution->getValue().transpose()<<std::endl;
 	mElapsedFrame = 0;
@@ -269,6 +275,12 @@ reset(int frame)
 	if(mWorld->hasSkeleton(mObstacle))
 		mWorld->removeSkeleton(mObstacle);
 	this->recordState();
+
+	mTargetHandPos = mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getCOM();
+	mTargetHandPos2 = mTargetHandPos + 0.3*Eigen::Vector3d::Random();
+	mTargetHandCount = 0;
+	mTargetHandFinishCount = dart::math::Random::uniform<int>(30,60);
+	mInitHandPos = mTargetHandPos;
 }
 void
 Environment::
@@ -288,6 +300,8 @@ step(const Eigen::VectorXd& _action)
 		this->generateObstacle();
 		this->updateObstacle();
 	}
+	this->generateTargetHandPos();
+	this->updateTargetHandPos();
 	// if(mForceCount>60 && dart::math::Random::uniform<double>(0.0,1.0)<0.2)
 	// {
 	// 	mForceCount = 0;
@@ -318,8 +332,13 @@ step(const Eigen::VectorXd& _action)
 			mSimCharacter->actuate(target_pos);
 			mWorld->step();	
 			auto cr = mWorld->getConstraintSolver()->getLastCollisionResult();
+			auto hand = mSimCharacter->getSkeleton()->getBodyNode("LeftHand");
+			double kp = 100.0;
+			double kv = 2.0*sqrt(kp);
+			// Eigen::Vector3d hand_force = kp*(mCurrentTargetHandPos - hand->getCOM()) - kv*hand->getCOMLinearVelocity();
+			Eigen::Vector3d hand_force = kp*(mCurrentTargetHandPos - hand->getCOM());
 
-
+			// mSimCharacter->applyForceMSD(hand, Eigen::Vector3d::Zero(), hand_force);
 			for(int j=0;j<cr.getNumContacts();j++)
 			{
 				auto contact = cr.getContact(j);
@@ -790,6 +809,44 @@ generateObstacle()
 	mObstacle->setVelocities(generalized_vel);
 	mObstacleCount = 0;
 	mObstacleFinishCount = dart::math::Random::uniform<int>(30,120);
+}
+
+void
+Environment::
+generateTargetHandPos()
+{
+	if(mTargetHandCount<mTargetHandFinishCount)
+		return;
+	mTargetHandPos = mTargetHandPos2;
+	mTargetHandPos2 += 0.5*Eigen::Vector3d::Random();
+
+	Eigen::Vector3d proj;
+	Eigen::Vector3d c = mTargetHandPos2 - mInitHandPos;
+	if(c[0]<-0.15)
+		c[0] = -0.15;
+
+	if(c[1]<0.0)
+		c[1] = 0.0;
+	double d = c.norm();
+	double r = 0.5;
+	if(d>r)
+	{
+		c = c/d*r;
+		mTargetHandPos2 = mInitHandPos + c;
+	}
+
+
+	mTargetHandCount = 0;
+	mTargetHandFinishCount = dart::math::Random::uniform<int>(20,30);
+}
+void
+Environment::
+updateTargetHandPos()
+{
+	double t = (double)mTargetHandCount/(double)mTargetHandFinishCount;
+	t = MotionUtils::easeInEaseOut(t);
+	mCurrentTargetHandPos = t*mTargetHandPos + (1.0 - t)*mTargetHandPos2;
+	mTargetHandCount++;
 }
 void
 Environment::

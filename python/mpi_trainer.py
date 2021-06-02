@@ -381,7 +381,7 @@ class Trainer(object):
 			self.policy_loc.load_state_dict(state['policy_state_dict'])
 			for key in self.state_dict.keys():
 				self.state_dict[key] = state[key]
-		elif is_root_proc():
+		elif is_root2_proc():
 			state = torch.load(path)
 			self.disc_loc.load_state_dict(state['discriminator_state_dict'])
 

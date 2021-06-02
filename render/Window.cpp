@@ -74,6 +74,9 @@ render()
 	glColor4f(0.4,0.4,1.2,0.2);
 	
 	
+	glColor4f(1.2,0.4,0.4,0.8);DrawUtils::drawArrow3D(Eigen::Vector3d::Zero(), Eigen::Vector3d::UnitX(), 0.2);
+	glColor4f(0.4,1.2,0.4,0.8);DrawUtils::drawArrow3D(Eigen::Vector3d::Zero(), Eigen::Vector3d::UnitY(), 0.2);
+	glColor4f(0.4,0.4,1.2,0.8);DrawUtils::drawArrow3D(Eigen::Vector3d::Zero(), Eigen::Vector3d::UnitZ(), 0.2);
 
 	if(mDrawSimPose){
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
@@ -82,6 +85,14 @@ render()
 		Eigen::Vector3d pos = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getCOM();
 		if(mDrawCOMvel)
 		DrawUtils::drawArrow3D(pos, pos+dir, 0.2);
+		pos = mEnvironment->getCurrentTargetHandPos();
+		glPushMatrix();
+		DrawUtils::translate(pos);
+		glColor3f(1,0,0);
+		DrawUtils::drawSphere(0.1);
+		
+		glPopMatrix();
+
 
 		// Eigen::Vector3d com_vel = mEnvironment->getStateGoal();
 		// glColor3f(1,0,0);
