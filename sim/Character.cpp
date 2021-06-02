@@ -69,13 +69,33 @@ parseMSD(const std::string& line, double dt)
 }
 void
 Character::
-applyForceMSD(dart::dynamics::BodyNode* bn,
-						const Eigen::Vector3d& local_pos,
-						const Eigen::Vector3d& force)
+applyForceMSD()
 {
-	mCartesianMSD->applyForce(force);
+	for(int i =0;i<mForceSensors.size();i++)
+	{
+		dart::dynamics::BodyNode* bn = mForceSensors[i]->getBodyNode();
+		const Eigen::Vector3d& local_pos = mForceSensors[i]->getLocalOffset();
+		const Eigen::Vector3d& force = 1000.0*mForceSensors[i]->getHapticPosition(false);
 
-	dart::math::LinearJacobian J = mSkeleton->getLinearJacobian(bn, local_pos);
+		mCartesianMSD->applyForce(force);
+		dart::math::LinearJacobian J = mSkeleton->getLinearJacobian(bn, local_pos);
+		Eigen::MatrixXd Jt = J.transpose();
+		Eigen::VectorXd Jtf = Jt*(force);
+		int n_joints = mSkeleton->getNumJoints();
+		for(int i=0;i<n_joints;i++)
+		{
+			auto joint = mSkeleton->getJoint(i);
+			if(joint->getType()!="BallJoint")
+				continue;
+			int idx = mBVHIndices[i];
+			if(mSphereicalMSDs[idx] == nullptr)
+				continue;
+			int idx_in_jac = joint->getIndexInSkeleton(0);
+			mSphereicalMSDs[idx]->applyForce(Jtf.segment<3>(idx_in_jac));
+		}
+	}
+
+	
 	// Eigen::JacobiSVD<Eigen::MatrixXd> svd(J, Eigen::ComputeFullU | Eigen::ComputeFullV);
 	// Eigen::VectorXd s = svd.singularValues();
 	// Eigen::Matrix3d s_inv = Eigen::Matrix3d::Zero();
@@ -86,20 +106,7 @@ applyForceMSD(dart::dynamics::BodyNode* bn,
 	// }
 	
 	// Eigen::MatrixXd Jt = svd.matrixV()*s_inv*(svd.matrixU().transpose());
-	Eigen::MatrixXd Jt = J.transpose();
-	Eigen::VectorXd Jtf = Jt*(force);
-	int n_joints = mSkeleton->getNumJoints();
-	for(int i=0;i<n_joints;i++)
-	{
-		auto joint = mSkeleton->getJoint(i);
-		if(joint->getType()!="BallJoint")
-			continue;
-		int idx = mBVHIndices[i];
-		if(mSphereicalMSDs[idx] == nullptr)
-			continue;
-		int idx_in_jac = joint->getIndexInSkeleton(0);
-		mSphereicalMSDs[idx]->applyForce(Jtf.segment<3>(idx_in_jac));
-	}
+	
 }
 void
 Character::
@@ -169,36 +176,63 @@ restoreStateMSD(const std::vector<Eigen::VectorXd>& states)
 		if(mSphereicalMSDs[i] != nullptr)
 			mSphereicalMSDs[i]->restoreState(states[idx++]);
 }
-// void
-// Character::
-// setBaseMotion(Motion* m)
-// {
-// 	mMotion = m;
-// }
-// const Eigen::Vector3d&
-// Character::
-// getPosition(int idx)
-// {
-// 	return mMotion->getPosition(idx);
-// }
-// const Eigen::MatrixXd&
-// Character::
-// getRotation(int idx)
-// {
-// 	return mMotion->getRotation(idx);
-// }
-// const Eigen::Vector3d&
-// Character::
-// getLinearVelocity(int idx)
-// {
-// 	return mMotion->getLinearVelocity(idx);
-// }
-// const Eigen::MatrixXd&
-// Character::
-// getAngularVelocity(int idx)
-// {
-// 	return mMotion->getAngularVelocity(idx);
-// }
+void
+Character::
+addForceSensor(const Eigen::Vector3d& point)
+{
+	auto closest = DARTUtils::getPointClosestBodyNode(mSkeleton,point);
+	mForceSensors.emplace_back(new ForceSensor(closest.first, closest.second));
+}
+void
+Character::
+resetForceSensor()
+{
+	for(auto fs : mForceSensors)
+		fs->reset();
+}
+ForceSensor*
+Character::
+getClosestForceSensor(const Eigen::Vector3d& point)
+{
+	double min_distance =1e6;
+	ForceSensor* min_fs = nullptr;
+	for(auto fs : mForceSensors)
+	{
+		Eigen::Vector3d p_glob = fs->getPosition();
+		double distance = (p_glob-point).norm();
+		if(distance<min_distance)
+		{
+			min_distance = distance;
+			min_fs = fs;
+		}
+	}
+
+	if(min_distance<0.1)
+		return min_fs;
+	return nullptr;
+}
+std::pair<ForceSensor*,double>
+Character::
+getClosestForceSensor(const Eigen::Vector3d& p0, const Eigen::Vector3d& p1)
+{
+	double min_distance =1e6;
+	ForceSensor* min_fs = nullptr;
+	double min_t = 0;
+	for(auto fs : mForceSensors)
+	{
+		Eigen::Vector3d p_glob = fs->getPosition();
+		double t = (p1 - p0).dot(p_glob - p0)/(p1 - p0).dot(p1 - p0);
+		double distance = (t*(p1-p0) - (p_glob - p0)).norm();
+		if(distance<min_distance)
+		{
+			min_distance = distance;
+			min_fs = fs;
+			min_t = t;
+		}
+	}
+
+	return std::make_pair(min_fs, min_t);
+}
 Eigen::Isometry3d
 Character::
 getRootTransform()

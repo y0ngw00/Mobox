@@ -25,7 +25,7 @@ Window()
 	mExplore(false),
 	mDrawKinPose(true),
 	mDrawSimPose(true),
-	mPlotReward(true),
+	mPlotReward(false),
 	mFocus(false),
 	mDrawCOMvel(false),
 	mDraw2DCharacter(true),
@@ -117,6 +117,8 @@ render()
 
 		
 	}
+	if(mDraw2DCharacter)
+		DARTRendering::drawForceSensors(mEnvironment->getSimCharacter(),Eigen::Vector3d(0.8,0.7,0.0),Eigen::Vector3d(0.16,0.4,0.0),mSimRenderOption);
 	if(mDrawKinPose)
 		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
 

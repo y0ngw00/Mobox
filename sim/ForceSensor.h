@@ -2,17 +2,17 @@
 #define __FORCE_SENSOR_H__
 #include "dart/dart.hpp"
 
+
 class ForceSensor
 {
 public:
 	ForceSensor(dart::dynamics::BodyNode* bn, const Eigen::Vector3d& local_pos);
 
-	void setInsomnia(bool insomnia){mInsomnia = insomnia;}
 	void reset();
 	void addExternalForce(const Eigen::Vector3d& f_ext);
 	void step();
 
-	bool isSleep(){if(mInsomnia)return false; return mSleep;}
+	bool isSleep(){return mSleep;}
 	const Eigen::Vector3d& getLocalOffset(){return mLocalOffset;}
 	dart::dynamics::BodyNode* getBodyNode(){return mBodyNode;}
 	Eigen::Vector3d getHapticPosition(bool local = true);
@@ -26,7 +26,7 @@ private:
 
 	// Internal haptic states
 	Eigen::Vector3d mX, mV;
-	Eigen::Vector3d mfext, mfext1;
+	Eigen::Vector3d mfext;
 	bool mSleep;
 	bool mInsomnia;
 	double mh;

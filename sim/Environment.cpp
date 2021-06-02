@@ -31,7 +31,7 @@ Environment()
 	mSpeedChangeProb(0.05),
 	mMaxHeadingTurnRate(0.15),
 	mRewardGoal(0.0),
-	mEnableGoal(false),
+	mEnableGoal(true),
 	mEnableObstacle(false),
 	mEnableGoalEOE(false),
 	mKinematics(false)
@@ -88,17 +88,17 @@ Environment()
 	
 	
 	
-	// {
-	// 	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
-	// 	Motion* motion = new Motion(bvh);
-	// 	// for(int j=0;j<300;j++)
-	// 	// 	motion->append(bvh->getPosition(84), bvh->getRotation(84),false);
+	{
+		BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
+		Motion* motion = new Motion(bvh);
+		for(int j=0;j<300;j++)
+			motion->append(bvh->getPosition(84), bvh->getRotation(84),false);
 
-	// 	motion->computeVelocity();
-	// 	mMotions.emplace_back(motion);
-	// 	mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
-	// 	mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
-	// }
+		motion->computeVelocity();
+		mMotions.emplace_back(motion);
+		// mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+		// mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+	}
 	// auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 1:44:04 2:24:00");
 	auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 0:04:04 2:24:00");
 
@@ -191,14 +191,15 @@ reset(int frame)
 	auto motion = mMotions[0];
 	mCurrentMotion = mMotions[0];
 	int nf = motion->getNumFrames();
-	mInitialStateDistribution->update(mElapsedFrame);
-	mFrame = mInitialStateDistribution->sample();
-	// mFrame = 0;
+	// mInitialStateDistribution->update(mElapsedFrame);
+	// mFrame = mInitialStateDistribution->sample();
+	mFrame = 0;
 	// mFrame = 66;
 	// std::cout<<mInitialStateDistribution->getValue().transpose()<<std::endl;
 	mElapsedFrame = 0;
 
 	mSimCharacter->resetMSD();
+	mSimCharacter->resetForceSensor();
 	// if(frame<0)
 		// mStartFrame = mInitialStateDistribution->sample();
 
@@ -277,9 +278,12 @@ reset(int frame)
 	this->recordState();
 
 	mTargetHandPos = mSimCharacter->getSkeleton()->getBodyNode("LeftHand")->getCOM();
-	mTargetHandPos2 = mTargetHandPos + 0.3*Eigen::Vector3d::Random();
+	mTargetHandPos2 = mTargetHandPos + 5.0*Eigen::Vector3d::Random();
+	mTargetHandPos2[1] = mTargetHandPos[1];
 	mTargetHandCount = 0;
-	mTargetHandFinishCount = dart::math::Random::uniform<int>(30,60);
+	mTargetHandFinishCount = dart::math::Random::uniform<int>(100,150);
+
+	// mTargetHandFinishCount = dart::math::Random::uniform<int>(30,60);
 	mInitHandPos = mTargetHandPos;
 }
 void
@@ -327,6 +331,9 @@ step(const Eigen::VectorXd& _action)
 	}
 	else
 	{
+
+		mSimCharacter->applyForceMSD();
+		mSimCharacter->stepMSD();
 		for(int i=0;i<num_sub_steps;i++)
 		{
 			mSimCharacter->actuate(target_pos);
@@ -337,6 +344,8 @@ step(const Eigen::VectorXd& _action)
 			double kv = 2.0*sqrt(kp);
 			// Eigen::Vector3d hand_force = kp*(mCurrentTargetHandPos - hand->getCOM()) - kv*hand->getCOMLinearVelocity();
 			Eigen::Vector3d hand_force = kp*(mCurrentTargetHandPos - hand->getCOM());
+
+			mSimCharacter->getClosestForceSensor(hand->getCOM())->addExternalForce(hand_force);
 
 			// mSimCharacter->applyForceMSD(hand, Eigen::Vector3d::Zero(), hand_force);
 			for(int j=0;j<cr.getNumContacts();j++)
@@ -351,10 +360,10 @@ step(const Eigen::VectorXd& _action)
 				auto skel1 = bn1->getSkeleton();
 				auto skel2 = bn2->getSkeleton();
 
-				if(skel1 == mObstacle && skel2->getName() == "humanoid")
-					mSimCharacter->applyForceMSD(bn2, bn2->getTransform().inverse()*(contact.point),-10.0*contact.force);
-				else if(skel1->getName() == "humanoid" && skel2 == mObstacle)
-					mSimCharacter->applyForceMSD(bn1, bn1->getTransform().inverse()*(contact.point), 10.0*contact.force);
+				// if(skel1 == mObstacle && skel2->getName() == "humanoid")
+				// 	mSimCharacter->applyForceMSD(bn2, bn2->getTransform().inverse()*(contact.point),-10.0*contact.force);
+				// else if(skel1->getName() == "humanoid" && skel2 == mObstacle)
+				// 	mSimCharacter->applyForceMSD(bn1, bn1->getTransform().inverse()*(contact.point), 10.0*contact.force);
 
 				if(bn1->getName().find("Foot") != std::string::npos)
 					continue;
@@ -372,17 +381,13 @@ step(const Eigen::VectorXd& _action)
 				}
 
 			}
-			// if(mFrame <= 35 && mFrame >= 30)
-			// {
-			// 	auto bn = mSimCharacter->getSkeleton()->getBodyNode("LeftHand");
-			// 	Eigen::Vector3d force(0,0,-10000.0);
-			// 	mSimCharacter->applyForceMSD(bn, bn->getTransform().translation(),force);
-			// }
-			
+			auto fss = mSimCharacter->getForceSensors();
+			for(auto fs: fss)
+				fs->step();
 		}
 		
 	}
-	mSimCharacter->stepMSD();
+	
 	auto motion = mCurrentMotion;
 	Eigen::Vector3d position = motion->getPosition(0);
 	Eigen::MatrixXd rotation = motion->getRotation(0);
@@ -507,14 +512,14 @@ recordGoal()
 		// std::cout<<target_com_vel.norm()<<" "<<MathUtils::projectOnVector(com_vel, target_com_vel).norm()<<std::endl;
 		// if(vel > 0.0){
 			// mRewardGoal = 2*std::exp(-0.25*vel*vel) - 1.0;
-		mRewardGoal = std::exp(-0.25*vel*vel);
+		mRewardGoal = std::exp(-1.5*vel*vel);
 		// }
 	}
 	else
 	{
 		com_vel[1] = 0.0;
 		double vel = com_vel.norm();
-		mRewardGoal = std::exp(-0.25*vel*vel);
+		mRewardGoal = std::exp(-1.5*vel*vel);
 	}
 	// std::cout<<mRewardGoal<<std::endl;
 	mRewardGoals.emplace_back(mRewardGoal);
@@ -818,26 +823,28 @@ generateTargetHandPos()
 	if(mTargetHandCount<mTargetHandFinishCount)
 		return;
 	mTargetHandPos = mTargetHandPos2;
-	mTargetHandPos2 += 0.5*Eigen::Vector3d::Random();
+	// mTargetHandPos2 += 0.5*Eigen::Vector3d::Random();
+	mTargetHandPos2 += 5.0*Eigen::Vector3d::Random();
+	mTargetHandPos2[1] = mTargetHandPos[1];
 
-	Eigen::Vector3d proj;
-	Eigen::Vector3d c = mTargetHandPos2 - mInitHandPos;
-	if(c[0]<-0.15)
-		c[0] = -0.15;
+	// Eigen::Vector3d proj;
+	// Eigen::Vector3d c = mTargetHandPos2 - mInitHandPos;
+	// if(c[0]<-0.15)
+	// 	c[0] = -0.15;
 
-	if(c[1]<0.0)
-		c[1] = 0.0;
-	double d = c.norm();
-	double r = 0.5;
-	if(d>r)
-	{
-		c = c/d*r;
-		mTargetHandPos2 = mInitHandPos + c;
-	}
+	// if(c[1]<0.0)
+	// 	c[1] = 0.0;
+	// double d = c.norm();
+	// double r = 0.5;
+	// if(d>r)
+	// {
+	// 	c = c/d*r;
+	// 	mTargetHandPos2 = mInitHandPos + c;
+	// }
 
 
 	mTargetHandCount = 0;
-	mTargetHandFinishCount = dart::math::Random::uniform<int>(20,30);
+	mTargetHandFinishCount = dart::math::Random::uniform<int>(100,150);
 }
 void
 Environment::

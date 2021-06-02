@@ -16,9 +16,10 @@ public:
 			const Eigen::VectorXd& maxf);
 
 	void parseMSD(const std::string& line , double dt );
-	void applyForceMSD(dart::dynamics::BodyNode* bn,
-						const Eigen::Vector3d& local_pos,
-						const Eigen::Vector3d& force);
+	void applyForceMSD();
+		// void applyForceMSD(dart::dynamics::BodyNode* bn,
+		// 				const Eigen::Vector3d& local_pos,
+		// 				const Eigen::Vector3d& force);
 	void resetMSD();
 	void stepMSD();
 	Eigen::MatrixXd addRotMSD(Eigen::MatrixXd rotation);
@@ -28,6 +29,12 @@ public:
 	CartesianMSDSystem* getCartesianMSD(){return mCartesianMSD;}
 	SphericalMSDSystem* getSphereicalMSD(int i){return mSphereicalMSDs[i];}
 	const std::vector<SphericalMSDSystem*>& getSphereicalMSDs(){return mSphereicalMSDs;}
+
+	void addForceSensor(const Eigen::Vector3d& point);
+	void resetForceSensor();
+	ForceSensor* getClosestForceSensor(const Eigen::Vector3d& point);
+	std::pair<ForceSensor*,double> getClosestForceSensor(const Eigen::Vector3d& p0, const Eigen::Vector3d& p1);
+	const std::vector<ForceSensor*>& getForceSensors(){return mForceSensors;}
 
 	Eigen::Isometry3d getRootTransform();
 	void setRootTransform(const Eigen::Isometry3d& T);
@@ -91,6 +98,7 @@ private:
 
 	CartesianMSDSystem* mCartesianMSD;
 	std::vector<SphericalMSDSystem*> mSphereicalMSDs;
+	std::vector<ForceSensor*> mForceSensors;
 };
 
 
