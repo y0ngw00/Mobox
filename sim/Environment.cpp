@@ -834,6 +834,9 @@ generateTargetHandPos()
 	mTargetHandPos2 += 3.0*Eigen::Vector3d::Random();
 	// mTargetHandPos2[2] += 5.0;
 	mTargetHandPos2[1] = mTargetHandPos[1];
+	if(mTargetHandPos2[1]<1.0)
+		mTargetHandPos2[1] = 1.3;
+
 
 	// Eigen::Vector3d proj;
 	// Eigen::Vector3d c = mTargetHandPos2 - mInitHandPos;
