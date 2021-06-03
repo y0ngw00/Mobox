@@ -42,6 +42,9 @@ step()
 		mVelocity[i] *= mDamperCoeffs[i];
 		mPosition[i] += mTimestep*mVelocity[i];
 	}
+	// mPosition = mForce/100.0;
+	// mPosition[1] = 0.0;
+	// mVelocity.setZero();
 	mForce.setZero();
 }
 Eigen::VectorXd

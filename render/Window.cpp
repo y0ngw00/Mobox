@@ -89,10 +89,18 @@ render()
 		glPushMatrix();
 		DrawUtils::translate(pos);
 		glColor3f(1,0,0);
-		DrawUtils::drawSphere(0.1);
+		// DrawUtils::drawSphere(0.1);
 		
 		glPopMatrix();
 
+		auto fss = mEnvironment->getSimCharacter()->getForceSensors();
+		for(auto fs: fss)
+		{
+			Eigen::Vector3d dir = fs->getHapticPosition(false);
+			Eigen::Vector3d pos = fs->getPosition();
+			DrawUtils::drawArrow3D(pos, pos+dir, 0.1);
+		}
+		DARTRendering::drawForceSensors(mEnvironment->getSimCharacter(),Eigen::Vector3d(0.8,0.7,0.0),Eigen::Vector3d(0.16,0.4,0.0),mSimRenderOption);
 
 		// Eigen::Vector3d com_vel = mEnvironment->getStateGoal();
 		// glColor3f(1,0,0);
