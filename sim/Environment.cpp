@@ -31,7 +31,7 @@ Environment()
 	mSpeedChangeProb(0.05),
 	mMaxHeadingTurnRate(0.15),
 	mRewardGoal(0.0),
-	mEnableGoal(false),
+	mEnableGoal(true),
 	mEnableObstacle(true),
 	mEnableGoalEOE(false),
 	mKinematics(false)
@@ -458,8 +458,13 @@ recordGoal()
 	// std::cout<<mStateGoal.transpose()<<std::endl;
 
 	mRewardGoal = 1.0;
-
-	if(target_com_vel.norm()>2e-1)
+	// if(target_com_vel.norm()<0.5)
+	// {
+	// 	com_vel[1] = 0.0;
+	// 	double vel = com_vel.norm();
+	// 	mRewardGoal = std::exp(-1.5*vel*vel);
+	// }
+	if(target_com_vel.norm()>0.5)
 	{
 		double vel = (target_com_vel - MathUtils::projectOnVector(com_vel, target_com_vel)).norm();
 		// std::cout<<vel<<std::endl;
