@@ -176,18 +176,131 @@ computePoseDifferences(Motion* m)
 	}
 	return D;
 }
+Eigen::MatrixXd
+MotionUtils::
+computeJointWiseClosestPose(Motion *m, const Eigen::MatrixXd& R)
+{
+	int n = m->getNumFrames();
+	int njoints = m->getNumJoints();
 
+	Eigen::VectorXi min_indices = -Eigen::VectorXi::Ones(njoints);
+	Eigen::VectorXd min_d = 1e6*Eigen::VectorXd::Ones(njoints);
+
+	Eigen::MatrixXd weights = Eigen::MatrixXd::Zero(njoints, njoints);
+	const std::vector<int>& parents = m->getParents();
+	weights(0,0) = 1.0;
+
+	for(int i=1;i<njoints;i++)
+	{
+		weights(i,i) = 1.0;
+		weights(i, parents[i]) = 1.0;
+		weights(parents[i], i) = 1.0;
+	}
+
+	for(int i=0;i<n;i++)
+	{
+		Eigen::VectorXd d = weights*MotionUtils::computePoseDifferenceVector(m->getRotation(i), R);
+
+		for(int j=0;j<njoints;j++)
+		{
+			if(d[j]<min_d[j])
+			{
+				min_d[j] = d[j];
+				min_indices[j] = i;
+			}
+		}
+	}
+	Eigen::MatrixXd rotation(3,3*njoints);
+	for(int i=0;i<njoints;i++)
+	{
+		rotation.block<3,3>(0,3*i) = m->getRotation(min_indices[i]).block<3,3>(0,3*i);
+	}
+	return rotation;
+
+	// for(int i=0;i<n;i++)
+	// {
+	// 	Eigen::VectorXd d = MotionUtils::computePoseDifferenceVector(m->getRotation(i), Rj);
+
+	// }
+
+
+	// int idx = -1;
+	// double min_distance = 1e6;
+	
+	// for(int i=0;i<n;i++)
+	// {
+	// 	double di = computePoseDifference(m->getRotation(i), rot, w);
+	// 	if(min_distance>di){
+	// 		min_distance = di;
+	// 		idx = i;
+	// 	}
+	// }
+
+	// return idx;
+}
+
+Eigen::VectorXd
+MotionUtils::
+computePoseDifferenceVector(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj)
+{
+	int n = Ri.cols()/3;
+	Eigen::VectorXd d = Eigen::VectorXd::Zero(n);
+
+	Eigen::Matrix3d Rri = Ri.block<3,3>(0,0);
+	Eigen::Matrix3d Rrj = Rj.block<3,3>(0,0);
+
+	Eigen::Quaterniond qr(Rri.transpose()*Rrj);
+	double qwqw_qyqy = std::min(1.0,std::sqrt(qr.y()*qr.y() + qr.w()*qr.w()));
+	d[0] = std::acos(qwqw_qyqy);
+	for(int i=1;i<n;i++)
+	{
+		Eigen::AngleAxisd aa(Ri.block<3,3>(0,i*3).transpose()*Rj.block<3,3>(0,i*3));
+
+		d[i] = aa.angle();
+	}
+
+	return d;
+}
+int
+MotionUtils::
+computeClosestPose(Motion* m, const Eigen::MatrixXd& rot, const Eigen::VectorXd& w)
+{
+	int n = m->getNumFrames();
+	int idx = -1;
+	double min_distance = 1e6;
+	
+	for(int i=0;i<n;i++)
+	{
+		double di = computePoseDifference(m->getRotation(i), rot, w);
+		if(min_distance>di){
+			min_distance = di;
+			idx = i;
+		}
+	}
+
+	return idx;
+}
 double
 MotionUtils::
-computePoseDifference(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj)
+computePoseDifference(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj, const Eigen::VectorXd& w)
 {
 	int n = Ri.cols()/3;
 	double d = 0.0;
-	for(int i=0;i<n;i++)
+
+	Eigen::Matrix3d Rri = Ri.block<3,3>(0,0);
+	Eigen::Matrix3d Rrj = Rj.block<3,3>(0,0);
+
+	Eigen::Quaterniond qr(Rri.transpose()*Rrj);
+	double qwqw_qyqy = std::min(1.0,std::sqrt(qr.y()*qr.y() + qr.w()*qr.w()));
+	d += w[0]*std::acos(qwqw_qyqy);
+	for(int i=1;i<n;i++)
 	{
 		Eigen::AngleAxisd aa(Ri.block<3,3>(0,i*3).transpose()*Rj.block<3,3>(0,i*3));
-		//ToDO : add weights
-		d += aa.angle();
+		double wi = 1.0;
+		if(w.rows()!=0)
+			wi = w[i];
+
+		d += wi*aa.angle();
 	}
 
 	return d;

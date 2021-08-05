@@ -62,8 +62,11 @@ class MotionUtils
 public:
 	static Eigen::MatrixXd computePoseDifferences(Motion* m);
 
+	static Eigen::MatrixXd computeJointWiseClosestPose(Motion *m, const Eigen::MatrixXd& R);
+	static Eigen::VectorXd computePoseDifferenceVector(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj);
+	static int computeClosestPose(Motion* m, const Eigen::MatrixXd& rot,const Eigen::VectorXd& w=Eigen::VectorXd::Zero(0));
 	// static void registerJointWeights(Motion* m, const std::map<std::string, double>& joint_weights);
-	static double computePoseDifference(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj);
+	static double computePoseDifference(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj, const Eigen::VectorXd& w=Eigen::VectorXd::Zero(0));
 	static Eigen::MatrixXd computePoseDisplacement(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj);
 	static Eigen::MatrixXd addDisplacement(const Eigen::MatrixXd& R, const Eigen::MatrixXd& d);
 	static double easeInEaseOut(double x, double yp0 = 0.0, double yp1 = 0.0);

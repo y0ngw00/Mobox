@@ -47,6 +47,7 @@ public:
 
 	Character* getSimCharacter(){return mSimCharacter;}
 	Character* getKinCharacter(){return mKinCharacter;}
+	Character* getKinCharacter2(){return mKinCharacter2;}
 	dart::dynamics::SkeletonPtr getGround(){return mGround;}
 	double getTargetHeading(){return mTargetHeading;}
 	double getTargetSpeed(){return mTargetSpeed;}
@@ -63,6 +64,14 @@ public:
 				const Eigen::MatrixXd& rotation,
 				const Eigen::Vector3d& linear_velocity,
 				const Eigen::MatrixXd& angular_velocity);
+
+	void setCurrentForceSensor(int idx){mCurrentForceSensor = idx;}
+	void setCurrentForcePoint(const Eigen::Vector3d& point){mCurrentForcePoint = point;}
+
+
+	void setCurrentHand(dart::dynamics::BodyNode* bn){mCurrentHand = bn;}
+	void setCurrentTargetHandPos(const Eigen::Vector3d& p){mCurrentTargetHandPos = p;}
+	dart::dynamics::BodyNode* getCurrentHand(){return mCurrentHand;}
 	const Eigen::Vector3d& getCurrentTargetHandPos(){return mCurrentTargetHandPos;}
 private:
 	double computeGroundHeight();
@@ -82,7 +91,7 @@ private:
 	int mMaxElapsedFrame;
 	bool mKinematics;
 	Distribution1D<int>* mInitialStateDistribution;
-	Character *mSimCharacter,*mKinCharacter;
+	Character *mSimCharacter,*mKinCharacter, *mKinCharacter2;
 	Motion* mCurrentMotion;
 	std::vector<Motion*> mMotions;
 
@@ -122,6 +131,10 @@ private:
 
 	dart::dynamics::SkeletonPtr mWeldObstacle;
 
+	int mCurrentForceSensor;
+	Eigen::Vector3d mCurrentForcePoint;
+
+	dart::dynamics::BodyNode* mCurrentHand;
 	Eigen::Vector3d mInitHandPos, mCurrentTargetHandPos, mCurrentTargetHandVel, mTargetHandPos, mTargetHandPos2;
 	void generateTargetHandPos();
 	void updateTargetHandPos();

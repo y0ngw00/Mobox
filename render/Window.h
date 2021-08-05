@@ -74,7 +74,10 @@ protected:
 
 	
 
-	// double mInteractionDepth;
+	double mInteractionDepth;
+	Eigen::Vector3d mForcePoint;
+	int mForceSensorIndex;
+	// dart::dynamics::BodyNode* mForceBodyNode;
 
 	// std::vector<Eigen::Vector3d> mHandPositions;
 	// std::vector<Eigen::Vector4d> mWashedRecords;

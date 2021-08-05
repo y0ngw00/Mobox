@@ -29,7 +29,8 @@ Window()
 	mFocus(false),
 	mDrawCOMvel(false),
 	mDraw2DCharacter(true),
-	mCapture(false)
+	mCapture(false),
+	mForcePoint(Eigen::Vector3d::Zero())
 	// ,mCurrentForceSensor(nullptr)
 {
 	mTimePoint = std::chrono::system_clock::now();
@@ -93,14 +94,20 @@ render()
 		
 		glPopMatrix();
 
+		if(mForceSensorIndex!=-1)
+		{
+			auto fs = mEnvironment->getSimCharacter()->getForceSensors()[mForceSensorIndex];
+			DrawUtils::drawArrow3D(fs->getBodyNode()->getCOM(), mForcePoint, 0.1);	
+		}
+		
 		auto fss = mEnvironment->getSimCharacter()->getForceSensors();
 		for(auto fs: fss)
 		{
 			Eigen::Vector3d dir = fs->getHapticPosition(false);
 			Eigen::Vector3d pos = fs->getPosition();
-			// DrawUtils::drawArrow3D(pos, pos+dir, 0.1);
+			
 		}
-		DARTRendering::drawForceSensors(mEnvironment->getSimCharacter(),Eigen::Vector3d(0.8,0.7,0.0),Eigen::Vector3d(0.16,0.4,0.0),mSimRenderOption);
+		// DARTRendering::drawForceSensors(mEnvironment->getSimCharacter(),Eigen::Vector3d(0.8,0.7,0.0),Eigen::Vector3d(0.16,0.4,0.0),mSimRenderOption);
 
 		// Eigen::Vector3d com_vel = mEnvironment->getStateGoal();
 		// glColor3f(1,0,0);
@@ -127,8 +134,10 @@ render()
 	}
 	if(mDraw2DCharacter)
 		DARTRendering::drawForceSensors(mEnvironment->getSimCharacter(),Eigen::Vector3d(0.8,0.7,0.0),Eigen::Vector3d(0.16,0.4,0.0),mSimRenderOption);
-	if(mDrawKinPose)
-		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
+	if(mDrawKinPose){
+		// DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
+		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter2()->getSkeleton(),mKinRenderOption);
+	}
 
 	// if(mEnvironment->isEnableGoal())
 	// {
@@ -340,32 +349,59 @@ mouse(int button, int state, int x, int y)
 {
 	GLUTWindow3D::mouse(button,state,x,y);
 
-	// if(mMouse == 2) // Right
-	// {
-	// 	if(state==0) // Down
-	// 	{
-	// 		auto ray = mCamera->getRay(x,y);
+	if(mMouse == 2) // Right
+	{
+		if(state==0) // Down
+		{
+			auto ray = mCamera->getRay(x,y);
 
-	// 		Event* event = mEnvironment->getEvent();
-	// 		if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
-	// 		{
-	// 			ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
-	// 			auto obstacle = oevent->getObstacle();
-	// 			Eigen::Vector3d p0 = ray.first;
-	// 			Eigen::Vector3d p1 = ray.second;
+			auto fss = mEnvironment->getKinCharacter()->getForceSensors();
+
+			Eigen::Vector3d p0 = ray.first;
+			Eigen::Vector3d p1 = ray.second;
+
+			double min_t = 1.0;
+			double min_d = 1.0;
+			for(int i=0;i<fss.size();i++)
+			{
+				auto fs = fss[i];
+				Eigen::Vector3d p_glob = fs->getPosition();
+
+				double t = (p1 - p0).dot(p_glob - p0)/(p1 - p0).dot(p1 - p0);
+				double d = (t*(p1-p0) - (p_glob - p0)).norm();
+				if(d<0.2 && t<min_t)
+				{
+					mInteractionDepth = t;
+					mForceSensorIndex = i;
+					min_t = t;
+					min_d = d;
+					mForcePoint = ray.first + mInteractionDepth*(ray.second-ray.first);
+					mEnvironment->setCurrentForcePoint(mForcePoint);
+
+				}
+			}
+			// Event* event = mEnvironment->getEvent();
+			// if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
+			// {
+			// 	ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
+			// 	auto obstacle = oevent->getObstacle();
+				
 
 
 
-	// 			Eigen::Vector3d p_glob = obstacle->getPositions().segment<3>(3);
-	// 			double t = (p1 - p0).dot(p_glob - p0)/(p1 - p0).dot(p1 - p0);
-	// 			double distance = (t*(p1-p0) - (p_glob - p0)).norm();
+			// 	Eigen::Vector3d p_glob = obstacle->getPositions().segment<3>(3);
+			// 	double t = (p1 - p0).dot(p_glob - p0)/(p1 - p0).dot(p1 - p0);
+			// 	double distance = (t*(p1-p0) - (p_glob - p0)).norm();
 
-	// 			mInteractionDepth = t;
-	// 		}
-	// 	}
-	// 	else
-	// 		mInteractionDepth = -1;
-	// }
+			// 	mInteractionDepth = t;
+			// }
+		}
+		else{
+			mInteractionDepth = -1;
+			mForceSensorIndex = -1;
+		}
+	}
+	mEnvironment->setCurrentForceSensor(mForceSensorIndex);
 
 }
 void
@@ -373,25 +409,30 @@ Window::
 motion(int x, int y)
 {
 	GLUTWindow3D::motion(x,y);
-	// if(mMouse == 2 && mDrag)
-	// {
-	// 	auto ray = mCamera->getRay(x,y);
-	// 	Eigen::Vector3d current_force_point = ray.first + mInteractionDepth*(ray.second-ray.first);
-	// 	Event* event = mEnvironment->getEvent();
-	// 	if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
-	// 	{
-	// 		ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
-	// 		auto obstacle = oevent->getObstacle();
-	// 		Eigen::VectorXd p = obstacle->getPositions();
-	// 		Eigen::VectorXd v = obstacle->getVelocities();
-	// 		p.segment<3>(0) = Eigen::Vector3d::Zero();
-	// 		p.segment<3>(3) = current_force_point;
-	// 		v.segment<3>(0) = Eigen::Vector3d::Zero();
-	// 		v.segment<3>(3) = Eigen::Vector3d::Zero();//(current_force_point-)/30.0;
-	// 		oevent->setLinearPosition(current_force_point);
-	// 		oevent->setLinearVelocity(Eigen::Vector3d::Zero());
-	// 	}
-	// }
+	if(mMouse == 2 && mDrag)
+	{
+		auto ray = mCamera->getRay(x,y);
+		mForcePoint = ray.first + mInteractionDepth*(ray.second-ray.first);
+		mEnvironment->setCurrentForcePoint(mForcePoint);
+
+
+		// Event* event = mEnvironment->getEvent();
+		// if(dynamic_cast<ObstacleEvent*>(event)!=nullptr)
+		// {
+		// 	ObstacleEvent* oevent = dynamic_cast<ObstacleEvent*>(event);
+		// 	auto obstacle = oevent->getObstacle();
+		// 	Eigen::VectorXd p = obstacle->getPositions();
+		// 	Eigen::VectorXd v = obstacle->getVelocities();
+		// 	p.segment<3>(0) = Eigen::Vector3d::Zero();
+		// 	p.segment<3>(3) = current_force_point;
+		// 	v.segment<3>(0) = Eigen::Vector3d::Zero();
+		// 	v.segment<3>(3) = Eigen::Vector3d::Zero();//(current_force_point-)/30.0;
+		// 	oevent->setLinearPosition(current_force_point);
+		// 	oevent->setLinearVelocity(Eigen::Vector3d::Zero());
+		// }
+	}
+	else
+		mForcePoint.setZero();
 	
 }
 void

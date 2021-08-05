@@ -22,7 +22,7 @@ Environment()
 	mControlHz(30),
 	mSimulationHz(300),
 	mElapsedFrame(0),
-	mMaxElapsedFrame(3000),
+	mMaxElapsedFrame(300),
 	mSimCharacter(nullptr),
 	mKinCharacter(nullptr),
 	mTargetSpeedMin(0.5),
@@ -34,12 +34,14 @@ Environment()
 	mEnableGoal(true),
 	mEnableObstacle(true),
 	mEnableGoalEOE(false),
+	mCurrentHand(nullptr),
 	mKinematics(false)
 {
 	dart::math::Random::generateSeed(true);
 
 	mSimCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel_c.xml");
 	mKinCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel_c.xml");
+	mKinCharacter2 = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel_c.xml");
 
 	
 	std::vector<int> start_frames = {100, 2910};
@@ -48,47 +50,12 @@ Environment()
 		start_frames.emplace_back(i*300+300);
 	}
 
-	std::vector<std::string> motion_lists = {
-	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Knockback_BtoF_01.bvh",
-	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Knockback_FtoB_01.bvh",
-	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Knockback_LtoR_04.bvh",
-	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Knockback_RtoL_01.bvh",
-	"Anim_KraalA_A_Ax2H_A_Standard_Ext_KnockDown_BtoF_01.bvh",
-	"Anim_KraalA_A_Ax2H_A_Standard_Ext_KnockDown_FtoB_02.bvh",
-	"Anim_KraalA_A_Ax2H_A_Standard_Ext_KnockDown_LtoR_02.bvh",
-	"Anim_KraalA_A_Ax2H_A_Standard_Ext_KnockDown_RtoL_04.bvh"
-	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Slide_BtoF_05.bvh",
-	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Slide_FtoB_01.bvh",
-	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Slide_LtoR_04.bvh",
-	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Slide_RtoL_01.bvh"
-	};
-
-	// for(int i =0;i<motion_lists.size();i++)
-	// {
-	// 	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/mona_retarget/"+motion_lists[i]);
-	// 	Motion* motion = new Motion(bvh);
-	// 	for(int j=0;j<bvh->getNumFrames();j++)
-	// 		motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-	// 	// for(int j=66;j<66+40;j++)
-	// 	// 	motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-		
-	// 	motion->computeVelocity();
-	// 	mMotions.emplace_back(motion);
-
-	// 	if(i==0)
-	// 	{
-	// 		mSimCharacter->buildBVHIndices(bvh->getNodeNames());
-	// 		mKinCharacter->buildBVHIndices(bvh->getNodeNames());
-	// 		int n = motion->getNumFrames()-1;
-
-	// 		mInitialStateDistribution = new Distribution1D<int>(n, [=](int i)->int{return i;}, 0.7);
-	// 	}
-	// }
+	
 	// auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 1:44:04 1:47:23");
 	
 	
 	
-	{
+	// {
 		BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
 		Motion* motion = new Motion(bvh);
 		for(int j=0;j<300;j++)
@@ -98,13 +65,53 @@ Environment()
 		mMotions.emplace_back(motion);
 		// mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
 		// mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
-	}
-	auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 1:44:04 2:24:00");
+	// }
+	// auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 1:44:04 2:24:00");
 	// auto motion = MotionUtils::parseMotionLabel("walk_long.bvh 0:04:04 2:24:00");
-
 	mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
 	mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+	mKinCharacter2->buildBVHIndices(motion->getBVH()->getNodeNames());
 	mMotions.emplace_back(motion);
+
+	std::vector<std::string> motion_lists = {
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Knockback_BtoF_01.bvh",
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Knockback_FtoB_01.bvh",
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Knockback_LtoR_04.bvh",
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Knockback_RtoL_01.bvh",
+	"Anim_KraalA_A_Ax2H_A_Standard_Ext_KnockDown_BtoF_01.bvh"
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_KnockDown_FtoB_02.bvh",
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_KnockDown_LtoR_02.bvh",
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_KnockDown_RtoL_04.bvh"
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Slide_BtoF_05.bvh",
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Slide_FtoB_01.bvh",
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Slide_LtoR_04.bvh",
+	// "Anim_KraalA_A_Ax2H_A_Standard_Ext_Slide_RtoL_01.bvh"
+	};
+
+	for(int i =0;i<motion_lists.size();i++)
+	{
+		BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/mona_retarget/"+motion_lists[i]);
+
+		Motion* motion = new Motion(bvh);
+		for(int j=0;j<bvh->getNumFrames();j++)
+			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
+		// for(int j=66;j<66+40;j++)
+		// 	motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
+		
+		motion->computeVelocity();
+		mMotions.emplace_back(motion);
+	}
+
+	{
+		BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
+		Motion* motion = new Motion(bvh);
+		for(int j=0;j<bvh->getNumFrames();j++)
+			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
+		
+		motion->computeVelocity();
+		mMotions.emplace_back(motion);	
+	}
+	
 
 	Eigen::Vector3d mass_coeffs(0.01, 1e7, 0.01);
 	Eigen::Vector3d spring_coeffs(5.0, 0.0, 5.0);
@@ -235,6 +242,9 @@ reset(int frame)
 	mPrevDoorAngle = 0.0;
 	mPrevMSDStates = mSimCharacter->saveStateMSD();
 
+	mCurrentForceSensor = -1;
+	mCurrentForcePoint = Eigen::Vector3d::Zero();
+
 	// if(mEnableGoal)
 	if(0)
 	{
@@ -320,82 +330,92 @@ step(const Eigen::VectorXd& _action)
 	// }
 
 	mForceCount++;
-	if(mKinematics)
+	
+	mSimCharacter->applyForceMSD();
+	mSimCharacter->stepMSD();
+	for(int i=0;i<num_sub_steps;i++)
 	{
-		auto motion = mCurrentMotion;
-		mFrame %= motion->getNumFrames();
-		Eigen::Vector3d position = motion->getPosition(mFrame);
-		Eigen::MatrixXd rotation = motion->getRotation(mFrame);
-		Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
-		Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(mFrame);
-		mSimCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
-	}
-	else
-	{
+		mSimCharacter->actuate(target_pos);
+		// mWorld->step();
 
-		mSimCharacter->applyForceMSD();
-		mSimCharacter->stepMSD();
-		for(int i=0;i<num_sub_steps;i++)
-		{
-			mSimCharacter->actuate(target_pos);
-			mWorld->step();
+		auto cr = mWorld->getConstraintSolver()->getLastCollisionResult();
 
-			auto cr = mWorld->getConstraintSolver()->getLastCollisionResult();
-			// auto hand = mSimCharacter->getSkeleton()->getBodyNode("LeftHand");
-			// double kp = 100.0;
-			// double kv = 2.0*sqrt(kp);
-			// Eigen::Vector3d hand_force = kp*(mCurrentTargetHandPos - hand->getCOM()) - kv*hand->getCOMLinearVelocity();
-			// Eigen::Vector3d hand_force = kp*(mCurrentTargetHandPos - hand->getCOM());
-
-			// mSimCharacter->getClosestForceSensor(hand->getCOM())->addExternalForce(hand_force);
-			// mSimCharacter->getClosestForceSensor(hand->getCOM())->addExternalForce(hand->getConstraintImpulse().tail<3>()*mSimulationHz);
-
-			// mSimCharacter->applyForceMSD(hand, Eigen::Vector3d::Zero(), hand_force);
-			for(int j=0;j<cr.getNumContacts();j++)
-			{
-				auto contact = cr.getContact(j);
-				auto shapeFrame1 = const_cast<dart::dynamics::ShapeFrame*>(contact.collisionObject1->getShapeFrame());
-				auto shapeFrame2 = const_cast<dart::dynamics::ShapeFrame*>(contact.collisionObject2->getShapeFrame());
-
-				auto bn1 = shapeFrame1->asShapeNode()->getBodyNodePtr();
-				auto bn2 = shapeFrame2->asShapeNode()->getBodyNodePtr();
-
-				auto skel1 = bn1->getSkeleton();
-				auto skel2 = bn2->getSkeleton();
-
-				
-				auto fs = mSimCharacter->getClosestForceSensor(contact.point);
-				if(fs!=nullptr)
-				{
-					if(skel1 == mObstacle && skel2->getName() == "humanoid")
-						fs->addExternalForce(-10.0*contact.force);	
-					else if(skel1->getName() == "humanoid" && skel2 == mObstacle)
-						fs->addExternalForce(10.0*contact.force);	
-				}
-				
-
-				if(bn1->getName().find("Foot") != std::string::npos)
-					continue;
-				else if(bn2->getName().find("Foot") != std::string::npos)
-					continue;
-
-				if(skel1->getName() == "humanoid" && skel2->getName() == "ground"){
-					mContactEOE = true;
-					break;
-				}
-
-				if(skel1->getName() == "ground" && skel2->getName() == "humanoid"){
-					mContactEOE = true;
-					break;
-				}
-
-			}
-			auto fss = mSimCharacter->getForceSensors();
-			for(auto fs: fss)
-				fs->step();
-		}
 		
+		
+		// auto hand = mSimCharacter->getSkeleton()->getBodyNode("LeftHand");
+		// double kp = 100.0;
+		// double kv = 2.0*sqrt(kp);
+		// Eigen::Vector3d hand_force = kp*(mCurrentTargetHandPos - hand->getCOM()) - kv*hand->getCOMLinearVelocity();
+		// Eigen::Vector3d hand_force = kp*(mCurrentTargetHandPos - hand->getCOM());
+
+		// mSimCharacter->getClosestForceSensor(hand->getCOM())->addExternalForce(hand_force);
+		// mSimCharacter->getClosestForceSensor(hand->getCOM())->addExternalForce(hand->getConstraintImpulse().tail<3>()*mSimulationHz);
+
+		if(mCurrentForceSensor!=-1)
+		{
+
+			double kp = 100.0;
+			double kv = 2.0*sqrt(kp);
+			auto fs = mSimCharacter->getForceSensors()[mCurrentForceSensor];
+			Eigen::Vector3d force = kp*(mCurrentForcePoint - fs->getBodyNode()->getCOM());
+			fs->addExternalForce(force);
+			
+			// mSimCharacter->applyForceMSD(mCurrentHand, Eigen::Vector3d::Zero(), force);	
+		}
+		// mSimCharacter->applyForceMSD(hand, Eigen::Vector3d::Zero(), hand_force);
+		for(int j=0;j<cr.getNumContacts();j++)
+		{
+			auto contact = cr.getContact(j);
+			auto shapeFrame1 = const_cast<dart::dynamics::ShapeFrame*>(contact.collisionObject1->getShapeFrame());
+			auto shapeFrame2 = const_cast<dart::dynamics::ShapeFrame*>(contact.collisionObject2->getShapeFrame());
+
+			auto bn1 = shapeFrame1->asShapeNode()->getBodyNodePtr();
+			auto bn2 = shapeFrame2->asShapeNode()->getBodyNodePtr();
+
+			auto skel1 = bn1->getSkeleton();
+			auto skel2 = bn2->getSkeleton();
+
+			
+			auto fs = mSimCharacter->getClosestForceSensor(contact.point);
+			if(fs!=nullptr)
+			{
+				if(skel1 == mObstacle && skel2->getName() == "humanoid")
+					fs->addExternalForce(-10.0*contact.force);	
+				else if(skel1->getName() == "humanoid" && skel2 == mObstacle)
+					fs->addExternalForce(10.0*contact.force);	
+			}
+			
+
+			if(bn1->getName().find("Foot") != std::string::npos)
+				continue;
+			else if(bn2->getName().find("Foot") != std::string::npos)
+				continue;
+
+			if(skel1->getName() == "humanoid" && skel2->getName() == "ground"){
+				mContactEOE = true;
+				break;
+			}
+
+			if(skel1->getName() == "ground" && skel2->getName() == "humanoid"){
+				mContactEOE = true;
+				break;
+			}
+
+		}
+		auto fss = mSimCharacter->getForceSensors();
+		for(auto fs: fss)
+			fs->step();
 	}
+	// if(mKinematics)
+	// {
+	// 	auto motion = mCurrentMotion;
+	// 	mFrame %= motion->getNumFrames();
+	// 	Eigen::Vector3d position = motion->getPosition(mFrame);
+	// 	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
+	// 	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
+	// 	Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(mFrame);
+	// 	mSimCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
+	// }
 	
 	auto motion = mCurrentMotion;
 	Eigen::Vector3d position = motion->getPosition(0);
@@ -404,6 +424,31 @@ step(const Eigen::VectorXd& _action)
 	Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(0);
 	rotation = mSimCharacter->addRotMSD(rotation);
 	mKinCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
+	mSimCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
+
+	motion = mMotions.back();
+	Eigen::VectorXd w = Eigen::VectorXd::Zero(rotation.cols()/3);
+	// w[0] = 1.0;
+	w[1] = 0.5;
+	w[2] = 1.0;
+	w[3] = 1.0;
+	w[4] = 1.0;
+	w[6] = 1.0;
+	w[7] = 1.0;
+	w[8] = 1.0;
+	// for(int i=1;i<9;i++)
+		// w[i] = 1.0;
+	int cols = rotation.cols();
+	// int idx = MotionUtils::computeClosestPose(motion, rotation, w);
+	// std::cout<<mMotions.back()->getNumFrames()<<std::endl;
+	// std::cout<<idx<<std::endl;
+	// position = motion->getPosition(idx);
+	// rotation.block(0,3,3,cols-3) = motion->getRotation(idx).block(0,3,3,cols-3);
+	rotation.block(0,3,3,cols-3) = MotionUtils::computeJointWiseClosestPose(motion, rotation).block(0,3,3,cols-3);
+	// linear_velocity = motion->getLinearVelocity(idx);
+	// angular_velocity = motion->getAngularVelocity(idx);
+	
+	mKinCharacter2->setPose(position, rotation);
 	// this->applyRootSupportForce();
 	if(mEnableGoal)
 	{
@@ -681,6 +726,7 @@ bool
 Environment::
 inspectEndOfEpisode()
 {
+	return false;
 	if(mContactEOE)
 		return true;
 	else if(mElapsedFrame>mMaxElapsedFrame)
@@ -734,7 +780,7 @@ generateObstacle()
 	if(mObstacle == nullptr){
 		// mObstacle = DARTUtils::createBox(1e5,Eigen::Vector3d::Constant(0.07),"Free");
 		mObstacle = DARTUtils::createBox(100.0,Eigen::Vector3d::Constant(0.4),"Free");
-		std::cout<<mObstacle->getMass()<<std::endl;
+		// std::cout<<mObstacle->getMass()<<std::endl;
 		mObstacle->getJoint(0)->setDampingCoefficient(0,0.2);
 		mObstacle->getJoint(0)->setDampingCoefficient(1,0.2);
 		mObstacle->getJoint(0)->setDampingCoefficient(2,0.2);
@@ -758,8 +804,8 @@ generateObstacle()
 
 	Eigen::VectorXd generalized_pos = Eigen::VectorXd::Zero(6);
 	Eigen::VectorXd generalized_vel = Eigen::VectorXd::Zero(6);
-	generalized_pos.tail<3>() = pos;
-	generalized_vel.tail<3>() = vel;
+	// generalized_pos.tail<3>() = pos;
+	// generalized_vel.tail<3>() = vel;
 	mObstacle->setPositions(generalized_pos);
 	mObstacle->setVelocities(generalized_vel);
 	mObstacleCount = 0;
