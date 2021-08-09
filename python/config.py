@@ -1,8 +1,5 @@
 config = {
 	'num_envs' : 16,
-	# 'num_envs' : 4,
-	# 'save_path' : '/home/seunghwan/Documents/ComCon/data/learning/',
-	# 'save_path' : '/home/seunghwan/Documents/comcon_remote_new/data/learning/',
 	'save_path' : '/home/seunghwan/Documents/comcon_remote/data/learning/',
 	'save_at_start' : True,
 	'model' : {
@@ -20,7 +17,6 @@ config = {
 		'gamma' : 0.95,
 		'lb' : 0.95,
 		'lr' : 1e-5,
-		# 'lr' : 1e-4,
 		'policy_clip' : 0.2,
 		'value_clip' : 1.0,
 		'grad_clip' : 0.5,
@@ -35,27 +31,20 @@ config = {
 	},
 	
 	'discriminator' : {
-		# 'w_grad' : 10.0,
 		'w_grad' : 10.0,
 		'grad_clip' : 0.5,
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
-		# 'r_scale' : 2.0,
 		'r_scale' : 2.0,
 		'lr' : 5e-6,
-		# 'lr' : 1e-4,
 	},
 
 	'trainer' : {
 		'sample_size' : 2048,
-		# 'sample_size' : 2048,
 		'num_sgd_iter' : 5,
 		'sgd_minibatch_size' : 128,
-		# 'sgd_minibatch_size' : 128,
-		# 'sgd_minibatch_size' : 32,
 		
 		'num_disc_sgd_iter' : 2,
-		# 'disc_sgd_minibatch_size' : 16,
 		'disc_sgd_minibatch_size' : 16,
 		'disc_buffer_len' : 100000,
 

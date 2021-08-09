@@ -9,22 +9,47 @@ import numpy as np
 
 import filter
 
+from misc import *
 
-class FCDiscriminator(object):
-	def __init__(self, model, device, config):
-		self.model = model
+class DiscriminatorNN(nn.Module):
+	def __init__(self, dim_in, model_config):
+		nn.Module.__init__(self)
 
-		# self.state_filter = filter.MeanStdFilter(model.dim_in, dataset.mean(axis=0), dataset.std(axis=0))
-		self.state_filter = filter.MeanStdRuntimeFilter(model.dim_in)
+		hiddens = model_config['hiddens']
+		activations = model_config['activations']
+		init_weights = model_config['init_weights']
+		
+		layers = []
+		prev_layer_size = dim_in
+		
+		for size, activation, init_weight in zip(hiddens + [1], activations, init_weights):
+			layers.append(SlimFC(
+				prev_layer_size,
+				size,
+				xavier_initializer(init_weight),
+				activation))
+			prev_layer_size = size
 
-		self.w_grad = config['w_grad']
-		self.w_reg = config['w_reg']
-		self.w_decay = config['w_decay']
-		self.r_scale = config['r_scale']
+		self.fn = nn.Sequential(*layers)
+		self.dim_in = dim_in
+	def forward(self, x):
+		return self.fn(x)
 
-		self.grad_clip = config['grad_clip']
 
-		self.optimizer = optim.Adam(self.model.parameters(),lr=config['lr'])
+class Discriminator(object):
+	def __init__(self, dim_state, device, model_config, disc_config):
+		self.model = DiscriminatorNN(dim_state, model_config)
+
+		self.state_filter = filter.MeanStdRuntimeFilter(self.model.dim_in)
+
+		self.w_grad = disc_config['w_grad']
+		self.w_reg = disc_config['w_reg']
+		self.w_decay = disc_config['w_decay']
+		self.r_scale = disc_config['r_scale']
+
+		self.grad_clip = disc_config['grad_clip']
+
+		self.optimizer = optim.Adam(self.model.parameters(),lr=disc_config['lr'])
 
 		self.loss = None
 		self.device = device
@@ -43,20 +68,6 @@ class FCDiscriminator(object):
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
 
 		return d
-	# def __call__(self, ss1, _filter=True):
-	# 	ss1 = self.convert_to_ndarray(ss1)
-	# 	if _filter:
-	# 		ss1_filtered = self.state_filter(ss1, update=False)
-	# 	else:
-	# 		ss1_filtered = ss1
-	# 	ss1_tensor = self.convert_to_tensor(ss1_filtered)
-
-	# 	d = self.model(ss1_tensor)
-	# 	d = self.convert_to_ndarray(d)
-	# 	d = np.clip(d, -1.0, 1.0)
-	# 	d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
-
-	# 	return d, ss1
 
 	def convert_to_tensor(self, arr):
 		if torch.is_tensor(arr):
@@ -73,40 +84,7 @@ class FCDiscriminator(object):
 			return arr
 		return arr.cpu().detach().numpy().squeeze()
 
-	def compute_grad_and_line_search(self, s):
-		if True:
-			return s
-		n = s.shape[1]
-		n = int(n/2)
-		s = s.copy()
-		s[:,:n] = s[:,n:]
-
-		s = self.convert_to_tensor(s)
-		s.requires_grad = True
-		d = self.model(s)
-		grad = torch.autograd.grad(outputs=d, 
-									inputs=s,
-									grad_outputs=torch.ones(d.size()).to(self.device),
-									create_graph=False,
-									retain_graph=False)[0]
-		# alphas = np.array([1.0,0.5,0.25,0.125])
-		grad[:,:n].fill_(0.0)
-		alphas = [200.0,100.0, 10.0, 1.0, 0.1]
-		# s + grad
-		s.requires_grad = False
-		d_n = []
-		for alpha in alphas:
-			d_n.append(self.convert_to_ndarray(self.model(s+alpha*grad)))
-		d_n.append(self.convert_to_ndarray(d))
-		d_n = np.array(d_n)
-		alphas.append(0.0)
-		alphas = np.array(alphas)
-		d_n_max = np.argmax(d_n, axis=0)
-		
-		s1 = self.convert_to_ndarray(s + self.convert_to_tensor(alphas[d_n_max].reshape(-1,1))*grad)
-		s = self.convert_to_ndarray(s)
-		s[:,n:] = s1[:,n:]
-		return s
+	
 	def compute_loss(self, s_expert, s_expert2, s_agent):
 		d_expert = self.model(s_expert)
 		d_agent  = self.model(s_agent)
@@ -177,24 +155,12 @@ class FCDiscriminator(object):
 		return d
 
 '''Below function do not use when training'''
-import model
 import importlib.util
 
 def build_discriminator(dim_state, state_experts, config):
-	discriminator_model = model.FC(dim_state, config['discriminator_model'])
-	return FCDiscriminator(discriminator_model, torch.device("cpu"), config['discriminator'])
+	return Discriminator(dim_state, torch.device("cpu"), config['discriminator_model'], config['discriminator'])
 
 def load_discriminator(discriminator, checkpoint):
 	state = torch.load(checkpoint)
 	state = state['discriminator_state_dict']
-	discriminator.load_state_dict(state)
-
-def load_discriminator_lb(discriminator, checkpoint):
-	state = torch.load(checkpoint)
-	state = state['discriminator_lb_state_dict']
-	discriminator.load_state_dict(state)
-
-def load_discriminator_ub(discriminator, checkpoint):
-	state = torch.load(checkpoint)
-	state = state['discriminator_ub_state_dict']
 	discriminator.load_state_dict(state)

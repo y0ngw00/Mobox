@@ -26,7 +26,6 @@ public:
 	static Option gRenderOption;
 	static void drawLinks(const dart::dynamics::SkeletonPtr& skel);
 	static void drawJoints(const dart::dynamics::SkeletonPtr& skel);
-	static void drawForceSensors(Character* character, const Eigen::Vector3d& pos, const Eigen::Vector3d& size ,const Option& option = DARTRendering::gRenderOption);
 	static void drawSkeleton(const dart::dynamics::SkeletonPtr& skel,const Option& option = DARTRendering::gRenderOption);
 
 

@@ -2551,7 +2551,7 @@ buildMeshes()
 	capsule_wire_simple	 = MeshUtils::buildCapsuleWireSimpleMesh(32,32);
 
 	// object_texture_id = MeshUtils::buildTexture((std::string(ROOT_DIR)+"/data/object.png").c_str());
-	ground_texture_id = MeshUtils::buildTexture((std::string(ROOT_DIR)+"/data/ground.png").c_str());
+	ground_texture_id = MeshUtils::buildTexture((std::string(ROOT_DIR)+"/data/textures/ground.png").c_str());
 	initialized = true;
 }
 void

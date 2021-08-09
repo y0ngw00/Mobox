@@ -11,25 +11,77 @@ import filter
 
 import time
 
+from misc import *
+
+class PolicyNN(nn.Module):
+	def __init__(self, dim_state, dim_action, model_config):
+		nn.Module.__init__(self)
+
+		sample_std = model_config['sample_std']
+		fixed_std = model_config['fixed_std']
+
+		policy_hiddens = model_config['policy_hiddens']
+		policy_activations = model_config['policy_activations']
+		policy_init_weights = model_config['policy_init_weights']
+
+		value_hiddens = model_config['value_hiddens']
+		value_activations = model_config['value_activations']
+		value_init_weights = model_config['value_init_weights']
+
+		layers = []
+		prev_layer_size = dim_state
+
+		for size, activation, init_weight in zip(policy_hiddens + [dim_action], policy_activations, policy_init_weights):
+			layers.append(SlimFC(
+				prev_layer_size,
+				size,
+				xavier_initializer(init_weight),
+				activation))
+			prev_layer_size = size
+
+		layers.append(AppendLogStd(init_log_std=np.log(sample_std), dim=dim_action, fixed_grad = fixed_std))
+
+		self.policy_fn = nn.Sequential(*layers)
+
+		layers = []
+		prev_layer_size = dim_state
+
+		for size, activation, init_weight in zip(policy_hiddens + [1], policy_activations, policy_init_weights):
+			layers.append(SlimFC(
+				prev_layer_size,
+				size,
+				xavier_initializer(init_weight),
+				activation))
+			prev_layer_size = size
+
+		self.value_fn = nn.Sequential(*layers)
+
+		self.dim_state = dim_state
+		self.dim_action = dim_action
+
+	def forward(self, x):
+		logits = self.policy_fn(x)
+		value = self.value_fn(x)
+		return logits, value
 
 def discount(x, gamma):
 	return scipy.signal.lfilter([1],[1, -gamma], x[::-1], axis=0)[::-1]
 
-class FCPolicy(object):
-	def __init__(self, model, device, config):
-		self.model = model
+class PPO(object):
+	def __init__(self, dim_state, dim_action, device, model_config, policy_config):
+		self.model = PolicyNN(dim_state, dim_action, model_config)
 
-		self.state_filter = filter.MeanStdRuntimeFilter(shape=model.dim_state)
+		self.state_filter = filter.MeanStdRuntimeFilter(shape=self.model.dim_state)
 		self.distribution = torch.distributions.normal.Normal
-		self.gamma = config['gamma']
-		self.lb = config['lb']
+		self.gamma = policy_config['gamma']
+		self.lb = policy_config['lb']
 
-		self.policy_clip = config['policy_clip']
-		self.value_clip = config['value_clip']
-		self.grad_clip = config['grad_clip']
-		self.w_kl = config['kl'] #ToDo
-		self.w_entropy = config['entropy']
-		self.optimizer = optim.Adam(self.model.parameters(),lr=config['lr'])
+		self.policy_clip = policy_config['policy_clip']
+		self.value_clip = policy_config['value_clip']
+		self.grad_clip = policy_config['grad_clip']
+		self.w_kl = policy_config['kl'] #ToDo
+		self.w_entropy = policy_config['entropy']
+		self.optimizer = optim.Adam(self.model.parameters(),lr=policy_config['lr'])
 
 		self.loss = None
 		
@@ -58,26 +110,6 @@ class FCPolicy(object):
 		vf_pred = self.convert_to_ndarray(vf_pred)
 
 		return action, logprob, vf_pred
-
-
-	# def __call__(self, states):
-	# 	states = self.convert_to_ndarray(states)
-	# 	states_filtered = self.state_filter(states, update=False)
-	# 	_states = self.convert_to_tensor(states_filtered)
-
-	# 	logits, vf_pred = self.model(_states)
-	# 	mean, log_std = torch.chunk(logits, 2, dim = 1)
-		
-	# 	action_dists = self.distribution(mean, torch.exp(log_std))
-	# 	actions = action_dists.sample()
-	# 	logprobs = action_dists.log_prob(actions).sum(-1)
-	# 	# actions = action_dists.loc
-
-	# 	actions = self.convert_to_ndarray(actions)
-	# 	logprobs = self.convert_to_ndarray(logprobs)
-	# 	vf_preds = self.convert_to_ndarray(vf_pred)
-
-	# 	return states, actions, logprobs, vf_preds
 
 	def convert_to_tensor(self, arr):
 		if torch.is_tensor(arr):
@@ -150,11 +182,6 @@ class FCPolicy(object):
 		# self.model.policy_fn[3].set_value(1e-8)
 
 	'''Below function do not use when training'''
-	# def load_from_path(self, path):
-	# 	state = torch.load(path)
-	# 	state = state['policy_state_dict']
-	# 	self.model.load_state_dict(state['model'])
-	# 	self.state_filter.load_state_dict(state['state_filter'])
 
 	def compute_action(self, state, explore):
 		# print(np.any(np.isnan(state)))
@@ -189,7 +216,6 @@ class FCPolicy(object):
 		mean.backward(torch.eye(n).cuda())
 		return state.grad.data.cpu().detach().numpy() 
 '''Below function do not use when training'''
-import model
 import importlib.util
 
 def load_config(path):
@@ -200,9 +226,7 @@ def load_config(path):
 	return spec.config
 
 def build_policy(dim_state, dim_action, config):
-	md = model.FCModel(dim_state, dim_action, config['model'])
-	policy = FCPolicy(md, torch.device("cpu"), config['policy'])
-	return policy
+	return PPO(dim_state, dim_action, torch.device("cpu"), config['model'], config['policy'])
 
 def load_policy(policy, checkpoint):
 	state = torch.load(checkpoint)

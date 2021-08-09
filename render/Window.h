@@ -5,7 +5,6 @@
 #include <chrono>
 #include <Eigen/Core>
 #include "Environment.h"
-#include "ForceSensor.h"
 #include "DARTRendering.h"
 
 #include <pybind11/pybind11.h>
@@ -40,7 +39,6 @@ protected:
 	bool mCapture;
 	void capture_screen();
 
-
 	bool mPlay;
 	
 	DARTRendering::Option mSimRenderOption;
@@ -62,26 +60,9 @@ protected:
 	py::object mm,mns,sys_module;
 	py::module policy_md, discriminator_md;
 	py::object policy, discriminator;
-	py::object discriminator_lb, discriminator_ub;
-
 
 	std::chrono::system_clock::time_point mTimePoint;
 	double mComputedTime;
-
-
-
-	// py::object policy0, policy1;
-
-	
-
-	double mInteractionDepth;
-	Eigen::Vector3d mForcePoint;
-	int mForceSensorIndex;
-	// dart::dynamics::BodyNode* mForceBodyNode;
-
-	// std::vector<Eigen::Vector3d> mHandPositions;
-	// std::vector<Eigen::Vector4d> mWashedRecords;
-	// std::vector<Eigen::VectorXd> mPositions;
 };
 
 #endif

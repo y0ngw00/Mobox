@@ -16,7 +16,6 @@ import pickle
 import os
 
 import pycomcon
-import model
 import ppo
 import discriminator
 
@@ -68,12 +67,10 @@ class Trainer(object):
 			self.create_summary_writer(path)
 
 	def create_policy(self, device, model_config, policy_config):
-		p_model = model.FCModel(self.env.get_dim_state(), self.env.get_dim_action(), model_config)
-		return ppo.FCPolicy(p_model, device, policy_config)
+		return ppo.PPO(self.env.get_dim_state(), self.env.get_dim_action(), device, model_config , policy_config)
 
 	def create_disc(self, device, model_config, disc_config):
-		d_model = model.FC(self.env.get_dim_state_AMP(), model_config)
-		return discriminator.FCDiscriminator(d_model, device, disc_config)
+		return discriminator.Discriminator(self.env.get_dim_state_AMP(), device, model_config, disc_config)
 
 	def create_summary_writer(self, path):
 		self.writer = SummaryWriter(path)
