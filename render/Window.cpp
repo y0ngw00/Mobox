@@ -6,6 +6,9 @@
 #include <iostream>
 #include "DrawUtils.h"
 #include "DARTUtils.h"
+#include "Motion.h"
+#include "MSD.h"
+#include "Collision.h"
 #include "DARTRendering.h"
 #include <dart/dart.hpp>
 using namespace py::literals;
@@ -76,15 +79,27 @@ render()
 
 	if(mDrawTargetPose)
 	{
-		Eigen::VectorXd state = mEnvironment->getKinCharacter()->saveState();
-		Eigen::VectorXd p_sim = mEnvironment->getSimCharacter()->getSkeleton()->getPositions();
-		Eigen::VectorXd p_target = mEnvironment->getSimCharacter()->getTargetPositions();
-		int num_actuated_dof = p_sim.rows()-6;
-		p_sim.tail(num_actuated_dof) = p_target.tail(num_actuated_dof);
-		mEnvironment->getKinCharacter()->getSkeleton()->setPositions(p_sim);
+		// Eigen::VectorXd p_sim = mEnvironment->getSimCharacter()->getSkeleton()->getPositions();
+		// Eigen::VectorXd p_target = mEnvironment->getSimCharacter()->getTargetPositions();
+		// int num_actuated_dof = p_sim.rows()-6;
+		// p_sim.tail(num_actuated_dof) = p_target.tail(num_actuated_dof);
+		// mEnvironment->getKinCharacter()->getSkeleton()->setPositions(p_sim);
+		// mEnvironment->getKinCharacter()->setPose(msd->getPosition(),msd_rot);
+
+		Eigen::Vector3d point = mEnvironment->getLeftHandTargetProjection();
+		Eigen::Vector3d start = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode("LeftHand")->getCOM();
+		glPushMatrix();
+		DrawUtils::translate(start);
+		DrawUtils::drawSphere(0.02);
+
+		glPopMatrix();
+		glColor4f(1,0,0,1);
+		DrawUtils::drawArrow3D(start, start + point, 0.04);
+		glColor4f(0,0,0,1);
 
 		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mTargetRenderOption);
-		mEnvironment->getKinCharacter()->restoreState(state);
+
+
 	}
 	float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
 			dynamic_cast<const BoxShape*>(mEnvironment->getGround()->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get())->getSize()[1]*0.5;
@@ -153,6 +168,15 @@ void
 Window::
 step()
 {
+	if(mTargetBodyNode != nullptr)
+	{
+
+		Eigen::Vector3d start = mTargetBodyNode->getTransform()*mTargetLocalPosition;
+		Eigen::Vector3d end = mTargetPosition;
+		Eigen::Vector3d force = 30.0*(end - start);
+		// mEnvironment->getSimCharacter()->applyForceMSD(mTargetBodyNode->getName(), force, mTargetLocalPosition);
+	}
+
 	if(mUseNN)
 	{
 		Eigen::VectorXd action = policy.attr("compute_action")(mObservation, mExplore).cast<Eigen::VectorXd>();
@@ -266,8 +290,69 @@ mouse(int button, int state, int x, int y)
 		if(state==0) // Down
 		{
 			auto ray = mCamera->getRay(x,y);
+			auto skel = mEnvironment->getKinCharacter()->getSkeleton();
+
+			double min_t = 1e6;
+			BodyNode* min_bn = nullptr;
+			Eigen::Vector3d min_hit;
+			for(int i=0;i<skel->getNumBodyNodes();i++)
+			{
+				auto bn = skel->getBodyNode(i);
+				auto sns = bn->getShapeNodesWith<VisualAspect>();
+				auto shape = sns.back()->getShape().get();
+				Eigen::Isometry3d T = sns.back()->getTransform();
+				if(shape->is<SphereShape>())
+				{
+					const auto* sphere = dynamic_cast<const SphereShape*>(shape);
+					Eigen::Vector3d hit;
+					double collide = Collision::checkLineSphere(ray.first, ray.second, T.translation(), sphere->getRadius(), hit);
+					if(collide>=0.0 && collide<min_t)
+					{
+						min_t = collide;
+						min_bn = bn;
+						min_hit = hit;
+					}
+				}
+				else if(shape->is<BoxShape>())
+				{
+
+					const auto* box = dynamic_cast<const BoxShape*>(shape);
+					Eigen::Vector3d hit;
+					Eigen::Vector3d b_min,b_max;
+					b_min = -0.5*box->getSize();
+					b_max = 0.5*box->getSize();
+					double collide = Collision::checkLineBox(T, b_min, b_max, ray.first, ray.second, hit);
+					if(collide>=0.0 && collide<min_t)
+					{
+						min_t = collide;
+						min_bn = bn;
+						min_hit = hit;
+					}
+						
+
+				}
+			}
+
+			if(min_bn!=nullptr)
+			{
+				mTargetBodyNode = min_bn;
+				mTargetLocalPosition = mTargetBodyNode->getTransform().inverse()*min_hit;
+				mTargetPosition = min_hit;
+				mTargetDepth = min_t;
+			}
+			else
+			{
+				mTargetBodyNode = nullptr;
+				mTargetLocalPosition.setZero();
+				mTargetPosition.setZero();
+				mTargetDepth = -1.0;
+			}
 		}
 		else{
+			mTargetBodyNode = nullptr;
+			mTargetLocalPosition.setZero();
+			mTargetPosition.setZero();
+			mTargetDepth = -1.0;
 		}
 	}
 }
@@ -279,6 +364,7 @@ motion(int x, int y)
 	if(mMouse == 2 && mDrag)
 	{
 		auto ray = mCamera->getRay(x,y);
+		mTargetPosition = ray.first + mTargetDepth*(ray.second - ray.first);
 	}
 	else
 	{

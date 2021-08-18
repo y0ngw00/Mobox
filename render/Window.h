@@ -63,6 +63,10 @@ protected:
 
 	std::chrono::system_clock::time_point mTimePoint;
 	double mComputedTime;
+
+	dart::dynamics::BodyNode* mTargetBodyNode;
+	Eigen::Vector3d mTargetLocalPosition, mTargetPosition;
+	double mTargetDepth;
 };
 
 #endif

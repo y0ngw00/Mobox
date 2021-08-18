@@ -178,6 +178,36 @@ computePoseDifferences(Motion* m)
 }
 Eigen::MatrixXd
 MotionUtils::
+computeWeightedClosestPose(Motion* m, const std::string& name, const Eigen::MatrixXd& R)
+{
+	int n = m->getNumFrames();
+	int njoints = m->getNumJoints();
+
+	int min_index = -1;
+	double min_d = 1e6;
+
+	Eigen::VectorXd weights = Eigen::VectorXd::Zero(njoints);
+
+	const std::vector<int>& parents = m->getParents();
+	int current = m->getNodeIndex(name);
+	while(current != -1)
+	{
+		weights[current] = 1.0;
+		current = parents[current];
+	}
+	for(int i=0;i<n;i++)
+	{
+		double d = weights.dot(MotionUtils::computePoseDifferenceVector(m->getRotation(i), R));
+		if(min_d>d)
+		{
+			min_d = d;
+			min_index = i;
+		}
+	}
+	return m->getRotation(min_index);
+}
+Eigen::MatrixXd
+MotionUtils::
 computeJointWiseClosestPose(Motion *m, const Eigen::MatrixXd& R)
 {
 	int n = m->getNumFrames();
@@ -261,14 +291,15 @@ computePoseDifferenceVector(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj
 
 	return d;
 }
-int
+Eigen::MatrixXd
 MotionUtils::
 computeClosestPose(Motion* m, const Eigen::MatrixXd& rot, const Eigen::VectorXd& w)
 {
 	int n = m->getNumFrames();
 	int idx = -1;
 	double min_distance = 1e6;
-	
+	// std::cout<<m->getRotation(0).rows()<<" "<<m->getRotation(0).cols()<<std::endl;
+	// std::cout<<rot.rows()<<" "<<rot.cols()<<std::endl;
 	for(int i=0;i<n;i++)
 	{
 		double di = computePoseDifference(m->getRotation(i), rot, w);
@@ -278,7 +309,7 @@ computeClosestPose(Motion* m, const Eigen::MatrixXd& rot, const Eigen::VectorXd&
 		}
 	}
 
-	return idx;
+	return m->getRotation(idx);
 }
 double
 MotionUtils::
@@ -292,7 +323,10 @@ computePoseDifference(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj, cons
 
 	Eigen::Quaterniond qr(Rri.transpose()*Rrj);
 	double qwqw_qyqy = std::min(1.0,std::sqrt(qr.y()*qr.y() + qr.w()*qr.w()));
-	d += w[0]*std::acos(qwqw_qyqy);
+	if(w.rows()==0)
+		d += std::acos(qwqw_qyqy);
+	else
+		d += w[0]*std::acos(qwqw_qyqy);
 	for(int i=1;i<n;i++)
 	{
 		Eigen::AngleAxisd aa(Ri.block<3,3>(0,i*3).transpose()*Rj.block<3,3>(0,i*3));
@@ -328,12 +362,13 @@ addDisplacement(const Eigen::MatrixXd& R, const Eigen::MatrixXd& d)
 	Eigen::MatrixXd Rd = R;
 	for(int i=0;i<n;i++)
 	{
-		Eigen::Vector4d d_i = d.col(i);
-		if(d_i[1]>1.0-1e-6)
-			continue;
+		Rd.block<3,3>(0,i*3) = (R.block<3,3>(0,i*3))*(d.block<3,3>(0,i*3));
+		// Eigen::Vector4d d_i = d.col(i);
+		// if(d_i[1]>1.0-1e-6)
+		// 	continue;
 
-		Eigen::Quaterniond q(d_i[0],d_i[1],d_i[2],d_i[3]);
-		Rd.block<3,3>(0,i*3) = R.block<3,3>(0,i*3)*q.toRotationMatrix();
+		// Eigen::Quaterniond q(d_i[0],d_i[1],d_i[2],d_i[3]);
+		// Rd.block<3,3>(0,i*3) = R.block<3,3>(0,i*3)*q.toRotationMatrix();
 	}
 
 	return Rd;
@@ -470,4 +505,27 @@ parseMotionLabel(const std::string& line, int fps)
 	motion->computeVelocity();
 
 	return motion;
+}
+Eigen::MatrixXd
+MotionUtils::
+IdentityRotationMatrix(Motion* m)
+{
+	int njoints = m->getNumJoints();
+	Eigen::MatrixXd rot(3,3*njoints);
+
+	for(int i=0;i<njoints;i++)
+		rot.block<3,3>(0,i*3) = Eigen::Matrix3d::Identity();
+	return rot;
+}
+Eigen::MatrixXd
+MotionUtils::
+TransposeMatrix(const Eigen::MatrixXd& rot)
+{
+	int njoints = rot.cols()/3;
+	Eigen::MatrixXd rotT(3,3*njoints);
+
+	for(int i=0;i<njoints;i++)
+		rotT.block<3,3>(0,i*3) = rot.block<3,3>(0,i*3).transpose();
+
+	return rotT;
 }

@@ -1,17 +1,20 @@
 #ifndef __ENVIRONMENT_H__
 #define __ENVIRONMENT_H__
 #include "dart/dart.hpp"
+#include "MSD.h"
 #include <tuple>
 
 class BVH;
 class Motion;
 class Character;
-class CartesianMSDSystem;
+class CartesianMSD;
 class Environment
 {
 public:
 	Environment();
 
+	void parseMSD(const std::string& file);
+	
 	int getDimState();
 	int getDimAction();
 	int getDimStateAMP();
@@ -32,6 +35,8 @@ public:
 
 	bool inspectEndOfEpisode();
 
+	void addLeftHandForce();
+
 	const dart::simulation::WorldPtr& getWorld(){return mWorld;}
 
 	Character* getSimCharacter(){return mSimCharacter;}
@@ -39,6 +44,8 @@ public:
 	dart::dynamics::SkeletonPtr getGround(){return mGround;}
 
 	bool isEnableGoal(){return mEnableGoal;}
+
+	const Eigen::Vector3d& getLeftHandTargetProjection(){return mForceCartesianMSD->getPosition();}
 private:
 	double computeGroundHeight();
 	void recordState();
@@ -62,6 +69,7 @@ private:
 	dart::dynamics::SkeletonPtr mGround;
 
 	Eigen::VectorXd mPrevPositions, mPrevPositions2, mPrevCOM;
+	std::vector<Eigen::VectorXd> mPrevMSDStates;
 	Eigen::VectorXd mState, mStateGoal, mStateAMP;
 
 	bool mContactEOE;
@@ -73,5 +81,8 @@ private:
 	double mTargetSpeedMin, mTargetSpeedMax;
 	double mTargetFrame;
 	double mSharpTurnProb, mSpeedChangeProb, mMaxHeadingTurnRate;
+
+	CartesianMSD* mForceCartesianMSD;
+	Eigen::Vector3d mLeftHandTargetProjection;
 };
 #endif

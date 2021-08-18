@@ -2,7 +2,8 @@
 #define __CHARACTER_H__
 #include "dart/dart.hpp"
 
-class Motion;
+class BVH;
+class GeneralizedMSD;
 class Character
 {
 public:
@@ -26,6 +27,8 @@ public:
 				const Eigen::Vector3d& linear_velocity,
 				const Eigen::MatrixXd& angular_velocity);
 
+	Eigen::MatrixXd getPose();
+
 	Eigen::VectorXd computeTargetPosition(const Eigen::VectorXd& action);
 	Eigen::VectorXd computeAvgVelocity(const Eigen::VectorXd& p0, const Eigen::VectorXd& p1, double dt);
 	void actuate(const Eigen::VectorXd& target_position);
@@ -38,9 +41,12 @@ public:
 	void restoreState(const Eigen::VectorXd& state);
 
 	void buildBVHIndices(const std::vector<std::string>& bvh_names);
-
+	void buildMSD(const Eigen::VectorXd& k, const Eigen::VectorXd& d, const Eigen::VectorXd& m, double dt);
+	void stepMSD();
+	void applyForceMSD(const std::string& bn_name, const Eigen::Vector3d& force, const Eigen::Vector3d& local_offset);
+	const std::string& getLastForceBodyNodeName() {return mLastForceBodyNodeName;}
 	dart::dynamics::SkeletonPtr getSkeleton(){return mSkeleton;}
-	Motion* getMotion(){return mMotion;}
+	GeneralizedMSD* getMSD(){return mMSD;}
 	const Eigen::VectorXd& getTargetPositions(){return mTargetPositions;}
 	const std::vector<dart::dynamics::BodyNode*>& getEndEffectors(){return mEndEffectors;}
 	int getBVHIndex(int idx){return mBVHIndices[idx];}
@@ -58,10 +64,12 @@ private:
 							const Eigen::MatrixXd& angular_velcity);
 
 	dart::dynamics::SkeletonPtr mSkeleton;
+	
+
+	GeneralizedMSD* mMSD;
 
 	std::vector<dart::dynamics::BodyNode*> mEndEffectors;
 
-	Motion* mMotion;
 	std::vector<std::string> mBVHNames;
 	std::vector<std::string> mBVHMap;
 	std::vector<int> mBVHIndices;
@@ -69,6 +77,9 @@ private:
 	Eigen::VectorXd mJointWeights;
 
 	Eigen::VectorXd mKp, mKv, mMinForces, mMaxForces, mTargetPositions;
+
+
+	std::string mLastForceBodyNodeName;
 };
 
 #endif

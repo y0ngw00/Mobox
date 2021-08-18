@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include "Environment.h"
+#include "MSD.h"
 #include "DARTUtils.h"
 #include "MathUtils.h"
 #include "Character.h"
@@ -38,14 +39,15 @@ Environment()
 	
 	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
 	Motion* motion = new Motion(bvh);
-	for(int j=0;j<bvh->getNumFrames();j++)
-		motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-
+	// for(int j=120;j<bvh->getNumFrames();j++)
+		// motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
+	for(int i=0;i<120;i++)
+		motion->append(bvh->getPosition(85), bvh->getRotation(85),false);
 	motion->computeVelocity();
 	mMotions.emplace_back(motion);
 	mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
 	mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
-
+	this->parseMSD(std::string(ROOT_DIR)+"/data/msd.txt");
 	double ground_height = this->computeGroundHeight();
 	mGround = DARTUtils::createGround(ground_height);
 	mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::BulletCollisionDetector::create());
@@ -58,12 +60,57 @@ Environment()
 
 	mSimCharacter->getSkeleton()->setSelfCollisionCheck(true);
 	mSimCharacter->getSkeleton()->setAdjacentBodyCheck(false);
+
+	Eigen::Vector3d k(100.0,100.0,100.0),d(0.6,0.6,0.6),m(1.0,0.0,1.0);
+	mForceCartesianMSD = new CartesianMSD(k,d,m, 1.0/(double)mControlHz);
+	mForceCartesianMSD->reset();
+	mLeftHandTargetProjection.setZero();
 	this->reset();
 
 	mActionSpace = this->getActionSpace();
 	mActionWeight = this->getActionWeight();
 }
+void
+Environment::
+parseMSD(const std::string& file)
+{
+	auto bvh =  mMotions[0]->getBVH();
+	int njoints = mMotions[0]->getNumJoints();
+	std::ifstream ifs(file);
+	std::string line;
+	Eigen::VectorXd m = Eigen::VectorXd::Zero(3+3*njoints);
+	Eigen::VectorXd s = Eigen::VectorXd::Zero(3+3*njoints);
+	Eigen::VectorXd d = Eigen::VectorXd::Zero(3+3*njoints);
+	while(!ifs.eof())
+	{
+		line.clear();
+		std::getline(ifs, line);
+		if(line.size() == 0)
+			continue;
 
+		std::stringstream ss(line);
+		std::string token;
+		ss>>token;
+
+		int o = 0;
+		if(token == "ROOT")
+			o = 0;
+		else if(token == "JOINT")
+		{
+			std::string joint_name;
+			ss>>joint_name;
+			o = 3+3*bvh->getNodeIndex(joint_name);
+		}
+		double mi,si,di;
+		ss>>mi>>si>>di;
+
+		m.segment<3>(o) = Eigen::Vector3d::Constant(mi);
+		s.segment<3>(o) = Eigen::Vector3d::Constant(si);
+		d.segment<3>(o) = Eigen::Vector3d::Constant(di);
+	}
+	// mSimCharacter->buildMSD(s,d,m,bvh->getTimestep());
+	mKinCharacter->buildMSD(s,d,m,bvh->getTimestep());
+}
 int
 Environment::
 getDimState()
@@ -92,12 +139,14 @@ reset(int frame)
 	mElapsedFrame = 0;
 
 	auto motion = mMotions[0];
-	mFrame = dart::math::Random::uniform<int>(200,motion->getNumFrames()-3);
+	// mFrame = dart::math::Random::uniform<int>(200,motion->getNumFrames()-3);
+	mFrame = 0;
 	Eigen::Vector3d position = motion->getPosition(mFrame);
 	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
 	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
 	Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(mFrame);
 
+	mKinCharacter->getMSD()->reset();
 	mSimCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
 
 	mSimCharacter->getSkeleton()->clearConstraintImpulses();
@@ -106,27 +155,59 @@ reset(int frame)
 
 	mKinCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
 
+	mForceCartesianMSD->reset();
 	mPrevPositions2 = mSimCharacter->getSkeleton()->getPositions(); 
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
+	mPrevMSDStates = mKinCharacter->getMSD()->saveState();
 
 	if(mEnableGoal){
 		this->resetGoal();
-		this->recordGoal();	
+		this->recordGoal();
 	}
-
 	this->recordState();
 }
 void
 Environment::
 step(const Eigen::VectorXd& _action)
 {
+	double r = dart::math::Random::uniform<double>(0.0,1.0);
+	if(r<0.02)
+		mLeftHandTargetProjection = Eigen::Vector3d::Random()*2 - Eigen::Vector3d::Ones();
+	mForceCartesianMSD->setProjection(mLeftHandTargetProjection);
+	mForceCartesianMSD->step();
+	Eigen::Vector3d force = 10.0*mForceCartesianMSD->getPosition();
+
+	mKinCharacter->applyForceMSD("LeftHand", force, Eigen::Vector3d::Zero());
+
 	Eigen::VectorXd action = this->convertToRealActionSpace(_action);
 
 	auto sim_skel = mSimCharacter->getSkeleton();
 	int num_sub_steps = mSimulationHz/mControlHz;
 
 	auto target_pos = mSimCharacter->computeTargetPosition(action);
+
+	auto msd = mKinCharacter->getMSD();
+	Eigen::MatrixXd tar_rot;
+	Eigen::MatrixXd sim_rot = mSimCharacter->getPose();
+	Eigen::MatrixXd msd_rot = MotionUtils::addDisplacement(sim_rot, msd->getRotation());
+	if(mSimCharacter->getLastForceBodyNodeName().size() != 0)
+	{
+		std::string force_body_name = sim_skel->getBodyNode(mSimCharacter->getLastForceBodyNodeName())->getName();
+		std::string force_sim_body_name = mMotions[0]->getName(mSimCharacter->getBVHIndex(sim_skel->getIndexOf(sim_skel->getBodyNode(force_body_name))));
+		tar_rot = MotionUtils::computeWeightedClosestPose(mMotions[0], force_sim_body_name, msd_rot);
+	}
+	else
+		tar_rot = MotionUtils::computeClosestPose(mMotions[0], msd_rot);
+	Eigen::Vector3d pos = msd->getPosition();
+	pos.setZero();
+	pos[1] = 1.0;
+	Eigen::MatrixXd rot = MotionUtils::addDisplacement(MotionUtils::TransposeMatrix(sim_rot), tar_rot);
+	msd->setProjection(pos, rot);
+	mKinCharacter->stepMSD();
+	mKinCharacter->setPose(msd->getPosition(), MotionUtils::addDisplacement(sim_rot, msd->getRotation()));
+
+	
 
 	for(int i=0;i<num_sub_steps;i++)
 	{
@@ -175,6 +256,7 @@ step(const Eigen::VectorXd& _action)
 	mPrevPositions2 = mPrevPositions;
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
+	mPrevMSDStates = mKinCharacter->getMSD()->saveState();
 
 	mElapsedFrame++;
 	mFrame++;
@@ -240,16 +322,19 @@ recordState()
 		mState = state;	
 	
 	auto save_state = mKinCharacter->saveState();
+	auto save_msd_state = mKinCharacter->getMSD()->saveState();
 
 	Eigen::VectorXd prev_velocities = mSimCharacter->computeAvgVelocity(mPrevPositions2, mPrevPositions, 1.0/mControlHz);
 	mKinCharacter->getSkeleton()->setPositions(mPrevPositions);
 	mKinCharacter->getSkeleton()->setVelocities(prev_velocities);
-	
+	mKinCharacter->getMSD()->restoreState(mPrevMSDStates);
+
 	Eigen::VectorXd s = mKinCharacter->getStateAMP();
 
 	Eigen::VectorXd velocities = mSimCharacter->computeAvgVelocity(mPrevPositions, mSimCharacter->getSkeleton()->getPositions(), 1.0/mControlHz);
 	mKinCharacter->getSkeleton()->setPositions(mSimCharacter->getSkeleton()->getPositions());
 	mKinCharacter->getSkeleton()->setVelocities(velocities);
+	mKinCharacter->getMSD()->restoreState(save_msd_state);
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);

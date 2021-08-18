@@ -25,9 +25,10 @@ public:
 	double getTimestep(){return mTimestep;}
 	
 	const std::vector<std::string>& getNames(){return mNames;}
+	const std::string& getName(int i){return mNames[i];}
 	const std::vector<Eigen::Vector3d>& getOffsets(){return mOffsets;}
 	const std::vector<int>& getParents(){return mParents;}
-
+	int getNodeIndex(const std::string& name){auto it = std::find(mNames.begin(), mNames.end(), name); return std::distance(mNames.begin(), it);}
 	int getNumFrames(){return mNumFrames;}
 	
 	BVH* getBVH(){return mBVH;}	
@@ -62,9 +63,10 @@ class MotionUtils
 public:
 	static Eigen::MatrixXd computePoseDifferences(Motion* m);
 
+	static Eigen::MatrixXd computeWeightedClosestPose(Motion* m, const std::string& name, const Eigen::MatrixXd& R);
 	static Eigen::MatrixXd computeJointWiseClosestPose(Motion *m, const Eigen::MatrixXd& R);
 	static Eigen::VectorXd computePoseDifferenceVector(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj);
-	static int computeClosestPose(Motion* m, const Eigen::MatrixXd& rot,const Eigen::VectorXd& w=Eigen::VectorXd::Zero(0));
+	static Eigen::MatrixXd computeClosestPose(Motion* m, const Eigen::MatrixXd& rot,const Eigen::VectorXd& w=Eigen::VectorXd::Zero(0));
 	// static void registerJointWeights(Motion* m, const std::map<std::string, double>& joint_weights);
 	static double computePoseDifference(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj, const Eigen::VectorXd& w=Eigen::VectorXd::Zero(0));
 	static Eigen::MatrixXd computePoseDisplacement(const Eigen::MatrixXd& Ri, const Eigen::MatrixXd& Rj);
@@ -74,6 +76,8 @@ public:
 	static Eigen::Isometry3d getReferenceTransform(const Eigen::Vector3d& pos, const Eigen::MatrixXd& rot);
 	static Motion* blendUpperLowerMotion(BVH* bvh_lb, BVH* bvh_ub, int start_lb, int start_ub);
 	static Motion* parseMotionLabel(const std::string& line, int fps = 30);
+	static Eigen::MatrixXd IdentityRotationMatrix(Motion* m);
+	static Eigen::MatrixXd TransposeMatrix(const Eigen::MatrixXd& rot);
 private:
 	// static Eigen::VectorXd gJointWeights;
 };

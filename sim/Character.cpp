@@ -1,7 +1,7 @@
 #include "Character.h"
 #include "MathUtils.h"
 #include "DARTUtils.h"
-#include "Motion.h"
+#include "MSD.h"
 #include "BVH.h"
 #include <algorithm>
 #include <iostream>
@@ -105,6 +105,23 @@ setPose(const Eigen::Vector3d& position,
 	mSkeleton->setPositions(p);
 	mSkeleton->setVelocities(v);
 	mSkeleton->computeForwardKinematics(true,true,false);
+}
+Eigen::MatrixXd
+Character::
+getPose()
+{
+	int njoints = mSkeleton->getNumJoints();
+	Eigen::MatrixXd rot(3,3*njoints);
+	rot.block<3,3>(0,0) = FreeJoint::convertToTransform(mSkeleton->getJoint(0)->getPositions()).linear();
+	for(int i=1;i<njoints;i++)
+	{
+		int idx = mBVHIndices[i];
+		if(mSkeleton->getJoint(i)->getType()=="BallJoint")
+			rot.block<3,3>(0,3*idx) = BallJoint::convertToRotation(mSkeleton->getJoint(i)->getPositions());
+		else
+			rot.block<3,3>(0,3*idx) = Eigen::Matrix3d::Identity();
+	}
+	return rot;
 }
 Eigen::VectorXd
 Character::
@@ -225,7 +242,29 @@ getStateAMP()
 	std::vector<Eigen::VectorXd> states;
 	double root_h = p[5];
 	states.emplace_back(Eigen::VectorXd::Constant(1,root_h));
-	for(int i=0;i<mSkeleton->getNumJoints();i++)
+	int n_joints = mSkeleton->getNumJoints();
+
+	Eigen::MatrixXd msd_rot = mMSD->getRotation();
+	for(int i=0;i<n_joints;i++)
+	{
+		auto joint = mSkeleton->getJoint(i);
+		int idx = mBVHIndices[i];
+
+		if(joint->getType()!="BallJoint")
+			continue;
+
+		int idx_in_jac = joint->getIndexInSkeleton(0);
+		Eigen::Matrix3d Rd = msd_rot.block<3,3>(0, idx*3);
+		Eigen::Matrix3d R = dart::math::expMapRot(p.segment<3>(idx_in_jac));
+		Eigen::Matrix3d R0 = R*(Rd.transpose());
+
+		p.segment<3>(idx_in_jac) = dart::math::logMap(R0);
+	}
+
+	mSkeleton->setPositions(p);
+	mSkeleton->setVelocities(v);
+
+	for(int i=0;i<n_joints;i++)
 	{
 		auto joint = mSkeleton->getJoint(i);
 		
@@ -303,7 +342,46 @@ buildBVHIndices(const std::vector<std::string>& bvh_names)
 			mBVHIndices.emplace_back(index);
 	}
 }
+void
+Character::
+buildMSD(const Eigen::VectorXd& k, const Eigen::VectorXd& d, const Eigen::VectorXd& m, double dt)
+{
+	int njoints = mBVHMap.size();
+		
+	mMSD = new GeneralizedMSD(njoints, k, d, m, dt);
+}
+void
+Character::
+stepMSD()
+{
+	mMSD->step();
+	mLastForceBodyNodeName = "";
+}
+void
+Character::
+applyForceMSD(const std::string& bn_name, const Eigen::Vector3d& force, const Eigen::Vector3d& local_offset)
+{
+	mLastForceBodyNodeName = bn_name;
+	int njoints = mSkeleton->getNumJoints();
+	Eigen::VectorXd generalized_force = Eigen::VectorXd::Zero(3+3*njoints);
 
+	auto bn = mSkeleton->getBodyNode(bn_name);
+	dart::math::LinearJacobian J = mSkeleton->getLinearJacobian(bn, local_offset);
+	Eigen::VectorXd Jtf = J.transpose()*(force);
+	// generalized_force[1] = force[1];
+	for(int i=0;i<njoints;i++)
+	{
+		auto joint = mSkeleton->getJoint(i);
+		if(joint->getType()!="BallJoint")
+			continue;
+		
+		int idx = mBVHIndices[i];
+
+		int idx_in_jac = joint->getIndexInSkeleton(0);
+		generalized_force.segment<3>(3+3*idx) = Jtf.segment<3>(idx_in_jac);
+	}
+	mMSD->applyForce(generalized_force);
+}
 std::map<std::string, Eigen::MatrixXd>
 Character::
 getStateBody()
