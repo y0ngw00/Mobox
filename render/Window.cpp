@@ -14,6 +14,10 @@ using namespace dart::dynamics;
 using namespace dart::simulation;
 using namespace dart::math;
 
+static bool show_demo_window = true;
+static bool show_another_window = true;
+static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
 Window::
 Window()
 	:GLUTWindow3D(),
@@ -36,8 +40,8 @@ Window()
 	mBarPlot.base_val = 0.0;
 	mBarPlot.color = Eigen::Vector4d(0.8,0.8,0.8,0.6);
 	
-	mCamera->setLookAt(Eigen::Vector3d(0.0,1.3,0.8));
-	mCamera->setEye( Eigen::Vector3d(-2.0,1.3,-0.8));
+	mCamera->setLookAt(Eigen::Vector3d(0.0,0.3,0.8));
+	mCamera->setEye( Eigen::Vector3d(-2.0,3.0,10.0));
 
 	this->reset();
 
@@ -65,11 +69,30 @@ render()
 		mObjectRenderOption.texture_id = MeshUtils::buildTexture((std::string(ROOT_DIR)+"/data/textures/targetchar.png").c_str());
 		mObjectRenderOption.drawJoints = false;
 	}
+
+	ImGui_ImplOpenGL2_NewFrame();
+    ImGui_ImplGLUT_NewFrame();
+
+    ImGuiDisplay();
+    // Rendering
+    ImGui::Render();
+    ImGuiIO& io = ImGui::GetIO();
+
+
+
 	glColor4f(0.4,0.4,1.2,0.2);
 	
 	glColor4f(1.2,0.4,0.4,0.8);DrawUtils::drawArrow3D(Eigen::Vector3d::Zero(), Eigen::Vector3d::UnitX(), 0.2);
 	glColor4f(0.4,1.2,0.4,0.8);DrawUtils::drawArrow3D(Eigen::Vector3d::Zero(), Eigen::Vector3d::UnitY(), 0.2);
 	glColor4f(0.4,0.4,1.2,0.8);DrawUtils::drawArrow3D(Eigen::Vector3d::Zero(), Eigen::Vector3d::UnitZ(), 0.2);
+
+	
+
+	Eigen::Vector3d force_dir =mEnvironment->getTargetDirection();
+	// Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
+	// force_dir = R_ref.inverse() * force_dir;
+	Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
+	glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
 
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
@@ -123,9 +146,102 @@ render()
 		glEnable(GL_TEXTURE_2D);
 	
 	}
+
+	ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+
 	if(mCapture)
 		this->capture_screen();
 }
+
+void
+Window::
+ImGuiDisplay()
+{
+     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+    if (show_demo_window)
+        ImGui::ShowDemoWindow(&show_demo_window);
+
+    // // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+    {
+
+        static int counter = 0;
+
+        ImGui::Begin("Parameter Control Window");                          // Create a window called "Hello, world!" and append into it.
+
+                    // Display some text (you can use a format strings too)
+        // ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+        ImGui::Checkbox("Control", &mControl);
+        // ImGui::Text("Forwarding direction");
+        // ImGui::SliderFloat("Theta", &theta, -180, 180);            // Edit 1 float using a slider from 0.0f to 1.0f
+        
+        // ImGui::Text("Forwarding height");   
+        // ImGui::SliderFloat("Height", &height, 0.6f, 2.0f);
+
+        // ImGui::Text("Speed");   
+        // ImGui::SliderFloat("Speed", &speed, 0.5f, 3.0f);
+
+        static int motionidx = 0;
+        for(int n=0; n<mMotionType.rows();n++){
+        	if(mMotionType[n]==1){
+        		motionidx=n;
+        		break;
+        	}
+        }
+        ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
+        ImGui::RadioButton("zombie", &motionidx, 1);
+
+        mMotionType.setZero();
+        mMotionType[motionidx]=1;
+        // ImGui::RadioButton("radio c", &motionidx, 2);
+        // ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+        // if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+        //     counter++;
+        // ImGui::Text("counter = %d", counter);
+
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
+    }
+
+    // // 3. Show another simple window.
+    {
+        ImGui::Begin("Indicator");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+        // if (ImGui::BeginTable("table1", 3))
+        // {
+        //     for (int row = 0; row < 4; row++)
+        //     {
+        //         ImGui::TableNextRow();
+        //         for (int column = 0; column < 3; column++)
+        //         {
+        //             ImGui::TableSetColumnIndex(column);
+        //             ImGui::Text("Row %d Column %d", row, column);
+        //         }
+        //     }
+        //     ImGui::EndTable();
+        // }
+        if (ImGui::CollapsingHeader("Rewards"))
+        {
+	        if (ImGui::BeginTable("Reward", 3))
+	        {
+	            for (int row = 0; row < 4; row++)
+	            {
+	                ImGui::TableNextRow();
+	                ImGui::TableNextColumn();
+	                ImGui::Text("Row %d", row);
+	                ImGui::TableNextColumn();
+	                ImGui::Text("Some contents");
+	                ImGui::TableNextColumn();
+	                ImGui::Text("123.456");
+	            }
+	            ImGui::EndTable();
+	        }
+    	}
+        if (ImGui::Button("Close Me"))
+            show_another_window = false;
+        ImGui::End();
+    }
+}
+
 
 void
 Window::
@@ -148,11 +264,30 @@ reset(int frame)
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
 	}
+
+
+	this->height = mEnvironment->getTargetHeight();
+	this->theta = mEnvironment->getTargetHeading()*180/M_PI;
+	this->speed = mEnvironment->getTargetSpeed();
+	this->mMotionType = mEnvironment->getTargetMotion();
 }
 void
 Window::
 step()
 {
+	if(mControl){
+		mEnvironment->setTargetHeading(this->theta/180*M_PI);
+		mEnvironment->setTargetSpeed(this->speed);
+		mEnvironment->setTargetHeight(this->height);
+		mEnvironment->setTargetMotion(this->mMotionType);		
+	}
+	else{
+		this->theta = mEnvironment->getTargetHeading();
+		this->speed = mEnvironment->getTargetSpeed();
+		this->height = mEnvironment->getTargetHeight();
+		this->mMotionType = mEnvironment->getTargetMotion();		
+	}
+
 	if(mUseNN)
 	{
 		Eigen::VectorXd action = policy.attr("compute_action")(mObservation, mExplore).cast<Eigen::VectorXd>();
@@ -260,6 +395,8 @@ Window::
 mouse(int button, int state, int x, int y)
 {
 	GLUTWindow3D::mouse(button,state,x,y);
+
+
 
 	if(mMouse == 2) // Right
 	{

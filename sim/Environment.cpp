@@ -24,9 +24,10 @@ Environment()
 	mSimCharacter(nullptr),
 	mKinCharacter(nullptr),
 	mTargetSpeedMin(0.5),
-	mTargetSpeedMax(3.5),
+	mTargetSpeedMax(3.0),
 	mSharpTurnProb(0.01),
 	mSpeedChangeProb(0.05),
+	mHeightChangeProb(0.01),
 	mMaxHeadingTurnRate(0.15),
 	mRewardGoal(0.0),
 	mEnableGoal(true)
@@ -35,16 +36,52 @@ Environment()
 
 	mSimCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel.xml");
 	mKinCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel.xml");
-	
-	BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
-	Motion* motion = new Motion(bvh);
-	for(int j=0;j<bvh->getNumFrames();j++)
-		motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
 
-	motion->computeVelocity();
-	mMotions.emplace_back(motion);
-	mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
-	mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+	std::vector<std::string> motion_lists = {
+			"/data/bvh/walk_long.bvh",
+			// "/data/bvh/walk_drunk.bvh",
+			//"/data/bvh/walk_hurt_rl.bvh",
+			// "/data/bvh/walk_hurt_ll.bvh",
+			// "/data/bvh/walk_wild.bvh",
+			"/data/bvh/walk_zombie.bvh"
+	};
+	mNumMotions = motion_lists.size();
+	mStateLabel.resize(mNumMotions);
+	mStateLabel.setZero();
+
+	bool load_tree =false;
+	for(auto bvh_path : motion_lists){
+		BVH* bvh = new BVH(std::string(ROOT_DIR)+bvh_path);
+		Motion* motion = new Motion(bvh);
+		for(int j=0;j<bvh->getNumFrames();j++){
+			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
+			if(j>600) break;
+		}
+
+		motion->computeVelocity();
+		mMotions.emplace_back(motion);
+
+		if(!load_tree){
+			mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+			mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+			load_tree = true;			
+		}
+
+		// delete bvh;
+		// delete motion;
+	}
+
+	// BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
+	// 	Motion* motion = new Motion(bvh);
+	// 	for(int j=0;j<bvh->getNumFrames();j++)
+	// 		motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
+
+	// 	motion->computeVelocity();
+	// 	mMotions.emplace_back(motion);
+	// 			mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+	// 		mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
+
+
 
 	double ground_height = this->computeGroundHeight();
 	mGround = DARTUtils::createGround(ground_height);
@@ -62,6 +99,10 @@ Environment()
 
 	mActionSpace = this->getActionSpace();
 	mActionWeight = this->getActionWeight();
+
+	this->mTargetHeightMin = 0.6;
+	this->mTargetHeightMax = 2.0;
+
 }
 
 int
@@ -83,6 +124,71 @@ getDimStateAMP()
 {
 	return this->getStateAMP().rows();
 }
+
+double
+Environment::
+getTargetHeading()
+{
+	return this->mTargetHeading;
+}
+
+double
+Environment::
+getTargetSpeed()
+{
+	return this->mTargetSpeed;
+}
+
+double
+Environment::
+getTargetHeight()
+{
+	return this->mTargetHeight;
+}
+
+const Eigen::Vector3d
+Environment::
+getTargetDirection()
+{
+	return this->mTargetDirection;
+}
+
+const Eigen::VectorXd
+Environment::
+getTargetMotion()
+{
+	return this->mStateLabel;
+}
+
+void
+Environment::
+setTargetHeading(double heading)
+{
+	this->mTargetHeading = heading;
+	return;
+}
+
+void
+Environment::
+setTargetSpeed(double speed)
+{
+	this->mTargetSpeed = speed;
+	return;
+}
+void
+Environment::
+setTargetHeight(double height)
+{
+	this->mTargetHeight = height;
+	return;
+}
+void
+Environment::
+setTargetMotion(const Eigen::VectorXd motion_type)
+{
+	this->mStateLabel = motion_type;
+	return;
+}
 void
 Environment::
 reset(int frame)
@@ -91,8 +197,12 @@ reset(int frame)
 	mFrame = 0;
 	mElapsedFrame = 0;
 
-	auto motion = mMotions[0];
-	mFrame = dart::math::Random::uniform<int>(200,motion->getNumFrames()-3);
+	int motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+	mStateLabel.setZero();
+	mStateLabel[motion_num] = 1.0;
+
+	auto motion = mMotions[motion_num];
+	mFrame = dart::math::Random::uniform<int>(400,motion->getNumFrames()-3);
 	Eigen::Vector3d position = motion->getPosition(mFrame);
 	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
 	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
@@ -183,12 +293,47 @@ void
 Environment::
 resetGoal()
 {
+	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
+	Eigen::Matrix3d R_ref = T_ref.linear();
+	Eigen::AngleAxisd aa_ref(R_ref);
+	double heading = aa_ref.angle()*aa_ref.axis()[1];
+	//Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
+	this->mTargetHeading = heading-M_PI/2;
+
+	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
+	Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
+	com_vel[1] =0.0;
+	// if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
+	// else{
+	// 	this->mTargetHeading = com_vel[2]>0? 90: 270; 
+	// }
+	this->mTargetSpeed = std::max(1.0, com_vel.norm());
+	// this->mTargetHeight = mSimCharacter->getSkeleton()->getCOM()[1];
+	// this->mIdleHeight = mSimCharacter->getSkeleton()->getCOM()[1];
+
 	return;
 }
 void
 Environment::
 updateGoal()
 {
+	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+	double delta_heading = 0;
+	if(sharp_turn)
+		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+	else
+		delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
+	mTargetHeading += delta_heading;
+
+	bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
+	if(change_speed)
+		mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
+
+	// bool change_height = dart::math::Random::uniform<double>(0.0, 1.0)<mHeightChangeProb?true:false;
+	// if(change_height)
+	// 	mTargetHeight = dart::math::Random::uniform(mTargetHeightMin, mTargetHeightMax);
+
+
 	return;
 }
 void
@@ -196,6 +341,50 @@ Environment::
 recordGoal()
 {
 	mRewardGoal = 1.0;
+	// Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
+	// Eigen::Matrix3d R_ref = T_ref.linear();
+
+	// Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
+	// com_vel[1] = 0.0;
+	// com_vel = R_ref.inverse() * com_vel;
+
+	// // Eigen::Vector3d target_direction = R_target.col(2);
+	// Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
+
+	// mTargetDirection = target_direction;
+	// Eigen::Vector3d tar_loc = R_ref.inverse() * target_direction;
+
+	// double err_height = mTargetHeight - mSimCharacter->getSkeleton()->getCOM()[1];
+	
+	// double err_vel = std::sqrt(mTargetHeight *2* 9.8) - com_vel[1];
+
+	// mStateGoal.resize(7+mNumMotions);
+	// mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
+	
+	mStateGoal.resize(mNumMotions);
+	mStateGoal<<mStateLabel;
+
+
+	// double proj_vel = tar_loc.dot(com_vel);
+	// mRewardGoal = 0.0;
+	// if(proj_vel > 0.0)
+	// {
+	// 	double err = std::max(1.0 - proj_vel, 0.0);
+	// 	mRewardGoal = std::exp(-1.0*err*err);
+	// }
+
+	// Eigen::Vector3d vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
+	// double vel_reward=0;
+	// if(vel[1]>0){
+	// 	double vel_reward = std::exp(-1.0 * err_vel * err_vel);
+	// }
+
+	// double pos_reward = 0.5;
+	// if(mSimCharacter->getSkeleton()->getCOM()[1] > 0.86){
+	// 	pos_reward += 0.5 * std::exp(-10.0 * err_height * err_height);
+	// }
+
+	// mRewardGoal *= (0.5 * pos_reward + 0.5 * vel_reward);
 }
 
 double
@@ -204,7 +393,6 @@ getRewardGoal()
 {
 	return mRewardGoal;
 }
-
 
 const Eigen::VectorXd&
 Environment::
@@ -253,8 +441,8 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows());
-	mStateAMP<<s, s1;
+	mStateAMP.resize(s.rows() + s1.rows() + mStateLabel.rows());
+	mStateAMP<<s, s1, mStateLabel;
 }
 
 
@@ -273,8 +461,13 @@ getStateAMPExpert()
 	}
 	Eigen::MatrixXd state_expert(total_num_frames,m);
 
-	for(auto motion: mMotions)
+	for(int n=0; n<mNumMotions; n++)
 	{
+		auto motion = mMotions[n];
+		Eigen::VectorXd label(mNumMotions);
+		label.setZero();
+		label[n] = 1.0;
+
 		int nf = motion->getNumFrames();
 		mKinCharacter->setPose(motion->getPosition(0),
 							motion->getRotation(0),
@@ -293,7 +486,8 @@ getStateAMPExpert()
 			s1 = mKinCharacter->getStateAMP();
 
 			state_expert.row(o+i).head(m2) = s.transpose();
-			state_expert.row(o+i).tail(m2) = s1.transpose();
+			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
+			state_expert.row(o+i).tail(mNumMotions) = label.transpose();
 			s = s1;
 		}
 		o += nf - 1;

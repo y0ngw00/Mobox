@@ -6,7 +6,9 @@
 class Camera
 {
 public:
-	Camera(const Eigen::Vector3d& look_at = Eigen::Vector3d(0.0,0.0,0.0),const Eigen::Vector3d& eye = Eigen::Vector3d(0.0,0.0,2.0),const Eigen::Vector3d& up = Eigen::Vector3d::UnitY(),float fovy = 60.0);
+	Camera(const Eigen::Vector3d& look_at = Eigen::Vector3d(0.0,0.0,0.0),
+		const Eigen::Vector3d& eye = Eigen::Vector3d(0.0,0.0,2.0),
+		const Eigen::Vector3d& up = Eigen::Vector3d::UnitY(),float fovy = 60.0);
 	void apply();
 
 	void pan(int x,int y,int px,int py);

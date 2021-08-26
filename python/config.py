@@ -1,6 +1,6 @@
 config = {
 	'num_envs' : 16,
-	'save_path' : '/home/seunghwan/Documents/comcon_remote/data/learning/',
+	'save_path' : '../data/learning/',
 	'save_at_start' : True,
 	'model' : {
 		'sample_std' : 0.1,
@@ -36,7 +36,7 @@ config = {
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
 		'r_scale' : 2.0,
-		'lr' : 5e-6,
+		'lr' : 1e-6,
 	},
 
 	'trainer' : {

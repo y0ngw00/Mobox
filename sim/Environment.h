@@ -16,6 +16,18 @@ public:
 	int getDimAction();
 	int getDimStateAMP();
 
+	double getTargetHeading();
+	double getTargetHeight();
+	double getTargetSpeed();
+	const Eigen::Vector3d getTargetDirection();
+	const Eigen::VectorXd getTargetMotion();
+
+	void setTargetHeading(double heading);
+	void setTargetSpeed(double speed);
+	void setTargetHeight(double height);
+	void setTargetMotion(const Eigen::VectorXd motion_type);
+
+
 	void reset(int frame=-1);
 
 	void step(const Eigen::VectorXd& action);
@@ -62,16 +74,23 @@ private:
 	dart::dynamics::SkeletonPtr mGround;
 
 	Eigen::VectorXd mPrevPositions, mPrevPositions2, mPrevCOM;
-	Eigen::VectorXd mState, mStateGoal, mStateAMP;
+	Eigen::VectorXd mState, mStateGoal, mStateAMP, mStateLabel;
 
 	bool mContactEOE;
 	bool mEnableGoal;
 
 	double mRewardGoal;
 
+	int mNumMotions;
+
 	double mTargetHeading, mTargetSpeed;
+	Eigen::Vector3d mTargetDirection;
 	double mTargetSpeedMin, mTargetSpeedMax;
 	double mTargetFrame;
-	double mSharpTurnProb, mSpeedChangeProb, mMaxHeadingTurnRate;
+	double mTargetHeight, mIdleHeight;
+	double mSharpTurnProb, mSpeedChangeProb,mHeightChangeProb, mMaxHeadingTurnRate;
+
+	double mTargetHeightMin, mTargetHeightMax;
+
 };
 #endif

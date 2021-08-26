@@ -20,6 +20,7 @@ public:
 
 	Environment* mEnvironment;
 	void render() override;
+	void ImGuiDisplay();
 
 	void reset(int frame=-1);
 	void step();
@@ -63,6 +64,12 @@ protected:
 
 	std::chrono::system_clock::time_point mTimePoint;
 	double mComputedTime;
+
+	bool mControl;
+	float height;
+    float theta;
+    float speed;
+    Eigen::VectorXd mMotionType;
 };
 
 #endif

@@ -42,11 +42,17 @@ void
 GLUTWindow3D::
 mouse(int button, int state, int x, int y)
 {
+	auto& io = ImGui::GetIO();
+
 	if(state == GLUT_DOWN){
-		mDrag = true;
+		if(!io.WantCaptureMouse){
+			mDrag = true;			
+		}
+
 		mPrevX = x;
 		mPrevY = y;
 	}
+
 	else
 		mDrag = false;
 	mMouse = button;
@@ -131,9 +137,9 @@ initLights()
 	glEnable(GL_FOG);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	GLfloat fogColor[] = {1,1,1,1};
+	GLfloat fogColor[] = {1,1,1,0.5};
 	glFogfv(GL_FOG_COLOR,fogColor);
 	glFogi(GL_FOG_MODE,GL_LINEAR);
-	glFogf(GL_FOG_START, 10.0);
-	glFogf(GL_FOG_END,20.0);
+	glFogf(GL_FOG_START, 20.0);
+	glFogf(GL_FOG_END,40.0);
 }

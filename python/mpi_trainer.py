@@ -137,14 +137,14 @@ class Trainer(object):
 
 	def generate_episodes(self):
 		for j in range(self.sample_epoch):
-			a, lp, vf = self.policy(self.state)
-			self.env.step(a)
+			action, logprob, valuef = self.policy(self.state)
+			self.env.step(action)
 
 			ss1 = self.env.get_state_AMP()
 			eoe = self.env.inspect_end_of_episode()
 			rg = self.env.get_reward_goal()
 			
-			self.episode_buffers[-1].append(Sample(self.state, a, rg, ss1, vf, lp))
+			self.episode_buffers[-1].append(Sample(self.state, action, rg, ss1, valuef, logprob))
 			self.state = self.env.get_state()
 			if eoe:
 				if len(self.episode_buffers[-1]) != 0:

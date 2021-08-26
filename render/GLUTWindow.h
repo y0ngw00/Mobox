@@ -2,6 +2,10 @@
 #define __GLUT_WINDOW_H__
 #include <string>
 #include <vector>
+#include "imgui.h"
+#include "imgui_internal.h"
+#include "imgui_impl_glut.h"
+#include "imgui_impl_opengl2.h"
 class Camera;
 class GLUTWindow
 {

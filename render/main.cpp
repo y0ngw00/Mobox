@@ -19,5 +19,11 @@ int main(int argc,char** argv)
 	
 	window->initWindow(1920,1080,"kinematics");
 	glutMainLoop();
+
+	  // Cleanup
+	ImGui_ImplOpenGL2_Shutdown();
+	ImGui_ImplGLUT_Shutdown();
+	ImGui::DestroyContext();
+
 	return 0;
 }
