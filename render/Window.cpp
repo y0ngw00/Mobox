@@ -188,7 +188,8 @@ ImGuiDisplay()
         	}
         }
         ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
-        ImGui::RadioButton("zombie", &motionidx, 1);
+        ImGui::RadioButton("wild", &motionidx, 1);
+        ImGui::RadioButton("zombie", &motionidx, 2);
 
         mMotionType.setZero();
         mMotionType[motionidx]=1;

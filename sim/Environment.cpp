@@ -42,7 +42,7 @@ Environment()
 			// "/data/bvh/walk_drunk.bvh",
 			//"/data/bvh/walk_hurt_rl.bvh",
 			// "/data/bvh/walk_hurt_ll.bvh",
-			// "/data/bvh/walk_wild.bvh",
+			"/data/bvh/walk_wild.bvh",
 			"/data/bvh/walk_zombie.bvh"
 	};
 	mNumMotions = motion_lists.size();
@@ -452,7 +452,7 @@ getStateAMPExpert()
 {
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
-	int m2 = m/2;
+	int m2 = (m-mNumMotions)/2;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
