@@ -15,7 +15,7 @@ public:
 	int getDimState();
 	int getDimAction();
 	int getDimStateAMP();
-	int getDimStateAMPLabel();
+	int getDimStateLabel();
 
 	double getTargetHeading();
 	double getTargetHeight();

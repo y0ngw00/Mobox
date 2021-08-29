@@ -67,10 +67,10 @@ class Trainer(object):
 			self.create_summary_writer(path)
 
 	def create_policy(self, device, model_config, policy_config):
-		return ppo.PPO(self.env.get_dim_state(), self.env.get_dim_action(), device, model_config , policy_config)
+		return ppo.PPO(self.env.get_dim_state(),self.env.get_dim_state_label(), self.env.get_dim_action(), device, model_config , policy_config)
 
 	def create_disc(self, device, model_config, disc_config):
-		return discriminator.Discriminator(self.env.get_dim_state_AMP(), device, model_config, disc_config)
+		return discriminator.Discriminator(self.env.get_dim_state_AMP(),self.env.get_dim_state_label(), device, model_config, disc_config)
 
 	def create_summary_writer(self, path):
 		self.writer = SummaryWriter(path)

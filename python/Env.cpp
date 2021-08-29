@@ -33,6 +33,13 @@ getDimStateAMP()
 }
 int
 Env::
+getDimStateLabel()
+{
+	return mEnv->getDimStateLabel();
+}
+
+int
+Env::
 getDimAction()
 {
 	return mEnv->getDimAction();
@@ -96,6 +103,7 @@ PYBIND11_MODULE(pycomcon, m){
 		.def("is_enable_goal", &Env::isEnableGoal)
 		.def("get_dim_state", &Env::getDimState)
 		.def("get_dim_state_AMP", &Env::getDimStateAMP)
+		.def("get_dim_state_label", &Env::getDimStateLabel)
 		.def("get_dim_action", &Env::getDimAction)
 		.def("reset", &Env::reset)
 		.def("step", &Env::step)

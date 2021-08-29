@@ -12,7 +12,7 @@ import filter
 from misc import *
 
 class DiscriminatorNN(nn.Module):
-	def __init__(self, dim_in, model_config):
+	def __init__(self, dim_in, dim_class, model_config):
 		nn.Module.__init__(self)
 
 		hiddens = model_config['hiddens']
@@ -30,6 +30,8 @@ class DiscriminatorNN(nn.Module):
 				activation))
 			prev_layer_size = size
 
+		self.label_embed = nn.Embedding(( dim_class,  dim_class))
+
 		self.fn = nn.Sequential(*layers)
 		self.dim_in = dim_in
 	def forward(self, x):
@@ -37,8 +39,8 @@ class DiscriminatorNN(nn.Module):
 
 
 class Discriminator(object):
-	def __init__(self, dim_state, device, model_config, disc_config):
-		self.model = DiscriminatorNN(dim_state, model_config)
+	def __init__(self, dim_state, dim_class, device, model_config, disc_config):
+		self.model = DiscriminatorNN(dim_state,  dim_class, model_config)
 
 		self.state_filter = filter.MeanStdRuntimeFilter(self.model.dim_in)
 

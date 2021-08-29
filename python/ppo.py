@@ -14,7 +14,7 @@ import time
 from misc import *
 
 class PolicyNN(nn.Module):
-	def __init__(self, dim_state, dim_action, model_config):
+	def __init__(self, dim_state, dim_class, dim_action, model_config):
 		nn.Module.__init__(self)
 
 		sample_std = model_config['sample_std']
@@ -68,8 +68,8 @@ def discount(x, gamma):
 	return scipy.signal.lfilter([1],[1, -gamma], x[::-1], axis=0)[::-1]
 
 class PPO(object):
-	def __init__(self, dim_state, dim_action, device, model_config, policy_config):
-		self.model = PolicyNN(dim_state, dim_action, model_config)
+	def __init__(self, dim_state,  dim_class, dim_action, device, model_config, policy_config):
+		self.model = PolicyNN(dim_state, dim_class,  dim_action, model_config)
 
 		self.state_filter = filter.MeanStdRuntimeFilter(shape=self.model.dim_state)
 		self.distribution = torch.distributions.normal.Normal

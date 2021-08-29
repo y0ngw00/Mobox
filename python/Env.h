@@ -22,6 +22,7 @@ public:
 
 	int getDimState();
 	int getDimStateAMP();
+	int getDimStateLabel();
 	int getDimAction();
 
 	void reset();
