@@ -40,8 +40,9 @@ Environment()
 	std::vector<std::string> motion_lists = {
 			"/data/bvh/walk_long.bvh",
 			// "/data/bvh/walk_drunk.bvh",
+			"/data/bvh/jump_lsw.bvh",	
 			//"/data/bvh/walk_hurt_rl.bvh",
-			// "/data/bvh/walk_hurt_ll.bvh",
+			"/data/bvh/walk_hurt_ll.bvh",
 			"/data/bvh/walk_wild.bvh",
 			"/data/bvh/walk_zombie.bvh"
 	};
