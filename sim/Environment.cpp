@@ -47,6 +47,7 @@ Environment()
 			"/data/bvh/walk_zombie.bvh"
 	};
 	mNumMotions = motion_lists.size();
+	mNumAddInfo = 1;
 	mStateLabel.resize(mNumMotions);
 	mStateLabel.setZero();
 
@@ -342,12 +343,12 @@ Environment::
 recordGoal()
 {
 	mRewardGoal = 1.0;
-	// Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
-	// Eigen::Matrix3d R_ref = T_ref.linear();
+	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
+	Eigen::Matrix3d R_ref = T_ref.linear();
 
-	// Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
+	Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
 	// com_vel[1] = 0.0;
-	// com_vel = R_ref.inverse() * com_vel;
+	com_vel = R_ref.inverse() * com_vel;
 
 	// // Eigen::Vector3d target_direction = R_target.col(2);
 	// Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
@@ -362,8 +363,8 @@ recordGoal()
 	// mStateGoal.resize(7+mNumMotions);
 	// mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
 	
-	mStateGoal.resize(mNumMotions);
-	mStateGoal<<mStateLabel;
+	mStateGoal.resize(mNumMotions+mNumAddInfo);
+	mStateGoal<<com_vel[1],mStateLabel;
 
 
 	// double proj_vel = tar_loc.dot(com_vel);
@@ -419,14 +420,14 @@ Environment::
 recordState()
 {
 	Eigen::VectorXd state = MathUtils::ravel(mSimCharacter->getState());
-	if(mEnableGoal)
-	{
+	// if(mEnableGoal)
+	// {
 		Eigen::VectorXd goal = this->getStateGoal();
 		mState = Eigen::VectorXd(state.rows() + goal.rows());
 		mState<<state, goal;	
-	}
-	else
-		mState = state;	
+	// }
+	// else
+	// 	mState = state;	
 	
 	auto save_state = mKinCharacter->saveState();
 
@@ -442,8 +443,8 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows() + mStateLabel.rows());
-	mStateAMP<<s, s1, mStateLabel;
+	mStateAMP.resize(s.rows() + s1.rows() + mNumAddInfo + mStateLabel.rows());
+	mStateAMP<<s, s1, goal;
 }
 
 
@@ -453,7 +454,7 @@ getStateAMPExpert()
 {
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
-	int m2 = (m-mNumMotions)/2;
+	int m2 = (m-mNumMotions-mNumAddInfo)/2;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
@@ -465,9 +466,9 @@ getStateAMPExpert()
 	for(int n=0; n<mNumMotions; n++)
 	{
 		auto motion = mMotions[n];
-		Eigen::VectorXd label(mNumMotions);
+		Eigen::VectorXd label(mNumMotions+mNumAddInfo);
 		label.setZero();
-		label[n] = 1.0;
+		label[n+mNumAddInfo] = 1.0;
 
 		int nf = motion->getNumFrames();
 		mKinCharacter->setPose(motion->getPosition(0),
@@ -477,7 +478,7 @@ getStateAMPExpert()
 		Eigen::VectorXd s = mKinCharacter->getStateAMP();
 
 		Eigen::VectorXd s1;
-
+		Eigen::VectorXd com_prev = mKinCharacter->getSkeleton()->getCOM();
 		for(int i=0;i<nf-1;i++)
 		{
 			mKinCharacter->setPose(motion->getPosition(i+1),
@@ -486,9 +487,18 @@ getStateAMPExpert()
 							motion->getAngularVelocity(i+1));
 			s1 = mKinCharacter->getStateAMP();
 
+			Eigen::Isometry3d T_ref = mKinCharacter->getReferenceTransform();
+			Eigen::Matrix3d R_ref = T_ref.linear();
+
+			Eigen::Vector3d com = mKinCharacter->getSkeleton()->getCOM();
+			Eigen::Vector3d com_vel = (mKinCharacter->getSkeleton()->getCOM() - com_prev)*mControlHz;
+			com_vel = R_ref.inverse() * com_vel;
+			label[0] = com_vel[1];
+			com_prev = com;
+
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
-			state_expert.row(o+i).tail(mNumMotions) = label.transpose();
+			state_expert.row(o+i).tail(mNumMotions+mNumAddInfo) = label.transpose();
 			s = s1;
 		}
 		o += nf - 1;

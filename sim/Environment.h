@@ -82,7 +82,7 @@ private:
 
 	double mRewardGoal;
 
-	int mNumMotions;
+	int mNumMotions, mNumAddInfo;
 
 	double mTargetHeading, mTargetSpeed;
 	Eigen::Vector3d mTargetDirection;
