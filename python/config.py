@@ -36,7 +36,7 @@ config = {
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
 		'r_scale' : 2.0,
-		'lr' : 1e-6,
+		'lr' : 5e-6,
 	},
 
 	'trainer' : {

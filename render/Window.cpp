@@ -88,14 +88,16 @@ render()
 
 	
 
-	Eigen::Vector3d force_dir =mEnvironment->getTargetDirection();
-	// Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
-	// force_dir = R_ref.inverse() * force_dir;
-	Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
-	glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
+	// Eigen::Vector3d force_dir =mEnvironment->getTargetDirection();
+	// // Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
+	// // force_dir = R_ref.inverse() * force_dir;
+	// Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
+	// glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
 
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
+	if(mDrawKinPose)
+		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mSimRenderOption);
 
 	if(mDrawTargetPose)
 	{
@@ -170,7 +172,7 @@ ImGuiDisplay()
 
                     // Display some text (you can use a format strings too)
         // ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-        ImGui::Checkbox("Control", &mControl);
+        // ImGui::Checkbox("Control", &mControl);
         // ImGui::Text("Forwarding direction");
         // ImGui::SliderFloat("Theta", &theta, -180, 180);            // Edit 1 float using a slider from 0.0f to 1.0f
         
@@ -180,21 +182,21 @@ ImGuiDisplay()
         // ImGui::Text("Speed");   
         // ImGui::SliderFloat("Speed", &speed, 0.5f, 3.0f);
 
-        static int motionidx = 0;
-        for(int n=0; n<mMotionType.rows();n++){
-        	if(mMotionType[n]==1){
-        		motionidx=n;
-        		break;
-        	}
-        }
-        ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
-        ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
-        ImGui::RadioButton("hurt", &motionidx, 2);
-        ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
-        ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
+        // static int motionidx = 0;
+        // for(int n=0; n<mMotionType.rows();n++){
+        // 	if(mMotionType[n]==1){
+        // 		motionidx=n;
+        // 		break;
+        // 	}
+        // }
+        // ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
+        // ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
+        // ImGui::RadioButton("hurt", &motionidx, 2);
+        // ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
+        // ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
 
-        mMotionType.setZero();
-        mMotionType[motionidx]=1;
+        // mMotionType.setZero();
+        // mMotionType[motionidx]=1;
         // ImGui::RadioButton("radio c", &motionidx, 2);
         // ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
@@ -207,42 +209,42 @@ ImGuiDisplay()
     }
 
     // // 3. Show another simple window.
-    {
-        ImGui::Begin("Indicator");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-        // if (ImGui::BeginTable("table1", 3))
-        // {
-        //     for (int row = 0; row < 4; row++)
-        //     {
-        //         ImGui::TableNextRow();
-        //         for (int column = 0; column < 3; column++)
-        //         {
-        //             ImGui::TableSetColumnIndex(column);
-        //             ImGui::Text("Row %d Column %d", row, column);
-        //         }
-        //     }
-        //     ImGui::EndTable();
-        // }
-        if (ImGui::CollapsingHeader("Rewards"))
-        {
-	        if (ImGui::BeginTable("Reward", 3))
-	        {
-	            for (int row = 0; row < 4; row++)
-	            {
-	                ImGui::TableNextRow();
-	                ImGui::TableNextColumn();
-	                ImGui::Text("Row %d", row);
-	                ImGui::TableNextColumn();
-	                ImGui::Text("Some contents");
-	                ImGui::TableNextColumn();
-	                ImGui::Text("123.456");
-	            }
-	            ImGui::EndTable();
-	        }
-    	}
-        if (ImGui::Button("Close Me"))
-            show_another_window = false;
-        ImGui::End();
-    }
+    // {
+    //     ImGui::Begin("Indicator");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    //     // if (ImGui::BeginTable("table1", 3))
+    //     // {
+    //     //     for (int row = 0; row < 4; row++)
+    //     //     {
+    //     //         ImGui::TableNextRow();
+    //     //         for (int column = 0; column < 3; column++)
+    //     //         {
+    //     //             ImGui::TableSetColumnIndex(column);
+    //     //             ImGui::Text("Row %d Column %d", row, column);
+    //     //         }
+    //     //     }
+    //     //     ImGui::EndTable();
+    //     // }
+    //     if (ImGui::CollapsingHeader("Rewards"))
+    //     {
+	   //      if (ImGui::BeginTable("Reward", 3))
+	   //      {
+	   //          for (int row = 0; row < 4; row++)
+	   //          {
+	   //              ImGui::TableNextRow();
+	   //              ImGui::TableNextColumn();
+	   //              ImGui::Text("Row %d", row);
+	   //              ImGui::TableNextColumn();
+	   //              ImGui::Text("Some contents");
+	   //              ImGui::TableNextColumn();
+	   //              ImGui::Text("123.456");
+	   //          }
+	   //          ImGui::EndTable();
+	   //      }
+    // 	}
+    //     if (ImGui::Button("Close Me"))
+    //         show_another_window = false;
+    //     ImGui::End();
+    // }
 }
 
 
@@ -269,27 +271,28 @@ reset(int frame)
 	}
 
 
-	this->height = mEnvironment->getTargetHeight();
-	this->theta = mEnvironment->getTargetHeading()*180/M_PI;
-	this->speed = mEnvironment->getTargetSpeed();
-	this->mMotionType = mEnvironment->getTargetMotion();
+	// this->height = mEnvironment->getTargetHeight();
+	// this->theta = mEnvironment->getTargetHeading()*180/M_PI;
+	// this->speed = mEnvironment->getTargetSpeed();
+	// this->mMotionType = mEnvironment->getTargetMotion();
 }
 void
 Window::
 step()
 {
-	if(mControl){
-		mEnvironment->setTargetHeading(this->theta/180*M_PI);
-		mEnvironment->setTargetSpeed(this->speed);
-		mEnvironment->setTargetHeight(this->height);
-		mEnvironment->setTargetMotion(this->mMotionType);		
-	}
-	else{
-		this->theta = mEnvironment->getTargetHeading();
-		this->speed = mEnvironment->getTargetSpeed();
-		this->height = mEnvironment->getTargetHeight();
-		this->mMotionType = mEnvironment->getTargetMotion();		
-	}
+	// if(mControl){
+	// 	mEnvironment->setTargetHeading(this->theta/180*M_PI);
+	// 	mEnvironment->setTargetSpeed(this->speed);
+	// 	mEnvironment->setTargetHeight(this->height);
+	// 	mEnvironment->setTargetMotion(this->mMotionType);		
+	// }
+	// else{
+	// 	this->theta = mEnvironment->getTargetHeading();
+	// 	this->speed = mEnvironment->getTargetSpeed();
+	// 	this->height = mEnvironment->getTargetHeight();
+	// 	this->mMotionType = mEnvironment->getTargetMotion();		
+	// }
+
 
 	if(mUseNN)
 	{
@@ -300,6 +303,7 @@ step()
 		Eigen::VectorXd action = Eigen::VectorXd::Zero(mEnvironment->getDimAction());
 		mEnvironment->step(action);
 	}
+
 
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
@@ -314,6 +318,10 @@ step()
 	if(eoe)
 		this->reset();
 
+	if(mDrawKinPose){
+		mEnvironment->FollowBVH();
+	}
+
 	if(mFocus)
 	{
 		float y = mEnvironment->getGround()->getBodyNode(0)->getTransform().translation()[1] +
@@ -323,7 +331,7 @@ step()
 		Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
-	}	
+	}
 }
 
 void

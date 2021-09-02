@@ -21,21 +21,26 @@ public:
 	double getTargetHeight();
 	double getTargetSpeed();
 	const Eigen::Vector3d getTargetDirection();
-	const Eigen::VectorXd getTargetMotion();
+	const Eigen::Vector3d getTargetPos();
+	// const Eigen::VectorXd getTargetMotion();
 
 	void setTargetHeading(double heading);
 	void setTargetSpeed(double speed);
 	void setTargetHeight(double height);
-	void setTargetMotion(const Eigen::VectorXd motion_type);
+	// void setTargetMotion(const Eigen::VectorXd motion_type);
 
+	bool checkTargetHit();
+	void setTargetPos();
 
 	void reset(int frame=-1);
-
+	void FollowBVH();
 	void step(const Eigen::VectorXd& action);
 	
 	void resetGoal();
 	void updateGoal();
 	double getRewardGoal();
+
+	double computeTargetReward(bool isFar);
 
 	const Eigen::VectorXd& getState();
 	const Eigen::VectorXd& getStateGoal();
@@ -82,7 +87,7 @@ private:
 
 	double mRewardGoal;
 
-	int mNumMotions, mNumAddInfo;
+	int mNumMotions, mNumAddInfo, mMotionIdx;
 
 	double mTargetHeading, mTargetSpeed;
 	Eigen::Vector3d mTargetDirection;
@@ -92,6 +97,19 @@ private:
 	double mSharpTurnProb, mSpeedChangeProb,mHeightChangeProb, mMaxHeadingTurnRate;
 
 	double mTargetHeightMin, mTargetHeightMax;
+
+	double mTargetRadius;
+	bool mTargetHit;
+	// this->mTargetHitTime = gInvalidHitTime;
+	// mTargetHitResetTime = 2.0;
+
+	double mHitTarSpeed;
+	double mInitHitProb;
+
+	double mNearDist;
+	double mFarProb;
+	std::string mHitBody;
+	Eigen::Vector3d mTargetPos;
 
 };
 #endif
