@@ -40,15 +40,14 @@ Environment()
 	std::vector<std::string> motion_lists = {
 			"/data/bvh/walk_long.bvh",
 			// "/data/bvh/walk_drunk.bvh",
-			// "/data/bvh/jump_lsw.bvh",	
+			"/data/bvh/jump_lsw.bvh"	
 			//"/data/bvh/walk_hurt_rl.bvh",
 			// "/data/bvh/walk_hurt_ll.bvh",
 			// "/data/bvh/walk_wild.bvh",
-			"/data/bvh/walk_zombie.bvh"
+			// "/data/bvh/walk_zombie.bvh"
 	};
 	mNumMotions = motion_lists.size();
-	mStateLabel.resize(mNumMotions);
-	mStateLabel.setZero();
+	mDimLabel = 1;
 
 	bool load_tree =false;
 	for(auto bvh_path : motion_lists){
@@ -129,72 +128,15 @@ int
 Environment::
 getDimStateLabel()
 {
+	return this->mDimLabel;
+}
+int
+Environment::
+getNumTotalLabel()
+{
 	return this->mNumMotions;
 }
-double
-Environment::
-getTargetHeading()
-{
-	return this->mTargetHeading;
-}
 
-double
-Environment::
-getTargetSpeed()
-{
-	return this->mTargetSpeed;
-}
-
-double
-Environment::
-getTargetHeight()
-{
-	return this->mTargetHeight;
-}
-
-const Eigen::Vector3d
-Environment::
-getTargetDirection()
-{
-	return this->mTargetDirection;
-}
-
-const Eigen::VectorXd
-Environment::
-getTargetMotion()
-{
-	return this->mStateLabel;
-}
-
-void
-Environment::
-setTargetHeading(double heading)
-{
-	this->mTargetHeading = heading;
-	return;
-}
-
-void
-Environment::
-setTargetSpeed(double speed)
-{
-	this->mTargetSpeed = speed;
-	return;
-}
-void
-Environment::
-setTargetHeight(double height)
-{
-	this->mTargetHeight = height;
-	return;
-}
-void
-Environment::
-setTargetMotion(const Eigen::VectorXd motion_type)
-{
-	this->mStateLabel = motion_type;
-	return;
-}
 void
 Environment::
 reset(int frame)
@@ -204,8 +146,7 @@ reset(int frame)
 	mElapsedFrame = 0;
 
 	int motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
-	mStateLabel.setZero();
-	mStateLabel[motion_num] = 1.0;
+	mStateLabel = motion_num;
 
 	auto motion = mMotions[motion_num];
 	mFrame = dart::math::Random::uniform<int>(400,motion->getNumFrames()-3);
@@ -367,7 +308,7 @@ recordGoal()
 	// mStateGoal.resize(7+mNumMotions);
 	// mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
 	
-	mStateGoal.resize(mNumMotions);
+	mStateGoal.resize(mDimLabel);
 	mStateGoal<<mStateLabel;
 
 
@@ -398,6 +339,13 @@ Environment::
 getRewardGoal()
 {
 	return mRewardGoal;
+}
+
+int
+Environment::
+getStateLabel()
+{
+	return mStateLabel;
 }
 
 const Eigen::VectorXd&
@@ -447,7 +395,7 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows() + mStateLabel.rows());
+	mStateAMP.resize(s.rows() + s1.rows()+mDimLabel) ;
 	mStateAMP<<s, s1, mStateLabel;
 }
 
@@ -458,7 +406,7 @@ getStateAMPExpert()
 {
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
-	int m2 = (m-mNumMotions)/2;
+	int m2 = (m-1)/2;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
@@ -470,9 +418,7 @@ getStateAMPExpert()
 	for(int n=0; n<mNumMotions; n++)
 	{
 		auto motion = mMotions[n];
-		Eigen::VectorXd label(mNumMotions);
-		label.setZero();
-		label[n] = 1.0;
+		int label= n;
 
 		int nf = motion->getNumFrames();
 		mKinCharacter->setPose(motion->getPosition(0),
@@ -493,7 +439,7 @@ getStateAMPExpert()
 
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
-			state_expert.row(o+i).tail(mNumMotions) = label.transpose();
+			state_expert.row(o+i)[-1] = label;
 			s = s1;
 		}
 		o += nf - 1;
@@ -566,4 +512,55 @@ convertToRealActionSpace(const Eigen::VectorXd& a_norm)
 	a_real = dart::math::clip<Eigen::VectorXd, Eigen::VectorXd>(a_norm, lo, hi);
 	a_real = mActionWeight.cwiseProduct(a_real);
 	return a_real;
+}
+
+double
+Environment::
+getTargetHeading()
+{
+	return this->mTargetHeading;
+}
+
+double
+Environment::
+getTargetSpeed()
+{
+	return this->mTargetSpeed;
+}
+
+double
+Environment::
+getTargetHeight()
+{
+	return this->mTargetHeight;
+}
+
+const Eigen::Vector3d
+Environment::
+getTargetDirection()
+{
+	return this->mTargetDirection;
+}
+
+void
+Environment::
+setTargetHeading(double heading)
+{
+	this->mTargetHeading = heading;
+	return;
+}
+
+void
+Environment::
+setTargetSpeed(double speed)
+{
+	this->mTargetSpeed = speed;
+	return;
+}
+void
+Environment::
+setTargetHeight(double height)
+{
+	this->mTargetHeight = height;
+	return;
 }

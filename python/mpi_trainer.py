@@ -56,6 +56,7 @@ class Trainer(object):
 		self.episode_buffers = []
 		self.episode_buffers.append([])
 		self.states_expert = self.env.get_states_AMP_expert()
+
 		self.enable_goal = self.env.is_enable_goal()
 
 		if is_root_proc():
@@ -121,7 +122,11 @@ class Trainer(object):
 
 	def sample_states_expert(self, n):
 		m = len(self.states_expert)
-		return self.states_expert[np.random.randint(0, m, n)]
+		states =  self.states_expert[np.random.randint(0, m, n)]
+
+		# sample_states = self.compress_label(states,"disc")
+		return states
+
 
 	def sync(self):
 		if is_root_proc():
@@ -151,10 +156,27 @@ class Trainer(object):
 					self.episode_buffers.append([])
 				self.env.reset()
 
+	def compress_label(self, state):
+		dim_label = self.env.get_dim_state_label()
+		label = state[:,-dim_label:].squeeze()
+
+		# num = self.env.get_num_total_label()
+		# label_one_hot = self.to_one_hot_vector(label, num)
+		if is_root_proc():
+			state_compressed = torch.cat((state[:,:-dim_label],self.policy_loc.embedding(label)),1)
+		if is_root2_proc():
+			state_compressed = torch.cat((state[:,:-dim_label],self.disc_loc.embedding(label)),1)
+
+		return state_compressed
+
+	def to_one_hot_vector(self, array, dim):
+		v = (array.squeeze()).astype(int)
+		out = np.eye(dim)[v]
+		return out
+
 	def postprocess_episodes(self):
 		self.policy_episodes = []
 		self.disc_episodes = []
-
 		for epi in self.episode_buffers[:-1]:
 			s, a, rg, ss1, v, l = Sample(*zip(*epi))
 			ss1 = np.vstack(ss1)
@@ -218,15 +240,18 @@ class Trainer(object):
 
 	def update_filter(self):
 		if is_root_proc():
-			self.samples['STATES'] = self.policy_loc.state_filter(self.samples['STATES'])
+			dim_label = self.env.get_dim_state_label()
+			self.samples['STATES'][:,:-dim_label] = self.policy_loc.state_filter(self.samples['STATES'][:,:-dim_label])
 
 		if is_root2_proc():
 			n = len(self.samples['STATES_EXPERT'])
-
-			state = self.disc_loc.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
+			dim_label = self.env.get_dim_state_label()
+			state = self.disc_loc.state_filter(np.vstack([self.samples['STATES_EXPERT'][:,:-dim_label], self.samples['STATES_AGENT'][:,:-dim_label]]))
+			state = np.concatenate((state, np.vstack([self.samples['STATES_EXPERT'][:,-dim_label:], self.samples['STATES_AGENT'][:,-dim_label:]])), axis=1)
 
 			self.samples['STATES_EXPERT'] = state[:n]
 			self.samples['STATES_AGENT'] = state[n:]
+
 
 	def generate_shuffle_indices(self, batch_size, minibatch_size):
 		n = batch_size
@@ -256,6 +281,9 @@ class Trainer(object):
 			self.samples['LOG_PROBS'] = self.policy_loc.convert_to_tensor(self.samples['LOG_PROBS'])
 			self.samples['ADVANTAGES'] = self.policy_loc.convert_to_tensor(self.samples['ADVANTAGES'])
 			self.samples['VALUE_TARGETS'] = self.policy_loc.convert_to_tensor(self.samples['VALUE_TARGETS'])
+
+			self.samples['STATES'] = self.compress_label(self.samples['STATES'])
+
 			for _ in range(self.num_sgd_iter):
 				minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 				for minibatch in minibatches:
@@ -280,6 +308,10 @@ class Trainer(object):
 			self.samples['STATES_EXPERT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
 			self.samples['STATES_EXPERT2'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
 			self.samples['STATES_AGENT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_AGENT'])
+
+			self.samples['STATES_EXPERT'] = self.compress_label(self.samples['STATES_EXPERT'])
+			self.samples['STATES_EXPERT2'] = self.compress_label(self.samples['STATES_EXPERT2'])
+			self.samples['STATES_AGENT'] = self.compress_label(self.samples['STATES_AGENT'])
 			
 			disc_loss = 0.0
 			disc_grad_loss = 0.0

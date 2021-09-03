@@ -23,6 +23,7 @@ public:
 	int getDimState();
 	int getDimStateAMP();
 	int getDimStateLabel();
+	int getNumTotalLabel();
 	int getDimAction();
 
 	void reset();

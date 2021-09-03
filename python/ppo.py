@@ -29,7 +29,14 @@ class PolicyNN(nn.Module):
 		value_init_weights = model_config['value_init_weights']
 
 		layers = []
-		prev_layer_size = dim_state
+		self.dim_action = dim_action
+		self.dim_label_out = 1
+		self.label_embedding = nn.Embedding( 16, self.dim_label_out)
+		
+		self.dim_state_wolabel = dim_state - dim_class
+		self.dim_state = dim_state - dim_class + self.dim_label_out
+
+		prev_layer_size = self.dim_state
 
 		for size, activation, init_weight in zip(policy_hiddens + [dim_action], policy_activations, policy_init_weights):
 			layers.append(SlimFC(
@@ -44,7 +51,7 @@ class PolicyNN(nn.Module):
 		self.policy_fn = nn.Sequential(*layers)
 
 		layers = []
-		prev_layer_size = dim_state
+		prev_layer_size = self.dim_state
 
 		for size, activation, init_weight in zip(policy_hiddens + [1], policy_activations, policy_init_weights):
 			layers.append(SlimFC(
@@ -56,8 +63,7 @@ class PolicyNN(nn.Module):
 
 		self.value_fn = nn.Sequential(*layers)
 
-		self.dim_state = dim_state
-		self.dim_action = dim_action
+		# self.dim_state = dim_state
 
 	def forward(self, x):
 		logits = self.policy_fn(x)
@@ -71,7 +77,7 @@ class PPO(object):
 	def __init__(self, dim_state,  dim_class, dim_action, device, model_config, policy_config):
 		self.model = PolicyNN(dim_state, dim_class,  dim_action, model_config)
 
-		self.state_filter = filter.MeanStdRuntimeFilter(shape=self.model.dim_state)
+		self.state_filter = filter.MeanStdRuntimeFilter(shape=self.model.dim_state_wolabel)
 		self.distribution = torch.distributions.normal.Normal
 		self.gamma = policy_config['gamma']
 		self.lb = policy_config['lb']
@@ -84,6 +90,8 @@ class PPO(object):
 		self.optimizer = optim.Adam(self.model.parameters(),lr=policy_config['lr'])
 
 		self.loss = None
+
+		self.dim_class = dim_class
 		
 		if isinstance(device, str):
 			self.device = torch.device(device)
@@ -93,10 +101,13 @@ class PPO(object):
 
 	def __call__(self, state):
 		if len(state.shape) == 1:
-			state = state.reshape(1, -1)
-		state_filtered = self.state_filter(state, update=False)
+			state = state.reshape(1, -1)		
+		state_filtered = np.concatenate((self.state_filter(state[:,:-self.dim_class], update=False),state[:,-self.dim_class:]), axis=1)
 		state_tensor = self.convert_to_tensor(state_filtered)
 
+		with torch.no_grad():
+			label = state_tensor[:,-self.dim_class:].long()
+			state_tensor[:,-self.dim_class:] = self.model.label_embedding(label).float().squeeze(dim=1)
 		with torch.no_grad():
 			logit, vf_pred = self.model(state_tensor)
 			mean, log_std = torch.chunk(logit, 2, dim = 1)
@@ -111,11 +122,24 @@ class PPO(object):
 
 		return action, logprob, vf_pred
 
+	def embedding(self, tensor):
+		if tensor.dtype == torch.float:
+			tensor = tensor.long().to(self.device)
+
+			out = self.model.label_embedding(tensor)
+			return out.float().to(self.device)
+
+		else :
+			out = self.model.label_embedding(tensor)
+			return out.to(self.device)
+
+
 	def convert_to_tensor(self, arr):
 		if torch.is_tensor(arr):
 			return arr.to(self.device)
 		tensor = torch.from_numpy(np.asarray(arr))
-		if tensor.dtype == torch.double:
+
+		if tensor.dtype == torch.double :
 			tensor = tensor.float()
 		return tensor.to(self.device)
 

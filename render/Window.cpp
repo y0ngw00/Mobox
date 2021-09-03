@@ -272,7 +272,7 @@ reset(int frame)
 	this->height = mEnvironment->getTargetHeight();
 	this->theta = mEnvironment->getTargetHeading()*180/M_PI;
 	this->speed = mEnvironment->getTargetSpeed();
-	this->mMotionType = mEnvironment->getTargetMotion();
+	// this->mMotionType = mEnvironment->getTargetMotion();
 }
 void
 Window::
@@ -282,13 +282,13 @@ step()
 		mEnvironment->setTargetHeading(this->theta/180*M_PI);
 		mEnvironment->setTargetSpeed(this->speed);
 		mEnvironment->setTargetHeight(this->height);
-		mEnvironment->setTargetMotion(this->mMotionType);		
+		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
 		this->theta = mEnvironment->getTargetHeading();
 		this->speed = mEnvironment->getTargetSpeed();
 		this->height = mEnvironment->getTargetHeight();
-		this->mMotionType = mEnvironment->getTargetMotion();		
+		// this->mMotionType = mEnvironment->getTargetMotion();		
 	}
 
 	if(mUseNN)
