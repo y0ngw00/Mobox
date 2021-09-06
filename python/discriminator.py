@@ -51,7 +51,6 @@ class Discriminator(object):
 		self.model = DiscriminatorNN(dim_state, dim_class, model_config)
 
 		self.state_filter = filter.MeanStdRuntimeFilter(self.model.dim_in_wolabel)
-
 		self.w_grad = disc_config['w_grad']
 		self.w_reg = disc_config['w_reg']
 		self.w_decay = disc_config['w_decay']
@@ -184,8 +183,8 @@ class Discriminator(object):
 '''Below function do not use when training'''
 import importlib.util
 
-def build_discriminator(dim_state, state_experts, config):
-	return Discriminator(dim_state, torch.device("cpu"), config['discriminator_model'], config['discriminator'])
+def build_discriminator(dim_state, dim_class,state_experts, config):
+	return Discriminator(dim_state, dim_class, torch.device("cpu"), config['discriminator_model'], config['discriminator'])
 
 def load_discriminator(discriminator, checkpoint):
 	state = torch.load(checkpoint)

@@ -249,8 +249,8 @@ def load_config(path):
 	spec = spec_module
 	return spec.config
 
-def build_policy(dim_state, dim_action, config):
-	return PPO(dim_state, dim_action, torch.device("cpu"), config['model'], config['policy'])
+def build_policy(dim_state, dim_class, dim_action, config):
+	return PPO(dim_state, dim_class, dim_action, torch.device("cpu"), config['model'], config['policy'])
 
 def load_policy(policy, checkpoint):
 	state = torch.load(checkpoint)

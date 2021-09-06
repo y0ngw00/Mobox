@@ -14,7 +14,6 @@ int main(int argc,char** argv)
 		window->initNN(argv[1]);
 		window->loadNN(argv[2]);
 	}
-		
 	glutInit(&argc,argv);
 	
 	window->initWindow(1920,1080,"kinematics");

@@ -180,21 +180,21 @@ ImGuiDisplay()
         // ImGui::Text("Speed");   
         // ImGui::SliderFloat("Speed", &speed, 0.5f, 3.0f);
 
-        static int motionidx = 0;
-        for(int n=0; n<mMotionType.rows();n++){
-        	if(mMotionType[n]==1){
-        		motionidx=n;
-        		break;
-        	}
-        }
-        ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
-        ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
-        ImGui::RadioButton("hurt", &motionidx, 2);
-        ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
-        ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
+        // static int motionidx = 0;
+        // for(int n=0; n<mMotionType.rows();n++){
+        // 	if(mMotionType[n]==1){
+        // 		motionidx=n;
+        // 		break;
+        // 	}
+        // }
+        // ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
+        // ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
+        // ImGui::RadioButton("hurt", &motionidx, 2);
+        // ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
+        // ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
 
-        mMotionType.setZero();
-        mMotionType[motionidx]=1;
+        // mMotionType.setZero();
+        // mMotionType[motionidx]=1;
         // ImGui::RadioButton("radio c", &motionidx, 2);
         // ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
@@ -341,8 +341,10 @@ initNN(const std::string& config)
 	policy_md = py::module::import("ppo");
 	discriminator_md = py::module::import("discriminator");
 	py::object pyconfig = policy_md.attr("load_config")(config);
-	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimAction(),pyconfig);
-	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getStateAMPExpert(), pyconfig);
+
+	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimStateLabel(),mEnvironment->getDimAction(),pyconfig);
+	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getDimStateLabel(),mEnvironment->getStateAMPExpert(), pyconfig);
+
 	//TODO
 	
 	// policy0 = policy_md.attr("build_policy0")(mEnvironment->getDimState0(),mEnvironment->getDimAction0(),pyconfig);

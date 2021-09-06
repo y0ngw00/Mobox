@@ -439,7 +439,7 @@ getStateAMPExpert()
 
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
-			state_expert.row(o+i)[-1] = label;
+			state_expert.row(o+i)[m-1] = label;
 			s = s1;
 		}
 		o += nf - 1;
