@@ -88,11 +88,11 @@ render()
 
 	
 
-	Eigen::Vector3d force_dir =mEnvironment->getTargetDirection();
-	// Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
-	// force_dir = R_ref.inverse() * force_dir;
-	Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
-	glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
+	// Eigen::Vector3d force_dir =mEnvironment->getTargetDirection();
+	// // Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
+	// // force_dir = R_ref.inverse() * force_dir;
+	// Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
+	// glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
 
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
@@ -171,30 +171,18 @@ ImGuiDisplay()
                     // Display some text (you can use a format strings too)
         // ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Control", &mControl);
-        // ImGui::Text("Forwarding direction");
-        // ImGui::SliderFloat("Theta", &theta, -180, 180);            // Edit 1 float using a slider from 0.0f to 1.0f
-        
-        // ImGui::Text("Forwarding height");   
-        // ImGui::SliderFloat("Height", &height, 0.6f, 2.0f);
+        ImGui::Text("RightFoot");
+        ImGui::SliderFloat("vel", &vel, 0, 5.0);            // Edit 1 float using a slider from 0.0f to 1.0f
 
-        // ImGui::Text("Speed");   
-        // ImGui::SliderFloat("Speed", &speed, 0.5f, 3.0f);
 
-        static int motionidx = 0;
-        for(int n=0; n<mMotionType.rows();n++){
-        	if(mMotionType[n]==1){
-        		motionidx=n;
-        		break;
-        	}
-        }
-        ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
-        ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
-        ImGui::RadioButton("hurt", &motionidx, 2);
-        ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
-        ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
+        // ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
+        // ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
+        // ImGui::RadioButton("hurt", &motionidx, 2);
+        // ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
+        // ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
 
-        mMotionType.setZero();
-        mMotionType[motionidx]=1;
+        // mMotionType.setZero();
+        // mMotionType[motionidx]=1;
         // ImGui::RadioButton("radio c", &motionidx, 2);
         // ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
@@ -268,28 +256,17 @@ reset(int frame)
 		mCamera->setEye( com + dir );
 	}
 
-
-	this->height = mEnvironment->getTargetHeight();
-	this->theta = mEnvironment->getTargetHeading()*180/M_PI;
-	this->speed = mEnvironment->getTargetSpeed();
-	this->mMotionType = mEnvironment->getTargetMotion();
 }
 void
 Window::
 step()
 {
-	if(mControl){
-		mEnvironment->setTargetHeading(this->theta/180*M_PI);
-		mEnvironment->setTargetSpeed(this->speed);
-		mEnvironment->setTargetHeight(this->height);
-		mEnvironment->setTargetMotion(this->mMotionType);		
-	}
-	else{
-		this->theta = mEnvironment->getTargetHeading();
-		this->speed = mEnvironment->getTargetSpeed();
-		this->height = mEnvironment->getTargetHeight();
-		this->mMotionType = mEnvironment->getTargetMotion();		
-	}
+	// if(mControl){
+	// 	mEnvironment->setTargetMotion(this->mMotionType);		
+	// }
+	// else{
+	// 	this->mMotionType = mEnvironment->getTargetMotion();		
+	// }
 
 	if(mUseNN)
 	{

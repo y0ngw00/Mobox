@@ -66,10 +66,7 @@ protected:
 	double mComputedTime;
 
 	bool mControl;
-	float height;
-    float theta;
-    float speed;
-    Eigen::VectorXd mMotionType;
+	float vel;
 };
 
 #endif

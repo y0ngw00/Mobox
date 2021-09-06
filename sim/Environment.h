@@ -17,15 +17,10 @@ public:
 	int getDimStateAMP();
 	int getDimStateAMPLabel();
 
-	double getTargetHeading();
-	double getTargetHeight();
-	double getTargetSpeed();
+
 	const Eigen::Vector3d getTargetDirection();
 	const Eigen::VectorXd getTargetMotion();
 
-	void setTargetHeading(double heading);
-	void setTargetSpeed(double speed);
-	void setTargetHeight(double height);
 	void setTargetMotion(const Eigen::VectorXd motion_type);
 
 
@@ -71,6 +66,7 @@ private:
 
 	Character *mSimCharacter,*mKinCharacter;
 	std::vector<Motion*> mMotions;
+	std::vector<std::string> mEndEffector;
 
 	dart::dynamics::SkeletonPtr mGround;
 
