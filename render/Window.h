@@ -66,6 +66,7 @@ protected:
 	double mComputedTime;
 
 	bool mControl;
+	Eigen::VectorXf mParams;
 	float vel;
 };
 

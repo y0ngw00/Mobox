@@ -22,6 +22,8 @@ public:
 	const Eigen::VectorXd getTargetMotion();
 
 	void setTargetMotion(const Eigen::VectorXd motion_type);
+	void addStateGoal(int idx, double value);
+	void setControl() {isControl = true;}
 
 
 	void reset(int frame=-1);
@@ -88,6 +90,10 @@ private:
 	double mSharpTurnProb, mSpeedChangeProb,mHeightChangeProb, mMaxHeadingTurnRate;
 
 	double mTargetHeightMin, mTargetHeightMax;
+	bool isControl;
+	int dur;
+	int mControlidx;
+	double mControlValue;
 
 };
 #endif

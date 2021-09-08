@@ -56,7 +56,7 @@ Environment()
 	for(auto bvh_path : motion_lists){
 		BVH* bvh = new BVH(std::string(ROOT_DIR)+bvh_path);
 		Motion* motion = new Motion(bvh);
-		for(int j=0;j<bvh->getNumFrames();j++){
+		for(int j=270;j<bvh->getNumFrames();j++){
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
 			if(j>450) break;
 		}
@@ -150,6 +150,20 @@ setTargetMotion(const Eigen::VectorXd motion_type)
 	this->mStateLabel = motion_type;
 	return;
 }
+
+void
+Environment::
+addStateGoal(int idx, double value)
+{
+
+	if(idx >= mStateGoal.rows()){
+		std::cout<<"Invalid index"<<std::endl;
+		return;
+	}
+	mStateGoal[idx]+=value;
+
+}
+
 void
 Environment::
 reset(int frame)
@@ -157,6 +171,8 @@ reset(int frame)
 	mContactEOE = false;
 	mFrame = 0;
 	mElapsedFrame = 0;
+	dur=0;
+	isControl = false;
 
 	int motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
 	// mStateLabel.setZero();
@@ -242,6 +258,15 @@ step(const Eigen::VectorXd& _action)
 	}
 	
 	this->recordState();
+
+	if(isControl){
+		addStateGoal(2, 2.0);
+		dur++;
+		if(dur>30){
+			dur=0;
+			isControl = false;
+		}
+	}
 
 	mPrevPositions2 = mPrevPositions;
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();

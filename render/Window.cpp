@@ -170,13 +170,35 @@ ImGuiDisplay()
 
                     // Display some text (you can use a format strings too)
         // ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-        ImGui::Checkbox("Control", &mControl);
-        ImGui::Text("RightFoot");
-        ImGui::SliderFloat("vel", &vel, 0, 5.0);            // Edit 1 float using a slider from 0.0f to 1.0f
-
-
+        
         // ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
-        // ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
+        if(ImGui::Button("kick")){
+        	mEnvironment->setControl();
+        }
+        
+        // ImGui::SliderFloat("vel", &vel, 0, 5.0);            // Edit 1 float using a slider from 0.0f to 1.0f
+
+        // static float f0 = 0.001f;
+        // ImGui::InputFloat("input float", &f0, 0.01f, 1.0f, "%.3f");
+
+        
+        ImGui::Text("RightHand");
+        ImGui::DragFloat("RightHand", &mParams[0], 0.05f);
+        ImGui::Text("LefttHand");
+        ImGui::DragFloat("LefttHand", &mParams[1], 0.05f);
+        ImGui::Text("RightFoot");
+        ImGui::DragFloat("RightFoot", &mParams[2], 0.05f);
+        ImGui::DragFloat("Foot Height", &mParams[4], 0.05f);
+        ImGui::Text("LeftFoot");
+        ImGui::DragFloat("LeftFoot", &mParams[3], 0.05f);
+
+        
+
+        // static float angle = 0.0f;
+        //     ImGui::SliderAngle("slider angle", &angle);
+
+        static int motionidx = 0;
+
         // ImGui::RadioButton("hurt", &motionidx, 2);
         // ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
         // ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
@@ -255,18 +277,17 @@ reset(int frame)
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
 	}
-
+	this->mParams = mEnvironment->getStateGoal().cast<float>();
 }
 void
 Window::
 step()
 {
-	// if(mControl){
-	// 	mEnvironment->setTargetMotion(this->mMotionType);		
-	// }
-	// else{
-	// 	this->mMotionType = mEnvironment->getTargetMotion();		
-	// }
+	if(mControl){
+	}
+	else{
+		this->mParams = mEnvironment->getStateGoal().cast<float>();
+	}
 
 	if(mUseNN)
 	{
