@@ -52,6 +52,40 @@ append(const std::vector<Eigen::Vector3d>& positions,
 
 void
 Motion::
+repeatMotion(int augmented_frame, BVH* bvh)
+{
+	int motionlength = bvh->getNumFrames();
+
+	Eigen::Vector3d P_diff;
+	Eigen::MatrixXd R_diff;
+	
+	for(int i=0; i<augmented_frame; i++){
+		if(i<motionlength) continue;
+		int phase = i % motionlength;
+
+		Eigen::Vector3d P;
+		Eigen::MatrixXd R;
+		if(phase == 0){
+			Eigen::Vector3d P_ref = mPositions[i-1];
+			Eigen::MatrixXd R_ref = mRotations[i-1];
+			Eigen::Isometry3d T_ref = MotionUtils::getReferenceTransform(P_ref,R_ref);
+
+			P_diff = P_ref - bvh->getPosition(phase);
+			R_diff =  T_ref.linear() * bvh->getRotation(phase).block<3,3>(0,0).inverse(); 	
+		}
+
+		P = P_diff + bvh->getPosition(phase);
+		R = bvh->getRotation(phase);
+		R.block<3,3>(0,0) = R_diff*R.block<3,3>(0,0);
+
+		this->append(P, R,false);
+
+	}
+	return;
+}
+
+void
+Motion::
 clear()
 {
 	mPositions.clear();

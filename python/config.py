@@ -11,6 +11,8 @@ config = {
 		'value_hiddens' : [256, 256],
 		'value_activations' : ['relu', 'relu', None],
 		'value_init_weights' : [0.1, 0.1, 0.01],
+		'embedding_length' : 256,
+		'dim_embedding_out' : 6
 	},
 	
 	'policy' : {
@@ -28,6 +30,8 @@ config = {
 		'hiddens' : [256, 256],
 		'activations' : ['relu', 'relu', None],
 		'init_weights' : [0.1, 0.1, 1.0],
+		'embedding_length' : 256,
+		'dim_embedding_out' : 6
 	},
 	
 	'discriminator' : {

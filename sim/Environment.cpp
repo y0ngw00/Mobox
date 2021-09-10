@@ -37,26 +37,31 @@ Environment()
 	mSimCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel.xml");
 	mKinCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel.xml");
 
-	std::vector<std::string> motion_lists = {
-			"/data/bvh/walk_long.bvh",
-			// "/data/bvh/walk_drunk.bvh",
-			"/data/bvh/jump_lsw.bvh"	
-			//"/data/bvh/walk_hurt_rl.bvh",
-			// "/data/bvh/walk_hurt_ll.bvh",
-			// "/data/bvh/walk_wild.bvh",
-			// "/data/bvh/walk_zombie.bvh"
-	};
+	char buffer[100];
+	std::ifstream txtread;
+	std::vector<std::string> motion_lists;
+	std::string txt_path = "/data/bvh/motionlist.txt";
+	txtread.open(std::string(ROOT_DIR)+txt_path);
+	if(!txtread.is_open()){
+		std::cout<<"Text file does not exist from : "<< txt_path << std::endl;
+		return;
+	}
+	while(txtread>>buffer) motion_lists.push_back(std::string(ROOT_DIR)+"/data/bvh/"+ std::string(buffer));
+	txtread.close();
+
+
 	mNumMotions = motion_lists.size();
 	mDimLabel = 1;
 
 	bool load_tree =false;
 	for(auto bvh_path : motion_lists){
-		BVH* bvh = new BVH(std::string(ROOT_DIR)+bvh_path);
+		BVH* bvh = new BVH(bvh_path);
 		Motion* motion = new Motion(bvh);
 		for(int j=0;j<bvh->getNumFrames();j++){
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-			if(j>600) break;
+			if(j>300) break;
 		}
+		if(bvh->getNumFrames() < 300) motion->repeatMotion(300, bvh);
 
 		motion->computeVelocity();
 		mMotions.emplace_back(motion);
@@ -149,7 +154,7 @@ reset(int frame)
 	mStateLabel = motion_num;
 
 	auto motion = mMotions[motion_num];
-	mFrame = dart::math::Random::uniform<int>(400,motion->getNumFrames()-3);
+	mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
 	Eigen::Vector3d position = motion->getPosition(mFrame);
 	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
 	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
@@ -348,6 +353,14 @@ getStateLabel()
 	return mStateLabel;
 }
 
+void
+Environment::
+setStateLabel(int label)
+{
+	mStateLabel = label;
+	return;
+}
+
 const Eigen::VectorXd&
 Environment::
 getStateGoal()
@@ -395,7 +408,7 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows()+mDimLabel) ;
+	mStateAMP.resize(s.rows() + s1.rows()+mDimLabel);
 	mStateAMP<<s, s1, mStateLabel;
 }
 

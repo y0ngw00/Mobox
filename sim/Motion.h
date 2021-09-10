@@ -19,6 +19,8 @@ public:
 	void append(const std::vector<Eigen::Vector3d>& positions,
 		const std::vector<Eigen::MatrixXd>& rotations,
 		bool compute_velocity = true);
+
+	void repeatMotion(int augmented_frame, BVH* bvh);
 	void clear();
 
 	int getNumJoints(){return mNumJoints;}

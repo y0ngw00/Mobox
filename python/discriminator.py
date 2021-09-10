@@ -18,14 +18,15 @@ class DiscriminatorNN(nn.Module):
 		hiddens = model_config['hiddens']
 		activations = model_config['activations']
 		init_weights = model_config['init_weights']
-		
+		embedding_length = model_config['embedding_length']
+		dim_label_out = model_config['dim_embedding_out']
 		layers = []
-		self.dim_label_out = 1
+
 
 		self.dim_in_wolabel = dim_in - dim_class
-		self.dim_in = dim_in - dim_class + self.dim_label_out
+		self.dim_in = dim_in - dim_class + dim_label_out
 
-		self.label_embedding = nn.Embedding( 16,  self.dim_label_out)
+		self.label_embedding = nn.Embedding( embedding_length,  dim_label_out)
 
 
 		prev_layer_size = self.dim_in
@@ -74,10 +75,10 @@ class Discriminator(object):
 
 		with torch.no_grad():
 			label = ss1_tensor[:,-self.dim_class:].long()
-			ss1_tensor[:,-self.dim_class:] = self.model.label_embedding(label).float().squeeze(dim=1)
+			ss1_embed = torch.cat((ss1_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
 
 		with torch.no_grad():
-			d = self.model(ss1_tensor)
+			d = self.model(ss1_embed)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
@@ -171,10 +172,20 @@ class Discriminator(object):
 		self.state_filter.load_state_dict(state['state_filter'])
 
 	def compute_reward(self, ss1):
-		ss1_filtered = self.state_filter(ss1)
-		ss1 = self.convert_to_tensor(ss1_filtered)
+		if len(ss1.shape) == 1:
+			ss1 = ss1.reshape(1, -1)
+		# ss1_filtered = self.state_filter(ss1)
+		# ss1 = self.convert_to_tensor(ss1_filtered)
 
-		d = self.model(ss1)
+		ss1_filtered = np.concatenate((self.state_filter(ss1[:,:-self.dim_class], update=False),ss1[:,-self.dim_class:]),axis=1)
+		ss1_tensor = self.convert_to_tensor(ss1_filtered)
+
+		with torch.no_grad():
+			label = ss1_tensor[:,-self.dim_class:].long()
+			ss1_embed = torch.cat((ss1_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
+
+
+		d = self.model(ss1_embed)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))

@@ -28,13 +28,16 @@ class PolicyNN(nn.Module):
 		value_activations = model_config['value_activations']
 		value_init_weights = model_config['value_init_weights']
 
+		embedding_length = model_config['embedding_length']
+		dim_label_out = model_config['dim_embedding_out']
+
 		layers = []
 		self.dim_action = dim_action
-		self.dim_label_out = 1
-		self.label_embedding = nn.Embedding( 16, self.dim_label_out)
+
+		self.label_embedding = nn.Embedding( embedding_length, dim_label_out)
 		
 		self.dim_state_wolabel = dim_state - dim_class
-		self.dim_state = dim_state - dim_class + self.dim_label_out
+		self.dim_state = dim_state - dim_class + dim_label_out
 
 		prev_layer_size = self.dim_state
 
@@ -107,9 +110,9 @@ class PPO(object):
 
 		with torch.no_grad():
 			label = state_tensor[:,-self.dim_class:].long()
-			state_tensor[:,-self.dim_class:] = self.model.label_embedding(label).float().squeeze(dim=1)
+			state_embed = torch.cat((state_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
 		with torch.no_grad():
-			logit, vf_pred = self.model(state_tensor)
+			logit, vf_pred = self.model(state_embed)
 			mean, log_std = torch.chunk(logit, 2, dim = 1)
 			
 			action_dist = self.distribution(mean, torch.exp(log_std))
@@ -210,9 +213,17 @@ class PPO(object):
 	def compute_action(self, state, explore):
 		# print(np.any(np.isnan(state)))
 		state = state.reshape(1,-1)
-		state_filtered = self.state_filter(state, update=False)
-		state = self.convert_to_tensor(state_filtered)
-		logit, vf_pred = self.model(state)
+		# state_filtered = self.state_filter(state, update=False)
+		# state = self.convert_to_tensor(state_filtered)
+
+		state_filtered = np.concatenate((self.state_filter(state[:,:-self.dim_class], update=False),state[:,-self.dim_class:]), axis=1)
+		state_tensor = self.convert_to_tensor(state_filtered)
+
+		with torch.no_grad():
+			label = state_tensor[:,-self.dim_class:].long()
+			state_embed = torch.cat((state_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
+			
+		logit, vf_pred = self.model(state_embed)
 		mean, log_std = torch.chunk(logit, 2, dim = 1)
 		action_dist = self.distribution(mean, torch.exp(log_std))
 

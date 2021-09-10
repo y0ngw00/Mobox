@@ -69,7 +69,8 @@ protected:
 	float height;
     float theta;
     float speed;
-    Eigen::VectorXd mMotionType;
+    int mMotionType;
+    std::vector<std::string> motion_lists;
 };
 
 #endif

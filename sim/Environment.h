@@ -36,6 +36,7 @@ public:
 	void updateGoal();
 	double getRewardGoal();
 	int getStateLabel();
+	void setStateLabel(int label);
 
 	const Eigen::VectorXd& getState();
 	const Eigen::VectorXd& getStateGoal();

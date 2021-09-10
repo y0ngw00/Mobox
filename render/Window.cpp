@@ -52,6 +52,20 @@ Window()
 	Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
 	mCamera->setLookAt(com);
 	mCamera->setEye( com + dir );
+
+
+	char buffer[100];
+	std::ifstream txtread;
+	std::string txt_path = "/data/bvh/motionlist.txt";
+	txtread.open(std::string(ROOT_DIR)+ txt_path);
+	if(!txtread.is_open()){
+		std::cout<<"Text file does not exist from : "<< txt_path << std::endl;
+		return;
+	}
+	while(txtread>>buffer){
+        motion_lists.push_back(std::string(buffer));	
+	}
+	txtread.close();
 }
 void
 Window::
@@ -171,7 +185,8 @@ ImGuiDisplay()
                     // Display some text (you can use a format strings too)
         // ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Control", &mControl);
-        // ImGui::Text("Forwarding direction");
+        ImGui::Text("Current Motion "); ImGui::SameLine();
+        ImGui::Text(motion_lists[mMotionType].c_str());
         // ImGui::SliderFloat("Theta", &theta, -180, 180);            // Edit 1 float using a slider from 0.0f to 1.0f
         
         // ImGui::Text("Forwarding height");   
@@ -181,12 +196,14 @@ ImGuiDisplay()
         // ImGui::SliderFloat("Speed", &speed, 0.5f, 3.0f);
 
         // static int motionidx = 0;
-        // for(int n=0; n<mMotionType.rows();n++){
-        // 	if(mMotionType[n]==1){
-        // 		motionidx=n;
-        // 		break;
-        // 	}
+
+
+        for(int n=0; n<motion_lists.size();n++){
+        	if(ImGui::Button(motion_lists[n].c_str()))
+        		mMotionType = n;
+        }
         // }
+        ImGui::InputInt("Class", &mMotionType);
         // ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
         // ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
         // ImGui::RadioButton("hurt", &motionidx, 2);
@@ -200,7 +217,6 @@ ImGuiDisplay()
 
         // if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
         //     counter++;
-        // ImGui::Text("counter = %d", counter);
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
@@ -269,26 +285,19 @@ reset(int frame)
 	}
 
 
-	this->height = mEnvironment->getTargetHeight();
-	this->theta = mEnvironment->getTargetHeading()*180/M_PI;
-	this->speed = mEnvironment->getTargetSpeed();
-	// this->mMotionType = mEnvironment->getTargetMotion();
+	this->mMotionType = mEnvironment->getStateLabel();		
 }
 void
 Window::
 step()
 {
+
 	if(mControl){
-		mEnvironment->setTargetHeading(this->theta/180*M_PI);
-		mEnvironment->setTargetSpeed(this->speed);
-		mEnvironment->setTargetHeight(this->height);
+		mEnvironment->setStateLabel(mMotionType);
 		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
-		this->theta = mEnvironment->getTargetHeading();
-		this->speed = mEnvironment->getTargetSpeed();
-		this->height = mEnvironment->getTargetHeight();
-		// this->mMotionType = mEnvironment->getTargetMotion();		
+		this->mMotionType = mEnvironment->getStateLabel();		
 	}
 
 	if(mUseNN)
