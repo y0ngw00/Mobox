@@ -27,7 +27,7 @@ config = {
 	},
 
 	'discriminator_model' : {
-		'hiddens' : [256, 256],
+		'hiddens' : [512, 512],
 		'activations' : ['relu', 'relu', None],
 		'init_weights' : [0.1, 0.1, 1.0],
 		'embedding_length' : 256,
@@ -48,7 +48,7 @@ config = {
 		'num_sgd_iter' : 5,
 		'sgd_minibatch_size' : 128,
 		
-		'num_disc_sgd_iter' : 2,
+		'num_disc_sgd_iter' : 5,
 		'disc_sgd_minibatch_size' : 16,
 		'disc_buffer_len' : 100000,
 

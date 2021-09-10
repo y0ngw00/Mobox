@@ -169,11 +169,6 @@ class Trainer(object):
 
 		return state_compressed
 
-	def to_one_hot_vector(self, array, dim):
-		v = (array.squeeze()).astype(int)
-		out = np.eye(dim)[v]
-		return out
-
 	def postprocess_episodes(self):
 		self.policy_episodes = []
 		self.disc_episodes = []

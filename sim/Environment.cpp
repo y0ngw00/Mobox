@@ -168,6 +168,7 @@ reset(int frame)
 
 	mKinCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
 
+	mPrevPositions3 = mSimCharacter->getSkeleton()->getPositions(); 
 	mPrevPositions2 = mSimCharacter->getSkeleton()->getPositions(); 
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
@@ -234,6 +235,7 @@ step(const Eigen::VectorXd& _action)
 	
 	this->recordState();
 
+	mPrevPositions3 = mPrevPositions2;
 	mPrevPositions2 = mPrevPositions;
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
@@ -396,6 +398,12 @@ recordState()
 	
 	auto save_state = mKinCharacter->saveState();
 
+	Eigen::VectorXd prev_velocities2 = mSimCharacter->computeAvgVelocity(mPrevPositions3, mPrevPositions2, 1.0/mControlHz);
+	mKinCharacter->getSkeleton()->setPositions(mPrevPositions2);
+	mKinCharacter->getSkeleton()->setVelocities(prev_velocities2);
+	
+	Eigen::VectorXd s0 = mKinCharacter->getStateAMP();
+
 	Eigen::VectorXd prev_velocities = mSimCharacter->computeAvgVelocity(mPrevPositions2, mPrevPositions, 1.0/mControlHz);
 	mKinCharacter->getSkeleton()->setPositions(mPrevPositions);
 	mKinCharacter->getSkeleton()->setVelocities(prev_velocities);
@@ -408,8 +416,8 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows()+mDimLabel);
-	mStateAMP<<s, s1, mStateLabel;
+	mStateAMP.resize(s0.rows() + s.rows() + s1.rows()+mDimLabel);
+	mStateAMP<<s0, s, s1, mStateLabel;
 }
 
 
@@ -419,12 +427,12 @@ getStateAMPExpert()
 {
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
-	int m2 = (m-1)/2;
+	int m2 = (m-mDimLabel)/3;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
 		int nf = motion->getNumFrames();
-		total_num_frames += nf-1;
+		total_num_frames += nf-2;
 	}
 	Eigen::MatrixXd state_expert(total_num_frames,m);
 
@@ -440,23 +448,32 @@ getStateAMPExpert()
 							motion->getAngularVelocity(0));
 		Eigen::VectorXd s = mKinCharacter->getStateAMP();
 
-		Eigen::VectorXd s1;
+		mKinCharacter->setPose(motion->getPosition(1),
+							motion->getRotation(1),
+							motion->getLinearVelocity(1),
+							motion->getAngularVelocity(1));
+		Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
+		
+		Eigen::VectorXd s2;
 
-		for(int i=0;i<nf-1;i++)
+		for(int i=0;i<nf-2;i++)
 		{
-			mKinCharacter->setPose(motion->getPosition(i+1),
-							motion->getRotation(i+1),
-							motion->getLinearVelocity(i+1),
-							motion->getAngularVelocity(i+1));
-			s1 = mKinCharacter->getStateAMP();
+			mKinCharacter->setPose(motion->getPosition(i+2),
+							motion->getRotation(i+2),
+							motion->getLinearVelocity(i+2),
+							motion->getAngularVelocity(i+2));
+			s2 = mKinCharacter->getStateAMP();
 
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
+			state_expert.row(o+i).segment(m2*2,m2) = s2.transpose();
 			state_expert.row(o+i)[m-1] = label;
 			s = s1;
+			s1 = s2;
 		}
-		o += nf - 1;
+		o += nf - 2;
 	}
+
 	return state_expert;
 }
 bool
