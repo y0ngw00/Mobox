@@ -192,20 +192,20 @@ getState()
 	}
 	Eigen::Vector3d p_com = T_ref_inv*mSkeleton->getCOM();
 	Eigen::Vector3d v_com = R_ref_inv*mSkeleton->getCOMLinearVelocity();
-	Eigen::Vector3d w_com = R_ref_inv*mSkeleton->getBodyNode(0)->getAngularVelocity();
+	// Eigen::Vector3d w_com = R_ref_inv*mSkeleton->getBodyNode(0)->getAngularVelocity();
 
-	std::vector<Eigen::Vector3d> states(5*n+3);
+	std::vector<Eigen::Vector3d> states(5*n+2);
 
 	int o = 0;
 	for(int i=0;i<n;i++) states[o+i] = ps[i]; o += n;
 	for(int i=0;i<n;i++) states[o+i] = Rs[i].col(0); o += n;
 	for(int i=0;i<n;i++) states[o+i] = Rs[i].col(1); o += n;
 	for(int i=0;i<n;i++) states[o+i] = vs[i]; o += n;
-	for(int i=0;i<n;i++) states[o+i] = ws[i]; o += n;
+	// for(int i=0;i<n;i++) states[o+i] = ws[i]; o += n;
 
 	states[o+0] = p_com;
 	states[o+1] = v_com;
-	states[o+2] = w_com;
+	// states[o+2] = w_com;
 
 	return states;
 }
