@@ -28,7 +28,7 @@ public:
 	void setTargetHeight(double height);
 
 
-	void reset(int frame=-1);
+	void reset(bool RSI = true);
 
 	void step(const Eigen::VectorXd& action);
 	

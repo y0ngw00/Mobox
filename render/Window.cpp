@@ -266,7 +266,7 @@ void
 Window::
 reset(int frame)
 {
-	mEnvironment->reset(frame);
+	mEnvironment->reset(false);
 	mObservation = mEnvironment->getState();
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 

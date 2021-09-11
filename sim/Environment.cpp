@@ -144,7 +144,7 @@ getNumTotalLabel()
 
 void
 Environment::
-reset(int frame)
+reset(bool RSI)
 {
 	mContactEOE = false;
 	mFrame = 0;
@@ -154,7 +154,10 @@ reset(int frame)
 	mStateLabel = motion_num;
 
 	auto motion = mMotions[motion_num];
-	mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
+	if(RSI){
+		mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
+		
+	}
 	Eigen::Vector3d position = motion->getPosition(mFrame);
 	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
 	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
