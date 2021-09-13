@@ -107,6 +107,7 @@ Environment()
 
 	this->mTargetHeightMin = 0.6;
 	this->mTargetHeightMax = 2.0;
+	mStateLabel = 0;
 
 }
 
@@ -150,14 +151,22 @@ reset(bool RSI)
 	mFrame = 0;
 	mElapsedFrame = 0;
 
-	int motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
-	mStateLabel = motion_num;
+	int motion_num=0;
+	if(RSI){
+		motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		//mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
+		mStateLabel = motion_num;
+	}
+	else{
+		motion_num = mStateLabel;
+	}
 
 	auto motion = mMotions[motion_num];
 	if(RSI){
 		mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
-		
 	}
+
+
 	Eigen::Vector3d position = motion->getPosition(mFrame);
 	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
 	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);

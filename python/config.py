@@ -27,7 +27,7 @@ config = {
 	},
 
 	'discriminator_model' : {
-		'hiddens' : [512, 512],
+		'hiddens' : [256,256],
 		'activations' : ['relu', 'relu', None],
 		'init_weights' : [0.1, 0.1, 1.0],
 		'embedding_length' : 256,

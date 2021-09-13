@@ -320,8 +320,8 @@ step()
 	mRewardGoals.push_back(mRewardGoal);
 	mRewards.push_back(0.5*(mReward+mRewardGoal));
 	bool eoe = mEnvironment->inspectEndOfEpisode();
-	if(eoe)
-		this->reset();
+	// if(eoe)
+	// 	this->reset();
 
 	if(mFocus)
 	{
