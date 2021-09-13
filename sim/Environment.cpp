@@ -38,7 +38,27 @@ Environment()
 	mKinCharacter = DARTUtils::buildFromFile(std::string(ROOT_DIR)+"/data/skel.xml");
 
 	std::vector<std::string> motion_lists = {
+			"/data/bvh/s_001_1_1.bvh",
+			"/data/bvh/s_001_1_2.bvh",
+			"/data/bvh/s_001_2_1.bvh",
 			"/data/bvh/s_001_2_2.bvh",
+			"/data/bvh/s_001_3_1.bvh",
+			"/data/bvh/s_001_3_2.bvh",
+			"/data/bvh/s_002_1_1.bvh",
+			"/data/bvh/s_002_1_2.bvh",
+			"/data/bvh/s_002_2_2.bvh",
+			"/data/bvh/s_003_1_1.bvh",
+			"/data/bvh/s_003_1_2.bvh",
+			"/data/bvh/s_003_2_2.bvh",
+			"/data/bvh/s_004_1_1.bvh",
+			"/data/bvh/s_004_2_1.bvh",
+			"/data/bvh/s_004_2_2.bvh",
+			"/data/bvh/s_005_1_1.bvh",
+			"/data/bvh/s_005_1_2.bvh",
+			"/data/bvh/s_005_2_1.bvh",
+			"/data/bvh/s_005_2_2.bvh",
+			"/data/bvh/s_005_3_1.bvh",
+			"/data/bvh/s_005_3_2.bvh",
 			// "/data/bvh/walk_drunk.bvh",
 
 	};
@@ -56,9 +76,9 @@ Environment()
 	for(auto bvh_path : motion_lists){
 		BVH* bvh = new BVH(std::string(ROOT_DIR)+bvh_path);
 		Motion* motion = new Motion(bvh);
-		for(int j=0;j<bvh->getNumFrames();j++){
+		for(int j=90;j<bvh->getNumFrames()-60;j++){
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-			if(j>450) break;
+			// if(j>450) break;
 		}
 
 		motion->computeVelocity();
@@ -177,6 +197,7 @@ reset(int frame)
 
 	mKinCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
 
+	mPrevPositions3 = mSimCharacter->getSkeleton()->getPositions(); 
 	mPrevPositions2 = mSimCharacter->getSkeleton()->getPositions(); 
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
@@ -243,6 +264,7 @@ step(const Eigen::VectorXd& _action)
 	
 	this->recordState();
 
+	mPrevPositions3 = mPrevPositions2;
 	mPrevPositions2 = mPrevPositions;
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
@@ -399,6 +421,12 @@ recordState()
 	
 	auto save_state = mKinCharacter->saveState();
 
+	Eigen::VectorXd prev_velocities2 = mSimCharacter->computeAvgVelocity(mPrevPositions3, mPrevPositions2, 1.0/mControlHz);
+	mKinCharacter->getSkeleton()->setPositions(mPrevPositions2);
+	mKinCharacter->getSkeleton()->setVelocities(prev_velocities2);
+	
+	Eigen::VectorXd s0 = mKinCharacter->getStateAMP();
+
 	Eigen::VectorXd prev_velocities = mSimCharacter->computeAvgVelocity(mPrevPositions2, mPrevPositions, 1.0/mControlHz);
 	mKinCharacter->getSkeleton()->setPositions(mPrevPositions);
 	mKinCharacter->getSkeleton()->setVelocities(prev_velocities);
@@ -411,8 +439,8 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows() + goal.rows());
-	mStateAMP<<s, s1, goal;
+	mStateAMP.resize(s0.rows() +s.rows() + s1.rows() + goal.rows());
+	mStateAMP<<s0, s, s1, goal;
 }
 
 
@@ -423,12 +451,12 @@ getStateAMPExpert()
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
 	int num_label = this->getStateGoal().rows();
-	int m2 = (m-num_label)/2;
+	int m2 = (m-num_label)/3;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
 		int nf = motion->getNumFrames();
-		total_num_frames += nf-1;
+		total_num_frames += nf-2;
 	}
 	Eigen::MatrixXd state_expert(total_num_frames,m);
 
@@ -446,15 +474,22 @@ getStateAMPExpert()
 							motion->getAngularVelocity(0));
 		Eigen::VectorXd s = mKinCharacter->getStateAMP();
 
-		Eigen::VectorXd s1;
+		mKinCharacter->setPose(motion->getPosition(1),
+						motion->getRotation(1),
+						motion->getLinearVelocity(1),
+						motion->getAngularVelocity(1));
+		Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
+
+		Eigen::VectorXd s2;
+
 		Eigen::VectorXd com_prev = mKinCharacter->getSkeleton()->getCOM();
-		for(int i=0;i<nf-1;i++)
+		for(int i=0;i<nf-2;i++)
 		{
-			mKinCharacter->setPose(motion->getPosition(i+1),
-							motion->getRotation(i+1),
-							motion->getLinearVelocity(i+1),
-							motion->getAngularVelocity(i+1));
-			s1 = mKinCharacter->getStateAMP();
+			mKinCharacter->setPose(motion->getPosition(i+2),
+							motion->getRotation(i+2),
+							motion->getLinearVelocity(i+2),
+							motion->getAngularVelocity(i+2));
+			s2 = mKinCharacter->getStateAMP();
 
 			Eigen::Isometry3d T_ref = mKinCharacter->getReferenceTransform();
 			Eigen::Matrix3d R_ref_inv = T_ref.linear().inverse();
@@ -468,10 +503,13 @@ getStateAMPExpert()
 
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
+			state_expert.row(o+i).segment(m2*2,m2) = s2.transpose();
 			state_expert.row(o+i).tail(num_label) = label.transpose();
+			
 			s = s1;
+			s1 = s2;
 		}
-		o += nf - 1;
+		o += nf - 2;
 	}
 	return state_expert;
 }

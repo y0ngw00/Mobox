@@ -70,7 +70,7 @@ private:
 
 	dart::dynamics::SkeletonPtr mGround;
 
-	Eigen::VectorXd mPrevPositions, mPrevPositions2, mPrevCOM;
+	Eigen::VectorXd mPrevPositions, mPrevPositions2, mPrevPositions3, mPrevCOM;
 	Eigen::VectorXd mState, mStateGoal, mStateAMP, mStateLabel;
 
 	bool mContactEOE;

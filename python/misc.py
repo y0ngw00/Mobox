@@ -23,19 +23,25 @@ class SlimFC(nn.Module):
 				 in_size,
 				 out_size,
 				 initializer,
-				 activation=None):
+				 activation=None,
+				 Norm = None):
 		super(SlimFC, self).__init__()
 		layers = []
 		linear = nn.Linear(in_size, out_size)
+		if Norm == "SpectralNorm":
+			linear = nn.utils.spectral_norm(linear)
 		initializer(linear.weight)
 		nn.init.constant_(linear.bias, 0.0)
 		layers.append(linear)
+
 		if activation == "relu":
 			layers.append(nn.ReLU())
 		self.model = nn.Sequential(*layers)
 
 	def forward(self, x):
 		return self.model(x)
+
+
 
 class AppendLogStd(nn.Module):
 	def __init__(self, init_log_std, dim , fixed_grad = True):

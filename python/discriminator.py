@@ -27,7 +27,7 @@ class DiscriminatorNN(nn.Module):
 				prev_layer_size,
 				size,
 				xavier_initializer(init_weight),
-				activation))
+				activation, "SpectralNorm"))
 			prev_layer_size = size
 
 		self.fn = nn.Sequential(*layers)
