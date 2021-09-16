@@ -69,6 +69,7 @@ getReferenceTransform()
 
 	return T;
 }
+
 void
 Character::
 setReferenceTransform(const Eigen::Isometry3d& T_ref)

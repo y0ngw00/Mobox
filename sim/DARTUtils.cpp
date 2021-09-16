@@ -50,7 +50,7 @@ makeFreeJointProperties(const std::string& name,const Eigen::Isometry3d& parent_
 	props->mIsPositionLimitEnforced = false;
 	props->mVelocityLowerLimits = Eigen::Vector6d::Constant(-100.0);
 	props->mVelocityUpperLimits = Eigen::Vector6d::Constant(100.0);
-	props->mDampingCoefficients = Eigen::Vector6d::Constant(0.1);
+	props->mDampingCoefficients = Eigen::Vector6d::Constant(0.0);
 
 	return props;
 }

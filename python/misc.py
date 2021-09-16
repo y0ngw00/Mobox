@@ -23,10 +23,13 @@ class SlimFC(nn.Module):
 				 in_size,
 				 out_size,
 				 initializer,
-				 activation=None):
+				 activation=None,
+				 Norm = "None"):
 		super(SlimFC, self).__init__()
 		layers = []
 		linear = nn.Linear(in_size, out_size)
+		if Norm == "SpectralNorm":
+			linear = nn.utils.spectral_norm(linear)
 		initializer(linear.weight)
 		nn.init.constant_(linear.bias, 0.0)
 		layers.append(linear)

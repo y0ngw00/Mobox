@@ -48,7 +48,7 @@ config = {
 		'num_sgd_iter' : 5,
 		'sgd_minibatch_size' : 128,
 		
-		'num_disc_sgd_iter' : 5,
+		'num_disc_sgd_iter' : 2,
 		'disc_sgd_minibatch_size' : 16,
 		'disc_buffer_len' : 100000,
 

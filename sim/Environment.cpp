@@ -18,7 +18,7 @@ Environment::
 Environment()
 	:mWorld(std::make_shared<World>()),
 	mControlHz(30),
-	mSimulationHz(300),
+	mSimulationHz(600),
 	mElapsedFrame(0),
 	mMaxElapsedFrame(300),
 	mSimCharacter(nullptr),
@@ -162,9 +162,7 @@ reset(bool RSI)
 	}
 
 	auto motion = mMotions[motion_num];
-	if(RSI){
-		mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
-	}
+	mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
 
 
 	Eigen::Vector3d position = motion->getPosition(mFrame);
