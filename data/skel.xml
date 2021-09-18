@@ -44,7 +44,7 @@
     </Node>
 
     <Node name="LeftHand" parent="LeftForeArm" >
-        <Body type="Sphere" mass="1.0" radius="0.0312" contact="Off">
+        <Body type="Sphere" mass="1.0" radius="0.0312" contact="On">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="0.6700 0.4261 0.0085"/>
         </Body>
         <Joint type="Weld" bvh="simLeftHand" kp="0.0" maxf="0.0" weight="0.0" endeffector="True" m="1e8" d="0.0" k="0.0">
@@ -63,7 +63,7 @@
     </Node>
 
     <Node name="RightForeArm" parent="RightArm" >
-        <Body type="Box" mass="3.0" size="0.2346 0.044 0.044" contact="On">
+        <Body type="Box" mass="3.0" size="0.2346 0.044 0.044" contact="Off">
             <Transformation linear="1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0" translation="-0.5147 0.4261 0.0000"/>
         </Body>
         <Joint type="Ball" bvh="simRightForeArm" kp="800.0" maxf="1000.0" weight="0.2" m="5.0" d="20.0" k="30.0" lower="-3.14 -3.14 -3.14" upper="3.14 3.14 3.14">

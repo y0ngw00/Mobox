@@ -90,7 +90,7 @@ private:
 	double mTargetSpeedMin, mTargetSpeedMax;
 	double mTargetFrame;
 	double mTargetHeight, mIdleHeight;
-	double mSharpTurnProb, mSpeedChangeProb,mHeightChangeProb, mMaxHeadingTurnRate;
+	double mSharpTurnProb, mSpeedChangeProb,mHeightChangeProb, mMaxHeadingTurnRate, mTransitionProb;
 
 	double mTargetHeightMin, mTargetHeightMax;
 

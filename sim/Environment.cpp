@@ -29,6 +29,7 @@ Environment()
 	mSpeedChangeProb(0.05),
 	mHeightChangeProb(0.01),
 	mMaxHeadingTurnRate(0.15),
+	mTransitionProb(0.005),
 	mRewardGoal(0.0),
 	mEnableGoal(true)
 {
@@ -59,9 +60,9 @@ Environment()
 		Motion* motion = new Motion(bvh);
 		for(int j=0;j<bvh->getNumFrames();j++){
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-			if(j>300) break;
+			if(j>350) break;
 		}
-		if(bvh->getNumFrames() < 300) motion->repeatMotion(300, bvh);
+		if(bvh->getNumFrames() < 350) motion->repeatMotion(350, bvh);
 
 		motion->computeVelocity();
 		mMotions.emplace_back(motion);
@@ -255,21 +256,21 @@ void
 Environment::
 resetGoal()
 {
-	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
-	Eigen::Matrix3d R_ref = T_ref.linear();
-	Eigen::AngleAxisd aa_ref(R_ref);
-	double heading = aa_ref.angle()*aa_ref.axis()[1];
+	// Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
+	// Eigen::Matrix3d R_ref = T_ref.linear();
+	// Eigen::AngleAxisd aa_ref(R_ref);
+	// double heading = aa_ref.angle()*aa_ref.axis()[1];
 	//Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
-	this->mTargetHeading = heading-M_PI/2;
+	// this->mTargetHeading = heading-M_PI/2;
 
 	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-	Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
-	com_vel[1] =0.0;
+	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
+	// com_vel[1] =0.0;
 	// if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
 	// else{
 	// 	this->mTargetHeading = com_vel[2]>0? 90: 270; 
 	// }
-	this->mTargetSpeed = std::max(1.0, com_vel.norm());
+	// this->mTargetSpeed = std::max(1.0, com_vel.norm());
 	// this->mTargetHeight = mSimCharacter->getSkeleton()->getCOM()[1];
 	// this->mIdleHeight = mSimCharacter->getSkeleton()->getCOM()[1];
 
@@ -279,21 +280,25 @@ void
 Environment::
 updateGoal()
 {
-	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
-	double delta_heading = 0;
-	if(sharp_turn)
-		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
-	else
-		delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
-	mTargetHeading += delta_heading;
+	// bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+	// double delta_heading = 0;
+	// if(sharp_turn)
+	// 	delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+	// else
+	// 	delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
+	// mTargetHeading += delta_heading;
 
-	bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
-	if(change_speed)
-		mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
+	// bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
+	// if(change_speed)
+	// 	mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
 
 	// bool change_height = dart::math::Random::uniform<double>(0.0, 1.0)<mHeightChangeProb?true:false;
 	// if(change_height)
 	// 	mTargetHeight = dart::math::Random::uniform(mTargetHeightMin, mTargetHeightMax);
+
+	bool change_motion = dart::math::Random::uniform<double>(0.0, 1.0)<mTransitionProb?true:false;
+	if(change_motion)
+		mStateLabel = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
 
 
 	return;

@@ -1,1 +1,8 @@
+walk_long.bvh
+walk_hurt_rl.bvh
+jump_lsw.bvh
+crossjab_lsw.bvh
+uppercut_lsw.bvh
+breakdance_lsw.bvh
 backflip_lsw.bvh
+sidekick_lsw.bvh

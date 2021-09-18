@@ -178,7 +178,8 @@ getState()
 	Eigen::Matrix3d R_ref_inv = T_ref_inv.linear();
 
 	int n = mSkeleton->getNumBodyNodes();
-	std::vector<Eigen::Vector3d> ps(n),vs(n),ws(n);
+	int n_ee = mEndEffectors.size();
+	std::vector<Eigen::Vector3d> ps(n),vs(n),ws(n), ee(n_ee);
 	std::vector<Eigen::MatrixXd> Rs(n);
 
 	for(int i=0;i<n;i++)
@@ -191,10 +192,12 @@ getState()
 		vs[i] = R_ref_inv*mSkeleton->getBodyNode(i)->getLinearVelocity();
 		ws[i] = R_ref_inv*mSkeleton->getBodyNode(i)->getAngularVelocity();
 	}
+	for(int i=0;i<n_ee;i++)
+		ee[i] = T_ref_inv*mEndEffectors[i]->getCOM();
 	Eigen::Vector3d p_com = T_ref_inv*mSkeleton->getCOM();
 	Eigen::Vector3d v_com = R_ref_inv*mSkeleton->getCOMLinearVelocity();
 
-	std::vector<Eigen::Vector3d> states(5*n+2);
+	std::vector<Eigen::Vector3d> states(5*n + n_ee + 2);
 
 	int o = 0;
 	for(int i=0;i<n;i++) states[o+i] = ps[i]; o += n;
@@ -202,6 +205,7 @@ getState()
 	for(int i=0;i<n;i++) states[o+i] = Rs[i].col(1); o += n;
 	for(int i=0;i<n;i++) states[o+i] = vs[i]; o += n;
 	for(int i=0;i<n;i++) states[o+i] = ws[i]; o += n;
+	for(int i=0;i<n_ee;i++) states[o+i] = ee[i]; o += n_ee;
 
 	states[o+0] = p_com;
 	states[o+1] = v_com;
@@ -224,7 +228,7 @@ getStateAMP()
 	int n = mSkeleton->getNumBodyNodes();
 	int m = (p.rows()-6)/3;
 	std::vector<Eigen::VectorXd> states;
-	double root_h = p[5];
+	double root_h = p[4];
 	states.emplace_back(Eigen::VectorXd::Constant(1,root_h));
 	for(int i=0;i<mSkeleton->getNumJoints();i++)
 	{
@@ -251,9 +255,10 @@ getStateAMP()
 
 	for(int i=0;i<mEndEffectors.size();i++)
 		states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());
-
+	
 	Eigen::Vector3d v_root = R_ref_inv*mSkeleton->getBodyNode(0)->getLinearVelocity();
 	Eigen::Vector3d w_root = R_ref_inv*mSkeleton->getBodyNode(0)->getAngularVelocity();
+
 	states.emplace_back(v_root);
 	states.emplace_back(w_root);
 
