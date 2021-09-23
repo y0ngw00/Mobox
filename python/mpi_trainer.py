@@ -21,6 +21,7 @@ import discriminator
 
 from torch.utils.tensorboard import SummaryWriter
 from mpi_utils import get_num_procs, get_proc_rank, is_root_proc, is_root2_proc,get_root_proc, get_root2_proc, broadcast, gather, scatter, send, recv
+from misc import MCMCSampler
 
 Sample = namedtuple('Sample',('s', 'a', 'rg', 'ss1', 'vf_pred', 'log_prob'))
 
@@ -31,6 +32,7 @@ class Trainer(object):
 
 		self.policy = self.create_policy(torch.device("cpu"), config['model'], config['policy'])
 		self.disc = self.create_disc(torch.device("cpu"), config['discriminator_model'], config['discriminator'])
+
 		if is_root_proc():
 			self.policy_loc = self.create_policy(torch.device("cuda"), config['model'], config['policy'])
 		if is_root2_proc():
@@ -39,6 +41,7 @@ class Trainer(object):
 		self.num_envs = get_num_procs()
 
 		trainer_config = config['trainer']
+		self.sampler = MCMCSampler(trainer_config["epsilon"], self.env.get_num_total_label())
 		self.sample_size = trainer_config['sample_size']
 		self.sample_epoch = self.sample_size//self.num_envs
 
@@ -50,7 +53,7 @@ class Trainer(object):
 
 		self.save_iteration = trainer_config['save_iteration']
 		
-		self.env.reset()
+		self.env.reset(0)
 		self.state = self.env.get_state()
 
 		self.episode_buffers = []
@@ -102,6 +105,9 @@ class Trainer(object):
 				self.state_dict['elapsed_time'] += t_sample + np.max([log_policy['t'],log_disc['t']])
 			else:
 				self.state_dict['elapsed_time'] += t_sample
+
+			if self.state_dict['num_iterations_so_far'] % 1000 == 0:
+				self.update_sampler()
 		if is_root2_proc():
 			valid_samples = self.concat_samples(self.disc_episode_list)
 			if valid_samples:
@@ -110,6 +116,8 @@ class Trainer(object):
 				log = self.optimize()
 				log['t'] = self._toc()
 				send(log, dest=get_root_proc())
+
+
 			
 
 	def _tic(self):
@@ -123,7 +131,6 @@ class Trainer(object):
 	def sample_states_expert(self, n):
 		m = len(self.states_expert)
 		states =  self.states_expert[np.random.randint(0, m, n)]
-
 		# sample_states = self.compress_label(states,"disc")
 		return states
 
@@ -150,11 +157,14 @@ class Trainer(object):
 			rg = self.env.get_reward_goal()
 			
 			self.episode_buffers[-1].append(Sample(self.state, action, rg, ss1, valuef, logprob))
-			self.state = self.env.get_state()
+			
 			if eoe:
 				if len(self.episode_buffers[-1]) != 0:
 					self.episode_buffers.append([])
-				self.env.reset()
+
+				idx = self.sampler.sample()
+				self.env.reset(idx)
+			self.state = self.env.get_state()
 
 	def compress_label(self, state):
 		dim_label = self.env.get_dim_state_label()
@@ -168,11 +178,6 @@ class Trainer(object):
 			state_compressed = torch.cat((state[:,:-dim_label],self.disc_loc.embedding(label)),1)
 
 		return state_compressed
-
-	def to_one_hot_vector(self, array, dim):
-		v = (array.squeeze()).astype(int)
-		out = np.eye(dim)[v]
-		return out
 
 	def postprocess_episodes(self):
 		self.policy_episodes = []
@@ -251,6 +256,31 @@ class Trainer(object):
 
 			self.samples['STATES_EXPERT'] = state[:n]
 			self.samples['STATES_AGENT'] = state[n:]
+
+	def update_sampler(self):
+		reward = np.zeros(self.env.get_num_total_label())
+		for j in range(self.env.get_num_total_label()):
+			cnt = 0
+			r_j = []
+			self.env.reset(j)
+			
+			while cnt < 10 :
+				action, _, _ = self.policy(self.state)
+				self.env.step(action)
+
+				ss1 = self.env.get_state_AMP()
+				r = self.disc(ss1)
+				r_j.append(r)
+
+				eoe = self.env.inspect_end_of_episode()
+
+				if eoe :
+					cnt += 1
+					self.env.reset(j)
+				self.state = self.env.get_state()
+
+			reward[j] = np.mean(r_j)
+		return reward
 
 
 	def generate_shuffle_indices(self, batch_size, minibatch_size):

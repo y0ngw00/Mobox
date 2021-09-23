@@ -53,5 +53,7 @@ config = {
 		'disc_buffer_len' : 100000,
 
 		'save_iteration' : [10,500],
+		'epsilon' : 0.05
 	}
+
 }

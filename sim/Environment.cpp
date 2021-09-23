@@ -29,7 +29,7 @@ Environment()
 	mSpeedChangeProb(0.05),
 	mHeightChangeProb(0.01),
 	mMaxHeadingTurnRate(0.15),
-	mTransitionProb(0.005),
+	mTransitionProb(0.002),
 	mRewardGoal(0.0),
 	mEnableGoal(true)
 {
@@ -146,7 +146,7 @@ getNumTotalLabel()
 
 void
 Environment::
-reset(bool RSI)
+reset(int motion_idx, bool RSI)
 {
 	mContactEOE = false;
 	mFrame = 0;
@@ -154,7 +154,8 @@ reset(bool RSI)
 
 	int motion_num=0;
 	if(RSI){
-		motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		// motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		motion_num = motion_idx;
 		//mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
 		mStateLabel = motion_num;
 	}
@@ -540,6 +541,21 @@ convertToRealActionSpace(const Eigen::VectorXd& a_norm)
 	a_real = dart::math::clip<Eigen::VectorXd, Eigen::VectorXd>(a_norm, lo, hi);
 	a_real = mActionWeight.cwiseProduct(a_real);
 	return a_real;
+}
+
+void
+Environment::
+FollowBVH(){
+	auto& motion = mMotions[mStateLabel];
+	
+	Eigen::Vector3d position = motion->getPosition(mFrame);
+	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
+	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
+	Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(mFrame);
+	mKinCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
+	if(mFrame > (motion->getNumFrames()-3))
+		mFrame = 0;
+	return;
 }
 
 double

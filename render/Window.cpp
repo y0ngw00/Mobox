@@ -111,6 +111,9 @@ render()
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
 
+	if(mDrawKinPose)
+		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
+
 	if(mDrawTargetPose)
 	{
 		Eigen::VectorXd state = mEnvironment->getKinCharacter()->saveState();
@@ -266,7 +269,9 @@ void
 Window::
 reset(int frame)
 {
-	mEnvironment->reset(false);
+	this->mMotionType = mEnvironment->getStateLabel();	
+
+	mEnvironment->reset(mMotionType, false);
 	mObservation = mEnvironment->getState();
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 
@@ -285,7 +290,7 @@ reset(int frame)
 	}
 
 
-	this->mMotionType = mEnvironment->getStateLabel();		
+		
 }
 void
 Window::
@@ -322,6 +327,10 @@ step()
 	bool eoe = mEnvironment->inspectEndOfEpisode();
 	// if(eoe)
 	// 	this->reset();
+
+	if(mDrawKinPose){
+		mEnvironment->FollowBVH();
+	}
 
 	if(mFocus)
 	{
@@ -383,7 +392,7 @@ keyboard(unsigned char key, int x, int y)
 		case '6':mDrawCOMvel = !mDrawCOMvel;break;
 		case '7':mDraw2DCharacter = !mDraw2DCharacter;break;
 		case 's':this->step();break;
-		case 'r':this->reset();break;
+		case 'r':this->reset(mMotionType);break;
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;

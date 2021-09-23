@@ -9,6 +9,8 @@ import filter
 
 import time
 
+
+
 def xavier_initializer(gain=1.0):
 	def initializer(tensor):
 		torch.nn.init.xavier_uniform_(tensor,gain=gain)
@@ -53,3 +55,52 @@ class AppendLogStd(nn.Module):
 	def forward(self, x):
 		x = torch.cat([x, self.log_std.unsqueeze(0).repeat([len(x), 1])], axis=-1)
 		return x
+
+class MCMCSampler:
+	def __init__(self, epsilon, num_class):
+		self.epsilon = epsilon
+		self.m0 = 0
+		self.target_dist = np.zeros(num_class)
+		self.margin = 0.005
+		self.num_class = num_class
+
+		
+	def update(self,idx, value):
+
+		self.target_dist[idx] = value
+		# for each motion class, implement 10 episodes 
+
+	def scaling(self):
+		v_max = np.max(self.target_dist)
+		v_min = np.min(self.target_dist)
+
+		self.target_dist -= v_min
+		self.target_dist /= (v_max - v_min)
+		self.target_dist += self.margin
+
+
+	def sample(self):
+		count =0
+		while(1):
+			m1 = np.random.randint(self.num_class)
+			count += 1
+			if self.target_dist[m1] < self.target_dist[self.m0] :
+				e = np.random.uniform(low = 0.0, high = 1.0)
+				if e < epsilon:
+					# use this
+					self.m0 = m1
+					return m1
+				else :
+					continue
+
+			else :
+				# use this
+				self.m0 = m1
+				return m1
+
+			if count >= 1000:
+				#use this 
+				self.m0 = m1
+				return m1
+
+

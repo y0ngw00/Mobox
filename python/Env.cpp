@@ -50,11 +50,12 @@ getDimAction()
 {
 	return mEnv->getDimAction();
 }
+
 void
 Env::
-reset()
+reset(int idx)
 {
-	mEnv->reset();
+	mEnv->reset(idx);
 }
 void
 Env::
