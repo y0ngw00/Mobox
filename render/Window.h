@@ -58,6 +58,7 @@ protected:
 	DrawUtils::BarPlot mBarPlot;
 	py::scoped_interpreter guard;
 	std::vector<double> mRewards, mRewardGoals;
+	std::vector<int> mMotionTypes;
 	py::object mm,mns,sys_module;
 	py::module policy_md, discriminator_md;
 	py::object policy, discriminator;

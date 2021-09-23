@@ -111,8 +111,8 @@ render()
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
 
-	// if(mDrawKinPose)
-	// 	DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
+	if(mDrawKinPose)
+		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
 
 	if(mDrawTargetPose)
 	{
@@ -241,25 +241,46 @@ ImGuiDisplay()
         //     }
         //     ImGui::EndTable();
         // }
-        if (ImGui::CollapsingHeader("Rewards"))
+        if (ImGui::CollapsingHeader("Style Reward"))
         {
-	        if (ImGui::BeginTable("Reward", 3))
+	        int n = mRewards.size();
+	        ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
+	        ImPlot::SetNextPlotLimitsY(-0.2,1.2);
+	        
+	        
+	        double* x = new double[n]();
+	        double* y = new double[n]();
+	        for(int i = 0; i < n; i++)
 	        {
-	            for (int row = 0; row < 4; row++)
-	            {
-	                ImGui::TableNextRow();
-	                ImGui::TableNextColumn();
-	                ImGui::Text("Row %d", row);
-	                ImGui::TableNextColumn();
-	                ImGui::Text("Some contents");
-	                ImGui::TableNextColumn();
-	                ImGui::Text("123.456");
-	            }
-	            ImGui::EndTable();
+	            x[i] = i; y[i] = mRewards[i];
+	        }
+	        if (ImPlot::BeginPlot("reward"))
+	        {
+	            ImPlot::PlotLine("",x,y,n);       
+	            ImPlot::EndPlot();
 	        }
     	}
-        if (ImGui::Button("Close Me"))
-            show_another_window = false;
+    	if (ImGui::CollapsingHeader("Motion Index"))
+        {
+	        int n = mMotionTypes.size();
+	        ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
+	        ImPlot::SetNextPlotLimitsY(-1.0,9.0);
+	        
+	        
+	        double* x = new double[n]();
+	        double* y = new double[n]();
+	        for(int i = 0; i < n; i++)
+	        {
+	            x[i] = i; y[i] = mMotionTypes[i];
+	        }
+	        if (ImPlot::BeginPlot("Motion class"))
+	        {
+	            ImPlot::PlotLine("",x,y,n);       
+	            ImPlot::EndPlot();
+	        }
+    	}
+        // if (ImGui::Button("Close Me"))
+        //     show_another_window = false;
         ImGui::End();
     }
 }
@@ -277,6 +298,7 @@ reset(int frame)
 
 	mRewards.clear();
 	mRewardGoals.clear();
+	mMotionTypes.clear();
 	mReward = 0.0;
 	if(mFocus)
 	{
@@ -319,12 +341,10 @@ step()
 	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
 
 	mObservation = mEnvironment->getState();
-	
-	mRewardGoal = mEnvironment->getRewardGoal();
-	
-	mRewardGoals.push_back(mRewardGoal);
-	mRewards.push_back(0.5*(mReward+mRewardGoal));
+
+	mRewards.push_back(mReward/2);
 	bool eoe = mEnvironment->inspectEndOfEpisode();
+	mMotionTypes.push_back(mMotionType);
 	// if(eoe)
 	// 	this->reset();
 

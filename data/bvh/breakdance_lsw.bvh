@@ -1,21 +1,21 @@
 HIERARCHY
-ROOT Hips
+ROOT simHips
 {
   OFFSET -2.22114 30.5426 -2.05664
   CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
-  JOINT Spine
+  JOINT simSpine
   {
     OFFSET -0.000355721 21.3001 -0.016921
     CHANNELS 3 Zrotation Xrotation Yrotation
-    JOINT LeftArm
+    JOINT simLeftArm
     {
       OFFSET 13.5181 21.3012 0
       CHANNELS 3 Zrotation Xrotation Yrotation
-      JOINT LeftForeArm
+      JOINT simLeftForeArm
       {
         OFFSET 24.5783 0 0
         CHANNELS 3 Zrotation Xrotation Yrotation
-        JOINT LeftHand
+        JOINT simLeftHand
         {
           OFFSET 24.5783 0 0
           CHANNELS 3 Zrotation Xrotation Yrotation
@@ -26,7 +26,7 @@ ROOT Hips
         }
       }
     }
-    JOINT Head
+    JOINT simHead
     {
       OFFSET 0 27.4458 -0.00489235
       CHANNELS 3 Zrotation Xrotation Yrotation
@@ -35,15 +35,15 @@ ROOT Hips
         OFFSET 0 0 0
       }
     }
-    JOINT RightArm
+    JOINT simRightArm
     {
       OFFSET -13.5174 21.3012 0
       CHANNELS 3 Zrotation Xrotation Yrotation
-      JOINT RightForeArm
+      JOINT simRightForeArm
       {
         OFFSET -24.5783 0 0
         CHANNELS 3 Zrotation Xrotation Yrotation
-        JOINT RightHand
+        JOINT simRightHand
         {
           OFFSET -24.5783 0 0
           CHANNELS 3 Zrotation Xrotation Yrotation
@@ -55,15 +55,15 @@ ROOT Hips
       }
     }
   }
-  JOINT RightUpLeg
+  JOINT simRightUpLeg
   {
     OFFSET -8.44614 -9.41038 0.835684
     CHANNELS 3 Zrotation Xrotation Yrotation
-    JOINT RightLeg
+    JOINT simRightLeg
     {
       OFFSET 0 -40.9639 0
       CHANNELS 3 Zrotation Xrotation Yrotation
-      JOINT RightFoot
+      JOINT simRightFoot
       {
         OFFSET 0 -40.9639 0
         CHANNELS 3 Zrotation Xrotation Yrotation
@@ -74,15 +74,15 @@ ROOT Hips
       }
     }
   }
-  JOINT LeftUpLeg
+  JOINT simLeftUpLeg
   {
     OFFSET 8.44614 -9.41038 0.835684
     CHANNELS 3 Zrotation Xrotation Yrotation
-    JOINT LeftLeg
+    JOINT simLeftLeg
     {
       OFFSET 0 -40.9639 0
       CHANNELS 3 Zrotation Xrotation Yrotation
-      JOINT LeftFoot
+      JOINT simLeftFoot
       {
         OFFSET 0 -40.9639 0
         CHANNELS 3 Zrotation Xrotation Yrotation
