@@ -73,10 +73,16 @@ class MCMCSampler:
 	def scaling(self):
 		v_max = np.max(self.target_dist)
 		v_min = np.min(self.target_dist)
+		if v_max - v_min > 1e-6 :
+			self.target_dist *= -1
+			self.target_dist += v_max 
+			self.target_dist /= (v_max - v_min)
+			self.target_dist += self.margin	
 
-		self.target_dist -= v_min
-		self.target_dist /= (v_max - v_min)
-		self.target_dist += self.margin
+		else :
+			self.target_dist[:] = 1/self.num_class
+
+
 
 
 	def sample(self):
