@@ -37,6 +37,9 @@ class SlimFC(nn.Module):
 		layers.append(linear)
 		if activation == "relu":
 			layers.append(nn.ReLU())
+
+		if activation == "leaky_relu":
+			layers.append(nn.LeakyReLU())
 		self.model = nn.Sequential(*layers)
 
 	def forward(self, x):
@@ -82,8 +85,8 @@ class MCMCSampler:
 		else :
 			self.target_dist[:] = 1/self.num_class
 
-
-
+	def get_distribution():
+		return self.target_dist
 
 	def sample(self):
 		count =0
@@ -92,7 +95,7 @@ class MCMCSampler:
 			count += 1
 			if self.target_dist[m1] < self.target_dist[self.m0] :
 				e = np.random.uniform(low = 0.0, high = 1.0)
-				if e < epsilon:
+				if e < self.epsilon:
 					# use this
 					self.m0 = m1
 					return m1

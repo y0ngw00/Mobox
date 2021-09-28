@@ -52,7 +52,8 @@ Environment()
 
 
 	mNumMotions = motion_lists.size();
-	mDimLabel = 1;
+	mStateLabel.resize(mNumMotions);
+	mStateLabel.setZero();
 
 	bool load_tree =false;
 	for(auto bvh_path : motion_lists){
@@ -108,7 +109,6 @@ Environment()
 
 	this->mTargetHeightMin = 0.6;
 	this->mTargetHeightMax = 2.0;
-	mStateLabel = 0;
 
 }
 
@@ -131,12 +131,7 @@ getDimStateAMP()
 {
 	return this->getStateAMP().rows();
 }
-int
-Environment::
-getDimStateLabel()
-{
-	return this->mDimLabel;
-}
+
 int
 Environment::
 getNumTotalLabel()
@@ -155,13 +150,19 @@ reset(int motion_idx, bool RSI)
 	int motion_num=0;
 	if(RSI){
 		// motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		mStateLabel.setZero();
 		motion_num = motion_idx;
+		mStateLabel[motion_num] = 1.0;
 		//mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
-		mStateLabel = motion_num;
 	}
 	else{
-		motion_num = mStateLabel;
+		for(int i =0; i<mNumMotions; i++){
+			if (mStateLabel[i] !=0)	motion_num = i;
+		}
 	}
+
+	
+
 
 	auto motion = mMotions[motion_num];
 	mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
@@ -224,6 +225,11 @@ step(const Eigen::VectorXd& _action)
 			if(bn1->getName().find("Foot") != std::string::npos)
 				continue;
 			else if(bn2->getName().find("Foot") != std::string::npos)
+				continue;
+
+			if(bn1->getName().find("Hand") != std::string::npos)
+				continue;
+			else if(bn2->getName().find("Hand") != std::string::npos)
 				continue;
 
 			if(skel1->getName() == "humanoid" && skel2->getName() == "ground"){
@@ -298,8 +304,11 @@ updateGoal()
 	// 	mTargetHeight = dart::math::Random::uniform(mTargetHeightMin, mTargetHeightMax);
 
 	bool change_motion = dart::math::Random::uniform<double>(0.0, 1.0)<mTransitionProb?true:false;
-	if(change_motion)
-		mStateLabel = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+	if(change_motion){
+		int motion_idx = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		mStateLabel.setZero();
+		mStateLabel[motion_idx]=1.0;
+	}
 
 
 	return;
@@ -329,8 +338,8 @@ recordGoal()
 	// mStateGoal.resize(7+mNumMotions);
 	// mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
 	
-	mStateGoal.resize(mDimLabel);
-	mStateGoal<<mStateLabel;
+	mStateGoal.resize(mNumMotions);
+	mStateGoal<< mStateLabel;
 
 
 	// double proj_vel = tar_loc.dot(com_vel);
@@ -362,7 +371,7 @@ getRewardGoal()
 	return mRewardGoal;
 }
 
-int
+Eigen::VectorXd
 Environment::
 getStateLabel()
 {
@@ -373,7 +382,8 @@ void
 Environment::
 setStateLabel(int label)
 {
-	mStateLabel = label;
+	mStateLabel.setZero();
+	mStateLabel[label] = 1.0;
 	return;
 }
 
@@ -424,7 +434,7 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows()+mDimLabel);
+	mStateAMP.resize(s.rows() + s1.rows()+mNumMotions);
 	mStateAMP<<s, s1, mStateLabel;
 }
 
@@ -435,7 +445,7 @@ getStateAMPExpert()
 {
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
-	int m2 = (m-1)/2;
+	int m2 = (m-this->mNumMotions)/2;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
@@ -447,7 +457,9 @@ getStateAMPExpert()
 	for(int n=0; n<mNumMotions; n++)
 	{
 		auto motion = mMotions[n];
-		int label= n;
+		Eigen::VectorXd motionLabel(mNumMotions);
+		motionLabel.setZero();
+		motionLabel[n] =1.0;
 
 		int nf = motion->getNumFrames();
 		mKinCharacter->setPose(motion->getPosition(0),
@@ -468,7 +480,7 @@ getStateAMPExpert()
 
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
-			state_expert.row(o+i)[m-1] = label;
+			state_expert.row(o+i).tail(mNumMotions) = motionLabel;
 			s = s1;
 		}
 		o += nf - 1;
@@ -545,8 +557,9 @@ convertToRealActionSpace(const Eigen::VectorXd& a_norm)
 
 void
 Environment::
-FollowBVH(){
-	auto& motion = mMotions[mStateLabel];
+FollowBVH(int idx){
+
+	auto& motion = mMotions[idx];
 	
 	Eigen::Vector3d position = motion->getPosition(mFrame);
 	Eigen::MatrixXd rotation = motion->getRotation(mFrame);

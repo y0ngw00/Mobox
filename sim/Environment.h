@@ -15,7 +15,6 @@ public:
 	int getDimState();
 	int getDimAction();
 	int getDimStateAMP();
-	int getDimStateLabel();
 	int getNumTotalLabel();
 
 	double getTargetHeading();
@@ -29,14 +28,14 @@ public:
 
 
 	void reset(int motion_idx = 0, bool RSI = true);
-	void FollowBVH();
+	void FollowBVH(int idx);
 
 	void step(const Eigen::VectorXd& action);
 	
 	void resetGoal();
 	void updateGoal();
 	double getRewardGoal();
-	int getStateLabel();
+	Eigen::VectorXd getStateLabel();
 	void setStateLabel(int label);
 
 	const Eigen::VectorXd& getState();
@@ -84,7 +83,8 @@ private:
 
 	double mRewardGoal;
 
-	int mNumMotions, mStateLabel, mNumFeatureAdds,mDimLabel;
+	Eigen::VectorXd mStateLabel;
+	int mNumMotions, mNumFeatureAdds,mDimLabel;
 
 	double mTargetHeading, mTargetSpeed;
 	Eigen::Vector3d mTargetDirection;

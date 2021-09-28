@@ -31,12 +31,7 @@ getDimStateAMP()
 {
 	return mEnv->getDimStateAMP();
 }
-int
-Env::
-getDimStateLabel()
-{
-	return mEnv->getDimStateLabel();
-}
+
 int
 Env::
 getNumTotalLabel()
@@ -110,7 +105,6 @@ PYBIND11_MODULE(pycomcon, m){
 		.def("is_enable_goal", &Env::isEnableGoal)
 		.def("get_dim_state", &Env::getDimState)
 		.def("get_dim_state_AMP", &Env::getDimStateAMP)
-		.def("get_dim_state_label", &Env::getDimStateLabel)
 		.def("get_num_total_label", &Env::getNumTotalLabel)
 		.def("get_dim_action", &Env::getDimAction)
 		.def("reset", &Env::reset)

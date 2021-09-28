@@ -12,7 +12,7 @@ import filter
 from misc import *
 
 class DiscriminatorNN(nn.Module):
-	def __init__(self, dim_in, dim_class, model_config):
+	def __init__(self, dim_in, model_config):
 		nn.Module.__init__(self)
 
 		hiddens = model_config['hiddens']
@@ -23,11 +23,7 @@ class DiscriminatorNN(nn.Module):
 		layers = []
 
 
-		self.dim_in_wolabel = dim_in - dim_class
-		self.dim_in = dim_in - dim_class + dim_label_out
-
-		self.label_embedding = nn.Embedding( embedding_length,  dim_label_out)
-
+		self.dim_in = dim_in 
 
 		prev_layer_size = self.dim_in
 		
@@ -49,10 +45,10 @@ class DiscriminatorNN(nn.Module):
 
 
 class Discriminator(object):
-	def __init__(self, dim_state, dim_class, device, model_config, disc_config):
-		self.model = DiscriminatorNN(dim_state, dim_class, model_config)
+	def __init__(self, dim_state, device, model_config, disc_config):
+		self.model = DiscriminatorNN(dim_state, model_config)
 
-		self.state_filter = filter.MeanStdRuntimeFilter(self.model.dim_in_wolabel)
+		self.state_filter = filter.MeanStdRuntimeFilter(self.model.dim_in)
 		self.w_grad = disc_config['w_grad']
 		self.w_reg = disc_config['w_reg']
 		self.w_decay = disc_config['w_decay']
@@ -61,7 +57,6 @@ class Discriminator(object):
 		self.grad_clip = disc_config['grad_clip']
 
 		self.optimizer = optim.Adam(self.model.parameters(),lr=disc_config['lr'])
-		self.dim_class = dim_class
 
 		self.loss = None
 		self.device = device
@@ -70,31 +65,17 @@ class Discriminator(object):
 	def __call__(self, ss1):
 		if len(ss1.shape) == 1:
 			ss1 = ss1.reshape(1, -1)
-
-		ss1_filtered = np.concatenate((self.state_filter(ss1[:,:-self.dim_class], update=False),ss1[:,-self.dim_class:]),axis=1)
+		ss1_filtered = self.state_filter(ss1, update=False)
 		ss1_tensor = self.convert_to_tensor(ss1_filtered)
 
 		with torch.no_grad():
-			label = ss1_tensor[:,-self.dim_class:].long()
-			ss1_embed = torch.cat((ss1_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
-
-		with torch.no_grad():
-			d = self.model(ss1_embed)
+			d = self.model(ss1_tensor)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
 
 		return d
 
-	def embedding(self, tensor):
-		if tensor.dtype == torch.float:
-			tensor = tensor.long().to(self.device)
-			out = self.model.label_embedding(tensor)
-			return out.float().to(self.device)
-
-		else :
-			out = self.model.label_embedding(tensor)
-			return out.to(self.device)
 
 	def convert_to_tensor(self, arr):
 		if torch.is_tensor(arr):
@@ -136,7 +117,7 @@ class Discriminator(object):
 
 		if self.w_grad>0:
 			batch_size = s_expert.size()[0]
-			# s_expert2.requires_grad = True
+			s_expert2.requires_grad = True
 			d_expert2 = self.model(s_expert2)
 			
 			grad = torch.autograd.grad(outputs=d_expert2, 
@@ -175,18 +156,10 @@ class Discriminator(object):
 	def compute_reward(self, ss1):
 		if len(ss1.shape) == 1:
 			ss1 = ss1.reshape(1, -1)
-		# ss1_filtered = self.state_filter(ss1)
-		# ss1 = self.convert_to_tensor(ss1_filtered)
-
-		ss1_filtered = np.concatenate((self.state_filter(ss1[:,:-self.dim_class], update=False),ss1[:,-self.dim_class:]),axis=1)
+		ss1_filtered = self.state_filter(ss1)
 		ss1_tensor = self.convert_to_tensor(ss1_filtered)
 
-		with torch.no_grad():
-			label = ss1_tensor[:,-self.dim_class:].long()
-			ss1_embed = torch.cat((ss1_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
-
-
-		d = self.model(ss1_embed)
+		d = self.model(ss1_tensor)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
@@ -195,8 +168,8 @@ class Discriminator(object):
 '''Below function do not use when training'''
 import importlib.util
 
-def build_discriminator(dim_state, dim_class,state_experts, config):
-	return Discriminator(dim_state, dim_class, torch.device("cpu"), config['discriminator_model'], config['discriminator'])
+def build_discriminator(dim_state,state_experts, config):
+	return Discriminator(dim_state, torch.device("cpu"), config['discriminator_model'], config['discriminator'])
 
 def load_discriminator(discriminator, checkpoint):
 	state = torch.load(checkpoint)

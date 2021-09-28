@@ -290,9 +290,18 @@ void
 Window::
 reset(int frame)
 {
-	this->mMotionType = mEnvironment->getStateLabel();	
+	if(mControl){
+		mEnvironment->reset(mMotionType, false);
+		// mEnvironment->setTargetMotion(this->mMotionType);		
+	}
+	else{
+		int n = mEnvironment->getNumTotalLabel();
+		this->mMotionType = std::rand() % n;
+		
+		mEnvironment->reset(mMotionType, true);		
+	}
 
-	mEnvironment->reset(mMotionType, false);
+	
 	mObservation = mEnvironment->getState();
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 
@@ -323,9 +332,6 @@ step()
 		mEnvironment->setStateLabel(mMotionType);
 		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
-	else{
-		this->mMotionType = mEnvironment->getStateLabel();		
-	}
 
 	if(mUseNN)
 	{
@@ -349,7 +355,7 @@ step()
 	// 	this->reset();
 
 	if(mDrawKinPose){
-		mEnvironment->FollowBVH();
+		mEnvironment->FollowBVH(this->mMotionType);
 	}
 
 	if(mFocus)
@@ -380,8 +386,8 @@ initNN(const std::string& config)
 	discriminator_md = py::module::import("discriminator");
 	py::object pyconfig = policy_md.attr("load_config")(config);
 
-	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimStateLabel(),mEnvironment->getDimAction(),pyconfig);
-	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getDimStateLabel(),mEnvironment->getStateAMPExpert(), pyconfig);
+	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimAction(),pyconfig);
+	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(),mEnvironment->getStateAMPExpert(), pyconfig);
 
 	//TODO
 	
