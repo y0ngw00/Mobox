@@ -53,7 +53,6 @@ Window()
 	mCamera->setLookAt(com);
 	mCamera->setEye( com + dir );
 
-
 	char buffer[100];
 	std::ifstream txtread;
 	std::string txt_path = "/data/bvh/motionlist.txt";
@@ -66,6 +65,7 @@ Window()
         motion_lists.push_back(std::string(buffer));	
 	}
 	txtread.close();
+
 }
 void
 Window::
@@ -203,7 +203,7 @@ ImGuiDisplay()
         		mMotionType = n;
         }
         // }
-        // ImGui::InputInt("Class", &mMotionType);
+        ImGui::InputInt("Class", &mMotionType);
         // ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
         // ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
         // ImGui::RadioButton("hurt", &motionidx, 2);
@@ -266,6 +266,7 @@ void
 Window::
 reset(int frame)
 {
+
 	mEnvironment->reset(false);
 	mObservation = mEnvironment->getState();
 	mObservationDiscriminator = mEnvironment->getStateAMP();
@@ -285,30 +286,40 @@ reset(int frame)
 	}
 
 
-	this->mMotionType = mEnvironment->getStateLabel();		
+	this->mMotionType = mEnvironment->getStateLabel();
+
 }
 void
 Window::
 step()
 {
+	std::cout<<9<<std::endl;
 
 	if(mControl){
 		mEnvironment->setStateLabel(mMotionType);
 		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
+		std::cout<<0<<std::endl;
+
 		this->mMotionType = mEnvironment->getStateLabel();		
 	}
+	std::cout<<1<<std::endl;
 
 	if(mUseNN)
 	{
 		Eigen::VectorXd action = policy.attr("compute_action")(mObservation, mExplore).cast<Eigen::VectorXd>();
 		mEnvironment->step(action);
 	}
+
 	else{
+		std::cout<<2<<std::endl;
+
 		Eigen::VectorXd action = Eigen::VectorXd::Zero(mEnvironment->getDimAction());
 		mEnvironment->step(action);
 	}
+	std::cout<<3<<std::endl;
+
 
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
@@ -353,6 +364,7 @@ initNN(const std::string& config)
 
 	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimStateLabel(),mEnvironment->getDimAction(),pyconfig);
 	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getDimStateLabel(),mEnvironment->getStateAMPExpert(), pyconfig);
+	std::cout<<7<<std::endl;
 
 	//TODO
 	
@@ -454,6 +466,8 @@ timer(int tic)
 	mComputedTime = micro.count();
 
 	mTimePoint = next_time_point;
+	std::cout<<8<<std::endl;
+
 	if(mPlay)
 		this->step();
 	GLUTWindow3D::timer(tic);

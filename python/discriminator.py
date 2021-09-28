@@ -36,8 +36,7 @@ class DiscriminatorNN(nn.Module):
 				prev_layer_size,
 				size,
 				xavier_initializer(init_weight),
-				activation,
-				"SpectralNorm"))
+				activation))
 			prev_layer_size = size
 
 

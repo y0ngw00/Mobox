@@ -5,7 +5,7 @@ link_directories(../sim/)
 include_directories(../sim/)
 
 add_compile_options(-fPIC)
-add_compile_options(-std=gnu++11)
+add_compile_options(-std=gnu++17)
 add_compile_options(-Wdeprecated-declarations)
 
 

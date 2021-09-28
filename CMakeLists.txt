@@ -14,7 +14,7 @@ add_compile_options(-DHAVE_CSTDDEF)
 
 add_definitions(-DROOT_DIR="${CMAKE_HOME_DIRECTORY}")
 set(CMAKE_MODULE_PATH "${CMAKE_HOME_DIRECTORY}/cmake")
-
+set(Boost_NO_BOOST_CMAKE ON) 
 add_subdirectory( sim )
 add_subdirectory( python )
 add_subdirectory( render )

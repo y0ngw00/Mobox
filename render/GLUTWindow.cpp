@@ -25,7 +25,7 @@ initWindow(int w,int h,const std::string& name)
 	glutInitWindowSize(w, h);
 
 	winIDs.emplace_back(glutCreateWindow(name.c_str()));
-	
+
 	if (glewInit() != GLEW_OK) {
 		std::cout<<"glew error"<<std::endl;
 		exit(0);	
@@ -40,8 +40,10 @@ initWindow(int w,int h,const std::string& name)
     // Setup Dear ImGui style
     //ImGui::StyleColorsClassic();
     ImGui_ImplGLUT_Init();
-	
+
 	glutDisplayFunc(displayEvent);
+
+
 	glutReshapeFunc(reshapeEvent);
 	glutKeyboardFunc(keyboardEvent);
 	glutSpecialFunc(specialEvent);

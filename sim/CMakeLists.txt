@@ -5,9 +5,8 @@ SET(CMAKE_BUILD_TYPE Release CACHE STRING
 	"Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel.")
 
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR})
-
 add_compile_options(-fPIC)
-add_compile_options(-std=gnu++11)
+add_compile_options(-std=gnu++17)
 add_compile_options(-Wdeprecated-declarations)
 
 
