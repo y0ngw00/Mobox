@@ -29,6 +29,7 @@ public:
 
 
 	void reset(bool RSI = true);
+	void FollowBVH(int idx);
 
 	void step(const Eigen::VectorXd& action);
 	

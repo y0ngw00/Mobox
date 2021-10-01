@@ -60,9 +60,9 @@ Environment()
 		Motion* motion = new Motion(bvh);
 		for(int j=0;j<bvh->getNumFrames();j++){
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-			if(j>350) break;
+			if(j>300) break;
 		}
-		if(bvh->getNumFrames() < 350) motion->repeatMotion(350, bvh);
+		if(bvh->getNumFrames() < 300) motion->repeatMotion(300, bvh);
 
 		motion->computeVelocity();
 		mMotions.emplace_back(motion);
@@ -473,6 +473,21 @@ getStateAMPExpert()
 		o += nf - 1;
 	}
 	return state_expert;
+}
+void
+Environment::
+FollowBVH(int idx){
+
+	auto& motion = mMotions[idx];
+	
+	Eigen::Vector3d position = motion->getPosition(mFrame);
+	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
+	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
+	Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(mFrame);
+	mKinCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
+	if(mFrame > (motion->getNumFrames()-3))
+		mFrame = 0;
+	return;
 }
 bool
 Environment::

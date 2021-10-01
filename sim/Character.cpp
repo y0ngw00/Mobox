@@ -255,10 +255,13 @@ getStateAMP()
 
 	for(int i=0;i<mEndEffectors.size();i++)
 		states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());
-	
+
+	Eigen::Vector3d p_root = T_ref_inv*mSkeleton->getBodyNode(0)->getCOM();
+	p_root[0] =0.0; p_root[2] =0.0;
 	Eigen::Vector3d v_root = R_ref_inv*mSkeleton->getBodyNode(0)->getLinearVelocity();
 	Eigen::Vector3d w_root = R_ref_inv*mSkeleton->getBodyNode(0)->getAngularVelocity();
 
+	states.emplace_back(p_root);
 	states.emplace_back(v_root);
 	states.emplace_back(w_root);
 

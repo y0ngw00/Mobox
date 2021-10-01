@@ -110,6 +110,8 @@ render()
 
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
+	if(mDrawKinPose)
+		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
 
 	if(mDrawTargetPose)
 	{
@@ -322,6 +324,9 @@ step()
 	bool eoe = mEnvironment->inspectEndOfEpisode();
 	// if(eoe)
 	// 	this->reset();
+	if(mDrawKinPose){
+		mEnvironment->FollowBVH(this->mMotionType);
+	}
 
 	if(mFocus)
 	{
