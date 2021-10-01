@@ -30,7 +30,6 @@ class PolicyNN(nn.Module):
 
 		embedding_length = model_config['embedding_length']
 		dim_label_out = model_config['dim_embedding_out']
-
 		layers = []
 		self.dim_action = dim_action
 
@@ -74,13 +73,15 @@ def discount(x, gamma):
 	return scipy.signal.lfilter([1],[1, -gamma], x[::-1], axis=0)[::-1]
 
 class PPO(object):
-	def __init__(self, dim_state,  dim_action, device, model_config, policy_config):
+	def __init__(self, dim_state, dim_action, device,model_config, policy_config):
+
 		self.model = PolicyNN(dim_state,  dim_action, model_config)
 
 		self.state_filter = filter.MeanStdRuntimeFilter(shape=self.model.dim_state)
 		self.distribution = torch.distributions.normal.Normal
 		self.gamma = policy_config['gamma']
 		self.lb = policy_config['lb']
+
 
 		self.policy_clip = policy_config['policy_clip']
 		self.value_clip = policy_config['value_clip']
@@ -227,6 +228,7 @@ class PPO(object):
 import importlib.util
 
 def load_config(path):
+	
 	spec = importlib.util.spec_from_file_location("config", path)
 	spec_module = importlib.util.module_from_spec(spec)
 	spec.loader.exec_module(spec_module)
@@ -234,7 +236,8 @@ def load_config(path):
 	return spec.config
 
 def build_policy(dim_state, dim_action, config):
-	return PPO(dim_state, dim_action, torch.device("cpu"), config['model'], config['policy'])
+
+	return PPO(dim_state, dim_action, torch.device(0),config['model'], config['policy'])
 
 def load_policy(policy, checkpoint):
 	state = torch.load(checkpoint)

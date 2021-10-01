@@ -1,3 +1,4 @@
+  
 #include "Window.h"
 #include "Camera.h"
 #include "BVH.h"
@@ -381,14 +382,13 @@ initNN(const std::string& config)
 	sys_module = py::module::import("sys");
 	py::str module_dir = (std::string(ROOT_DIR)+"/python").c_str();
 	sys_module.attr("path").attr("insert")(1, module_dir);
-
+	py::exec("import torch",mns);
 	policy_md = py::module::import("ppo");
 	discriminator_md = py::module::import("discriminator");
 	py::object pyconfig = policy_md.attr("load_config")(config);
 
 	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimAction(),pyconfig);
-	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(),mEnvironment->getStateAMPExpert(), pyconfig);
-
+	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(),mEnvironment->getNumTotalLabel(),mEnvironment->getStateAMPExpert(), pyconfig);
 	//TODO
 	
 	// policy0 = policy_md.attr("build_policy0")(mEnvironment->getDimState0(),mEnvironment->getDimAction0(),pyconfig);

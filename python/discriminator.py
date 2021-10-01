@@ -12,7 +12,7 @@ import filter
 from misc import *
 
 class DiscriminatorNN(nn.Module):
-	def __init__(self, dim_in, model_config):
+	def __init__(self, dim_in,dim_class, model_config):
 		nn.Module.__init__(self)
 
 		hiddens = model_config['hiddens']
@@ -20,33 +20,43 @@ class DiscriminatorNN(nn.Module):
 		init_weights = model_config['init_weights']
 		embedding_length = model_config['embedding_length']
 		dim_label_out = model_config['dim_embedding_out']
-		layers = []
+		self.layers = []
 
-
+		self.dim_class = dim_class
 		self.dim_in = dim_in 
 
 		prev_layer_size = self.dim_in
 		
 		for size, activation, init_weight in zip(hiddens + [1], activations, init_weights):
-			layers.append(SlimFC(
+			size_modified = size-self.dim_class if size > 1 else size
+			self.layers.append(SlimFC(
 				prev_layer_size,
-				size,
+				size_modified,
 				xavier_initializer(init_weight),
 				activation,
 				"SpectralNorm"))
 			prev_layer_size = size
 
-
-
-		self.fn = nn.Sequential(*layers)
+		self.l0 = self.layers[0]
+		self.l1 = self.layers[1]
+		self.l2 = self.layers[2]
+		
+		self.num_layer = 3
+		# self.fn = nn.Sequential(*layers)
 		
 	def forward(self, x):
-		return self.fn(x)
+		add = x[:,-self.dim_class:]
+		x1 = self.l0(x)
+		x1 = torch.cat((x1,add),1)
+		x2 = self.l1(x1)
+		x2 = torch.cat((x2,add),1)
+
+		return self.l2(x2)
 
 
 class Discriminator(object):
-	def __init__(self, dim_state, device, model_config, disc_config):
-		self.model = DiscriminatorNN(dim_state, model_config)
+	def __init__(self, dim_state, dim_class, device, model_config, disc_config):
+		self.model = DiscriminatorNN(dim_state, dim_class,model_config)
 
 		self.state_filter = filter.MeanStdRuntimeFilter(self.model.dim_in)
 		self.w_grad = disc_config['w_grad']
@@ -106,13 +116,13 @@ class Discriminator(object):
 		self.loss = 0.5 * (loss_pos + loss_neg)
 
 		if self.w_decay>0:
-			for i in range(len(self.model.fn)):
-				v = self.model.fn[i].model[0].weight
+			for i in range(self.model.num_layer):
+				v = self.model.layers[i].model[0].weight
 				self.loss += 0.5* self.w_decay * torch.sum(v**2)
 
 
 		if self.w_reg>0:
-			v = self.model.fn[2].model[0].weight
+			v = self.model.layers[2].model[0].weight
 			self.loss += 0.5* self.w_reg * torch.sum(v**2)
 
 		if self.w_grad>0:
@@ -168,8 +178,9 @@ class Discriminator(object):
 '''Below function do not use when training'''
 import importlib.util
 
-def build_discriminator(dim_state,state_experts, config):
-	return Discriminator(dim_state, torch.device("cpu"), config['discriminator_model'], config['discriminator'])
+def build_discriminator(dim_state,dim_class,state_experts, config):
+
+	return Discriminator(dim_state, dim_class,torch.device(0), config['discriminator_model'], config['discriminator'])
 
 def load_discriminator(discriminator, checkpoint):
 	state = torch.load(checkpoint)
