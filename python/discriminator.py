@@ -118,8 +118,9 @@ class Discriminator(object):
 		d_expert = self.model(s_expert)
 		d_agent  = self.model(s_agent)
 		if self.loss_type == 'hinge loss':
-			loss_pos = 0.5 * torch.mean(torch.max(0,d_expert - 1.0))
-			loss_neg = 0.5 * torch.mean(torch.max(0,d_agent  + 1.0))
+			zero = torch.Tensor([0]).to(self.device)
+			loss_pos = 0.5 * torch.mean(torch.max(zero,-d_expert + 1.0))
+			loss_neg = 0.5 * torch.mean(torch.max(zero,d_agent  + 1.0))
 		else :
 			loss_pos = 0.5 * torch.mean(torch.pow(d_expert - 1.0, 2.0))
 			loss_neg = 0.5 * torch.mean(torch.pow(d_agent  + 1.0, 2.0))

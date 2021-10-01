@@ -11,6 +11,7 @@ sudo apt-get install -y build-essential cmake pkg-config
 sudo apt-get install -y libxi-dev libxmu-dev freeglut3-dev
 sudo apt-get install -y python3-venv
 sudo apt-get install -y qtbase5-dev
+sudo apt-get install -y pybind11-dev
 
 echo "installing c libaries"
 
