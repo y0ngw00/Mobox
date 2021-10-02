@@ -56,6 +56,7 @@ class Discriminator(object):
 		self.w_reg = disc_config['w_reg']
 		self.w_decay = disc_config['w_decay']
 		self.r_scale = disc_config['r_scale']
+		self.loss_type = disc_config['loss']
 
 		self.grad_clip = disc_config['grad_clip']
 
@@ -115,9 +116,14 @@ class Discriminator(object):
 	def compute_loss(self, s_expert, s_expert2, s_agent):
 		d_expert = self.model(s_expert)
 		d_agent  = self.model(s_agent)
-		loss_pos = 0.5 * torch.mean(torch.pow(d_expert - 1.0, 2.0))
-		loss_neg = 0.5 * torch.mean(torch.pow(d_agent  + 1.0, 2.0))
-		''' Compute Accuracy'''
+		if self.loss_type == 'hinge loss':
+			zero = torch.Tensor([0]).to(self.device)
+			loss_pos = 0.5 * torch.mean(torch.max(zero,-d_expert + 1.0))
+			loss_neg = 0.5 * torch.mean(torch.max(zero,d_agent  + 1.0))
+		else :
+			loss_pos = 0.5 * torch.mean(torch.pow(d_expert - 1.0, 2.0))
+			loss_neg = 0.5 * torch.mean(torch.pow(d_agent  + 1.0, 2.0))
+			''' Compute Accuracy'''
 		self.expert_accuracy = torch.sum(d_expert)
 		self.agent_accuracy = torch.sum(d_agent)
 

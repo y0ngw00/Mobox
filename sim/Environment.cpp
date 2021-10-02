@@ -225,6 +225,11 @@ step(const Eigen::VectorXd& _action)
 			else if(bn2->getName().find("Foot") != std::string::npos)
 				continue;
 
+			if(bn1->getName().find("Hand") != std::string::npos)
+				continue;
+			else if(bn2->getName().find("Hand") != std::string::npos)
+				continue;
+
 			if(skel1->getName() == "humanoid" && skel2->getName() == "ground"){
 				mContactEOE = true;
 				break;

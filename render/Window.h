@@ -70,6 +70,7 @@ protected:
     float theta;
     float speed;
     int mMotionType;
+    std::vector<int> mMotionTypes;
     std::vector<std::string> motion_lists;
 };
 

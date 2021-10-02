@@ -35,6 +35,7 @@ config = {
 	},
 	
 	'discriminator' : {
+		'loss' : 'hinge loss',
 		'w_grad' : 10.0,
 		'grad_clip' : 0.5,
 		'w_reg' : 0.05,

@@ -36,6 +36,7 @@ initWindow(int w,int h,const std::string& name)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     ImGui::StyleColorsDark();
+    ImPlot::CreateContext();
 
     // Setup Dear ImGui style
     //ImGui::StyleColorsClassic();
