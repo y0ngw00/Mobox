@@ -110,6 +110,8 @@ render()
 
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
+	if(mDrawKinPose)
+		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
 
 	if(mDrawTargetPose)
 	{
@@ -293,18 +295,15 @@ void
 Window::
 step()
 {
-	std::cout<<9<<std::endl;
 
 	if(mControl){
 		mEnvironment->setStateLabel(mMotionType);
 		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
-		std::cout<<0<<std::endl;
 
 		this->mMotionType = mEnvironment->getStateLabel();		
 	}
-	std::cout<<1<<std::endl;
 
 	if(mUseNN)
 	{
@@ -313,12 +312,10 @@ step()
 	}
 
 	else{
-		std::cout<<2<<std::endl;
 
 		Eigen::VectorXd action = Eigen::VectorXd::Zero(mEnvironment->getDimAction());
 		mEnvironment->step(action);
 	}
-	std::cout<<3<<std::endl;
 
 
 	mObservationDiscriminator = mEnvironment->getStateAMP();
@@ -333,6 +330,9 @@ step()
 	bool eoe = mEnvironment->inspectEndOfEpisode();
 	// if(eoe)
 	// 	this->reset();
+	if(mDrawKinPose){
+		mEnvironment->FollowBVH(this->mMotionType);
+	}
 
 	if(mFocus)
 	{
@@ -364,7 +364,6 @@ initNN(const std::string& config)
 
 	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimStateLabel(),mEnvironment->getDimAction(),pyconfig);
 	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getDimStateLabel(),mEnvironment->getStateAMPExpert(), pyconfig);
-	std::cout<<7<<std::endl;
 
 	//TODO
 	
@@ -466,7 +465,6 @@ timer(int tic)
 	mComputedTime = micro.count();
 
 	mTimePoint = next_time_point;
-	std::cout<<8<<std::endl;
 
 	if(mPlay)
 		this->step();

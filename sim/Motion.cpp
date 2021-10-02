@@ -76,7 +76,7 @@ repeatMotion(int augmented_frame, BVH* bvh)
 
 		P = P_diff + bvh->getPosition(phase);
 		R = bvh->getRotation(phase);
-		R.block<3,3>(0,0) = R_diff*R.block<3,3>(0,0);
+		//R.block<3,3>(0,0) = R_diff*R.block<3,3>(0,0);
 
 		this->append(P, R,false);
 

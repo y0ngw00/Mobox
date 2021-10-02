@@ -195,7 +195,7 @@ class Discriminator(object):
 import importlib.util
 
 def build_discriminator(dim_state, dim_class,state_experts, config):
-	return Discriminator(dim_state, dim_class, torch.device("cpu"), config['discriminator_model'], config['discriminator'])
+	return Discriminator(dim_state, dim_class, torch.device(0), config['discriminator_model'], config['discriminator'])
 
 def load_discriminator(discriminator, checkpoint):
 	state = torch.load(checkpoint)
