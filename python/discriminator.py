@@ -192,7 +192,9 @@ class Discriminator(object):
 			ss1_embed = torch.cat((ss1_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
 
 
+
 		d = self.model(ss1_embed)
+		print(d)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))

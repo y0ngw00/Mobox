@@ -252,6 +252,7 @@ getStateAMP()
 			states.emplace_back(R.col(1));
 		}
 	}
+	
 
 	for(int i=0;i<mEndEffectors.size();i++)
 		states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());

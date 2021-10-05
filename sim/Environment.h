@@ -95,5 +95,8 @@ private:
 
 	double mTargetHeightMin, mTargetHeightMax;
 
+	int mFrozen;
+	bool mFrozenEOE;
+
 };
 #endif

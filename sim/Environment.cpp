@@ -149,8 +149,10 @@ Environment::
 reset(bool RSI)
 {
 	mContactEOE = false;
+	// mFrozenEOE = false;
 	mFrame = 0;
 	mElapsedFrame = 0;
+	// mFrozen=0;
 
 	int motion_num=0;
 	if(RSI){
@@ -242,6 +244,18 @@ step(const Eigen::VectorXd& _action)
 
 		}
 	}
+	// double energy = sim_skel->getKineticEnergy();
+	// if(energy<2.0){
+	// 	mFrozen++;
+	// }
+	// else {
+	// 	mFrozen =0;
+	// }
+
+	// if(mFrozen > 90){
+	// 	mFrozenEOE = true;
+	// }
+
 	if(mEnableGoal)
 	{
 		this->recordGoal();
@@ -498,10 +512,13 @@ bool
 Environment::
 inspectEndOfEpisode()
 {
+	if(mFrozenEOE)
+		return true;
 	if(mContactEOE)
 		return true;
 	else if(mElapsedFrame>mMaxElapsedFrame)
 		return true;
+
 
 	return false;
 }
