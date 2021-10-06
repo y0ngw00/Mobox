@@ -222,37 +222,33 @@ getStateAMP()
 	Eigen::Isometry3d T_ref_inv = T_ref.inverse();
 	Eigen::Matrix3d R_ref_inv = T_ref_inv.linear();
 
-	Eigen::VectorXd p = mSkeleton->getPositions();
-	Eigen::VectorXd v = mSkeleton->getVelocities();
+	// Eigen::VectorXd p = mSkeleton->getPositions();
+	// Eigen::VectorXd v = mSkeleton->getVelocities();
 
 	int n = mSkeleton->getNumBodyNodes();
-	int m = (p.rows()-6)/3;
+	// int m = (p.rows()-6)/3;
 	std::vector<Eigen::VectorXd> states;
-	double root_h = p[4];
-	states.emplace_back(Eigen::VectorXd::Constant(1,root_h));
-	for(int i=0;i<mSkeleton->getNumJoints();i++)
+	// double root_h = p[4];
+	// states.emplace_back(Eigen::VectorXd::Constant(1,root_h));
+	for(int i=0;i<mSkeleton->getNumBodyNodes();i++)
 	{
-		auto joint = mSkeleton->getJoint(i);
+		auto node = mSkeleton->getBodyNode(i);
 		
-		if(joint->getType()=="BallJoint")
-		{
-			int idx = joint->getIndexInSkeleton(0);
-			Eigen::Matrix3d R = dart::dynamics::BallJoint::convertToRotation(p.segment<3>(idx));
+		Eigen::Isometry3d Ti = T_ref_inv*(mSkeleton->getBodyNode(i)->getTransform());
 
-			states.emplace_back(R.col(0));
-			states.emplace_back(R.col(1));
-		}
-		else if(joint->getType()=="FreeJoint")
-		{
-			int idx = joint->getIndexInSkeleton(0);
-			Eigen::Matrix3d R = dart::dynamics::BallJoint::convertToRotation(p.segment<3>(idx));
-			R = R_ref_inv*R;
-			
-			states.emplace_back(R.col(0));
-			states.emplace_back(R.col(1));
-		}
+		Eigen::VectorXd ps = Ti.translation();
+		Eigen::MatrixXd R = Ti.linear();
+
+		Eigen::VectorXd vs = R_ref_inv*mSkeleton->getBodyNode(i)->getLinearVelocity();
+		Eigen::VectorXd ws = R_ref_inv*mSkeleton->getBodyNode(i)->getAngularVelocity();
+
+		states.emplace_back(ps);
+		states.emplace_back(R.col(1));
+		states.emplace_back(R.col(0));
+		states.emplace_back(vs);
+		states.emplace_back(ws);
 	}
-	
+
 
 	for(int i=0;i<mEndEffectors.size();i++)
 		states.emplace_back(T_ref_inv*mEndEffectors[i]->getCOM());
@@ -266,7 +262,7 @@ getStateAMP()
 	states.emplace_back(v_root);
 	states.emplace_back(w_root);
 
-	states.emplace_back(v.tail(v.rows()-6));	
+	// states.emplace_back(v.tail(v.rows()-6));	
 
 	return MathUtils::ravel(states);
 }
