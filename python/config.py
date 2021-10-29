@@ -12,7 +12,7 @@ config = {
 		'value_activations' : ['relu', 'relu', None],
 		'value_init_weights' : [0.1, 0.1, 0.01],
 		'embedding_length' : 256,
-		'dim_embedding_out' : 16
+		'dim_embedding_out' : 2
 	},
 	
 	'policy' : {
@@ -31,7 +31,7 @@ config = {
 		'activations' : ['relu', 'relu', None],
 		'init_weights' : [0.1, 0.1, 1.0],
 		'embedding_length' : 256,
-		'dim_embedding_out' : 16
+		'dim_embedding_out' : 2
 	},
 	
 	'discriminator' : {
@@ -42,6 +42,7 @@ config = {
 		'w_decay' : 0.0005,
 		'r_scale' : 2.0,
 		'lr' : 1e-6,
+		'grad_loss' : ''
 	},
 
 	'trainer' : {

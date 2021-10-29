@@ -58,6 +58,7 @@ class Discriminator(object):
 		self.w_decay = disc_config['w_decay']
 		self.r_scale = disc_config['r_scale']
 		self.loss_type = disc_config['loss']
+		self.grad_loss_type = disc_config['grad_loss']
 
 		self.grad_clip = disc_config['grad_clip']
 
@@ -150,8 +151,11 @@ class Discriminator(object):
 										grad_outputs=torch.ones(d_expert2.size()).to(self.device),
 										create_graph=True,
 										retain_graph=True)[0]
-			
-			self.grad_loss = 0.5 * self.w_grad * torch.mean(torch.sum(torch.pow(grad, 2.0), axis=-1))
+
+			if self.grad_loss_type == 'L1-lipschitz':
+				self.grad_loss = 0.5 * self.w_grad * torch.mean(torch.pow(torch.norm(grad, dim=1)-1.0,2.0))
+			else:
+				self.grad_loss = 0.5 * self.w_grad * torch.mean(torch.sum(torch.pow(grad, 2.0), axis=-1))
 			self.loss += self.grad_loss
 		else:
 			self.grad_loss = self.convert_to_tensor(np.array(0.0))
@@ -194,7 +198,6 @@ class Discriminator(object):
 
 
 		d = self.model(ss1_embed)
-		print(d)
 		d = self.convert_to_ndarray(d)
 		d = np.clip(d, -1.0, 1.0)
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
