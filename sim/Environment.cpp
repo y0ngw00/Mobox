@@ -70,7 +70,7 @@ Environment()
 	strike_bodies.push_back("RightHand");
 	strike_bodies.push_back("LeftFoot");
 	strike_bodies.push_back("RightFoot");
-	strike_bodies.push_back("all");
+	strike_bodies.push_back("RightFoot");
 
 	txt_path = "/data/annotation/labellist.txt";
 	readLabelFile(txt_path);
@@ -190,8 +190,10 @@ reset(bool RSI)
 
 	Eigen::VectorXd clip_info = label_info[motion_num];
 
+
 	int random_motion = dart::math::Random::uniform<int>(0, (clip_info.rows()/3)-1);
 	mStateLabel = clip_info[3*random_motion];
+	if(mStateLabel==0) mStateLabel += dart::math::Random::uniform<int>(1, labels.size()-1);
 	int frame_start = clip_info[3*random_motion + 1];
 	int frame_end = clip_info[3*random_motion + 2];
 
@@ -394,9 +396,9 @@ recordGoal()
 
 	mStateGoal.resize(10);
 	mStateGoal<<com_vel, cur_dir, tar_loc, mStateLabel;
-	
-	// mStateGoal.resize(mDimLabel);
+	// mStateGoal.resize(1);
 	// mStateGoal<<mStateLabel;
+
 
 	if(mStateLabel==1||mStateLabel==0){	
 		double proj_vel = tar_loc.dot(com_vel);
@@ -416,19 +418,6 @@ recordGoal()
 		}
 
 	}
-
-	// Eigen::Vector3d vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
-	// double vel_reward=0;
-	// if(vel[1]>0){
-	// 	double vel_reward = std::exp(-1.0 * err_vel * err_vel);
-	// }
-
-	// double pos_reward = 0.5;
-	// if(mSimCharacter->getSkeleton()->getCOM()[1] > 0.86){
-	// 	pos_reward += 0.5 * std::exp(-10.0 * err_height * err_height);
-	// }
-
-	// mRewardGoal *= vel_reward;
 }
 
 double
