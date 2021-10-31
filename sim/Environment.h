@@ -2,6 +2,7 @@
 #define __ENVIRONMENT_H__
 #include "dart/dart.hpp"
 #include <tuple>
+#include <map>
 
 class BVH;
 class Motion;
@@ -30,6 +31,8 @@ public:
 
 	void reset(bool RSI = true);
 	void FollowBVH(int idx);
+	void readLabelFile(std::string txt_path);
+	void ParseLabel(std::string filename,std::vector<Eigen::VectorXd>& label_info);
 
 	void step(const Eigen::VectorXd& action);
 	
@@ -97,6 +100,14 @@ private:
 
 	int mFrozen;
 	bool mFrozenEOE;
+
+	std::vector<std::string> labels;
+	std::vector<std::string> strike_bodies;
+	std::vector<std::map<std::string, std::string>> mLabelMap;
+	std::vector<Eigen::VectorXd> label_info;
+
+	Eigen::Matrix3d R_init;
+
 
 };
 #endif
