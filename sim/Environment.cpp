@@ -195,6 +195,8 @@ reset(bool RSI)
 	int frame_start = clip_info[3*random_motion + 1];
 	int frame_end = clip_info[3*random_motion + 2];
 
+	// std::cout<<mStateLabel<<std::endl;
+
 	mFrame = dart::math::Random::uniform<int>(frame_start,frame_end-3);
 
 	Eigen::Vector3d position = motion->getPosition(mFrame);

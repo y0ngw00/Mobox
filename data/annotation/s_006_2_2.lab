@@ -1,0 +1,96 @@
+{
+	defaultType:
+	file:s_006_2_2.bvh
+	person:1
+	oppositePerson:0
+	startFrame:239
+	endFrame:266
+	include:
+	isAlone:
+	type:rkick
+	subtype:
+	mood:
+	power:
+	beforeActiveState:
+	afterActiveState:
+	beforePassiveState:
+	afterPassiveState:
+	mutipleInteraction:
+	interactionFrame:-1
+	interactionActivePart:
+	interactionPassivePart:
+	interactionType:
+	weight:1.0
+},
+{
+	defaultType:
+	file:s_006_2_2.bvh
+	person:1
+	oppositePerson:0
+	startFrame:280
+	endFrame:295
+	include:
+	isAlone:
+	type:rpunch
+	subtype:
+	mood:
+	power:
+	beforeActiveState:
+	afterActiveState:
+	beforePassiveState:
+	afterPassiveState:
+	mutipleInteraction:
+	interactionFrame:-1
+	interactionActivePart:
+	interactionPassivePart:
+	interactionType:
+	weight:1.0
+},
+{
+	defaultType:
+	file:s_006_2_2.bvh
+	person:1
+	oppositePerson:0
+	startFrame:297
+	endFrame:319
+	include:
+	isAlone:
+	type:lpunch
+	subtype:
+	mood:
+	power:
+	beforeActiveState:
+	afterActiveState:
+	beforePassiveState:
+	afterPassiveState:
+	mutipleInteraction:
+	interactionFrame:-1
+	interactionActivePart:
+	interactionPassivePart:
+	interactionType:
+	weight:1.0
+},
+{
+	defaultType:
+	file:s_006_2_2.bvh
+	person:1
+	oppositePerson:0
+	startFrame:171
+	endFrame:362
+	include:
+	isAlone:
+	type:usable
+	subtype:
+	mood:
+	power:
+	beforeActiveState:
+	afterActiveState:
+	beforePassiveState:
+	afterPassiveState:
+	mutipleInteraction:
+	interactionFrame:-1
+	interactionActivePart:
+	interactionPassivePart:
+	interactionType:
+	weight:1.0
+},

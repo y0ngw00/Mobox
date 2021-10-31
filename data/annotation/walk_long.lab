@@ -1,0 +1,24 @@
+{
+	defaultType:
+	file:walk_long.bvh
+	person:1
+	oppositePerson:0
+	startFrame:100
+	endFrame:600
+	include:
+	isAlone:
+	type:walk
+	subtype:
+	mood:
+	power:
+	beforeActiveState:
+	afterActiveState:
+	beforePassiveState:
+	afterPassiveState:
+	mutipleInteraction:
+	interactionFrame:-1
+	interactionActivePart:
+	interactionPassivePart:
+	interactionType:
+	weight:1.0
+},
