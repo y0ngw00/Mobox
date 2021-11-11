@@ -23,11 +23,12 @@ Environment()
 	mMaxElapsedFrame(300),
 	mSimCharacter(nullptr),
 	mKinCharacter(nullptr),
-	mTargetSpeedMin(0.5),
-	mTargetSpeedMax(3.0),
+	mTargetSpeed(1.5),
+	mTargetRadius(0.2),
+	mTargetDistMin(0.8),
+	mTargetDistMax(1.5),
 	mSharpTurnProb(0.01),
 	mSpeedChangeProb(0.05),
-	mHeightChangeProb(0.01),
 	mMaxHeadingTurnRate(0.15),
 	mTransitionProb(0.005),
 	mRewardGoal(0.0),
@@ -110,8 +111,6 @@ Environment()
 	// 			mSimCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
 	// 		mKinCharacter->buildBVHIndices(motion->getBVH()->getNodeNames());
 
-
-
 	double ground_height = this->computeGroundHeight();
 	mGround = DARTUtils::createGround(ground_height);
 	mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::BulletCollisionDetector::create());
@@ -129,8 +128,6 @@ Environment()
 	mActionSpace = this->getActionSpace();
 	mActionWeight = this->getActionWeight();
 
-	this->mTargetHeightMin = 0.6;
-	this->mTargetHeightMax = 2.0;
 	mStateLabel = 0;
 
 }
@@ -172,10 +169,8 @@ Environment::
 reset(bool RSI)
 {
 	mContactEOE = false;
-	// mFrozenEOE = false;
 	mFrame = 0;
 	mElapsedFrame = 0;
-	// mFrozen=0;
 
 	int motion_num=0;
 	if(RSI){
@@ -187,10 +182,7 @@ reset(bool RSI)
 	}
 
 	auto motion = mMotions[motion_num];
-
 	Eigen::VectorXd clip_info = label_info[motion_num];
-
-
 	int random_motion = dart::math::Random::uniform<int>(0, (clip_info.rows()/3)-1);
 	mStateLabel = clip_info[3*random_motion];
 	if(mStateLabel==0) mStateLabel += dart::math::Random::uniform<int>(1, labels.size()-1);
@@ -269,25 +261,12 @@ step(const Eigen::VectorXd& _action)
 				mContactEOE = true;
 				break;
 			}
-
 			if(skel1->getName() == "ground" && skel2->getName() == "humanoid"){
 				mContactEOE = true;
 				break;
 			}
-
 		}
 	}
-	// double energy = sim_skel->getKineticEnergy();
-	// if(energy<2.0){
-	// 	mFrozen++;
-	// }
-	// else {
-	// 	mFrozen =0;
-	// }
-
-	// if(mFrozen > 90){
-	// 	mFrozenEOE = true;
-	// }
 	if(mEnableGoal)
 	{
 		this->recordGoal();
@@ -313,19 +292,30 @@ resetGoal()
 	double heading = aa_ref.angle()*aa_ref.axis()[1];
 	// Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
 	this->mTargetHeading = heading-M_PI/2;
-
-	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-	Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
-	com_vel[1] =0.0;
-	if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
-	else{
-		this->mTargetHeading = com_vel[2]>0? 90: 270; 
+	if(mStateLabel == 1){
+		this->mTargetDist = dart::math::Random::uniform<double>(mTargetDistMin, 3.0);
 	}
-	// this->mTargetSpeed = std::max(1.0, com_vel.norm());
-	this->mTargetHeight = mSimCharacter->getSkeleton()->getCOM()[1];
-	this->R_init = R_ref;
+	else{
+		this->mTargetDist = dart::math::Random::uniform<double>(mTargetDistMin, mTargetDistMax);
+	}
+	this->mTargetSpeed = 1.5;
+	this->mTargetHit = false;
 
-	// this->mIdleHeight = mSimCharacter->getSkeleton()->getCOM()[1];
+	this->mTargetPos = Eigen::Vector3d(mTargetDist * std::cos(mTargetHeading), 0.0, -mTargetDist *std::sin(mTargetHeading));
+	Eigen::Vector3d root_com =  mSimCharacter->getSkeleton()->getCOM();
+	mTargetPos[0] += root_com[0];
+	mTargetPos[2] += root_com[2];
+
+	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
+	// com_vel[1] =0.0;
+	// if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
+	// else{
+	// 	this->mTargetHeading = com_vel[2]>0? 90: 270; 
+	// }
+
+
+	// this->mTargetSpeed = std::max(1.0, com_vel.norm());
+
 
 	return;
 }
@@ -333,28 +323,30 @@ void
 Environment::
 updateGoal()
 {
-	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
-	double delta_heading = 0;
-	if(sharp_turn)
-		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
-	else
-		delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
-	mTargetHeading += delta_heading;
+	// if(mStateLabel == 1){
+
+	// 	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+	// 	double delta_heading = 0;
+	// 	if(sharp_turn)
+	// 		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+	// 	else
+	// 		delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
+		
+	// 	mTargetHeading += delta_heading;
+	// }
+	// else{
+	// 	if(	mElapsedFrame > 120) this->resetGoal();
+	// }
+
+	if(mTargetHit) this->resetGoal();
 
 	// bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
 	// if(change_speed)
 	// 	mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
-
-	bool change_height = dart::math::Random::uniform<double>(0.0, 1.0)<mHeightChangeProb?true:false;
-	if(change_height)
-		mTargetHeight = dart::math::Random::uniform(mTargetHeightMin, mTargetHeightMax);
-
+	
 	bool change_motion = dart::math::Random::uniform<double>(0.0, 1.0)<mTransitionProb?true:false;
 	if(change_motion){
 		mStateLabel = dart::math::Random::uniform<int>(0, this->labels.size()-1);
-		Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
-		Eigen::Matrix3d R_ref = T_ref.linear();
-		this->R_init = R_ref;
 	}
 
 
@@ -364,60 +356,65 @@ void
 Environment::
 recordGoal()
 {
-	mRewardGoal = 1.0;
+	mRewardGoal = 0.0;
+	
 	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
 	Eigen::Matrix3d R_ref = T_ref.linear();
+	Eigen::Matrix3d R_ref_inv = R_ref.inverse();
 
-	Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
+	Eigen::Vector3d root_pos = mSimCharacter->getSkeleton()->getCOM();
+	Eigen::Vector3d com_vel = (root_pos - mPrevCOM)*mControlHz;
 	com_vel[1] = 0.0;
-	com_vel = R_ref.inverse() * com_vel;
+	com_vel = R_ref_inv * com_vel;
 
-	// Eigen::Vector3d target_direction = R_target.col(2);
-	Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
 
-	mTargetDirection = target_direction;
-	Eigen::Vector3d cur_dir;
-	Eigen::Vector3d tar_loc;
-	if(mStateLabel==1||mStateLabel==0){
-		tar_loc = R_ref.inverse() * target_direction;
-		cur_dir = com_vel;
+	Eigen::Vector3d target_disp = mTargetPos - root_pos;
+	target_disp[1] =0.0;
+	double norm_disp = target_disp.norm();
+
+	Eigen::Vector3d target_dir = Eigen::Vector3d::Zero();
+	if(target_dir.norm() > 1e-5){
+		target_dir = target_disp.normalized();
 	}
-	else{
-		auto body_part =  mSimCharacter->getSkeleton()->getBodyNode(strike_bodies[mStateLabel]);
-		cur_dir = body_part->getCOM() - mSimCharacter->getSkeleton()->getCOM();
-		cur_dir[1]=0;
-		cur_dir = R_ref.inverse() * cur_dir;
 
-		tar_loc = R_init.inverse() * target_direction;
+	auto body_part =  mSimCharacter->getSkeleton()->getBodyNode(strike_bodies[mStateLabel]);
+	Eigen::Vector3d part_pos = body_part->getWorldTransform().translation();
+	Eigen::Vector3d part_vel = body_part->getLinearVelocity();
+
+	Eigen::Vector3d part_disp = mTargetPos - part_pos;
+	part_disp[1] = 0.0;
+
+	double part_speed = target_dir.dot(part_vel);
+
+	if(std::abs(part_disp.norm()) < mTargetRadius){
+		if(part_speed>=mTargetSpeed || part_speed==0.0)
+			mTargetHit = true;
 	}
-	// double err_height = mTargetHeight - mSimCharacter->getSkeleton()->getCOM()[1];
+
+	part_disp = R_ref_inv * part_disp;
+	double part_disp_norm = part_disp.norm();
+
+	double pos_r = std::exp(-2.0 * part_disp_norm * part_disp_norm);
+
 	
-	// double err_vel = std::sqrt(mTargetHeight *2* 9.8) - com_vel[1];
+	Eigen::Vector3d del_part_vel = R_ref_inv*(target_dir - part_vel);
+
+	double vel_r = std::clamp(part_speed/mTargetSpeed, 0.0, 1.0);
+	vel_r *= vel_r;
+
+	double target_r = std::max(0.0, 0.2 * pos_r + 0.8 * vel_r);
+
+	double w_target = 0.5;
+	double w_hit = 0.5;
+
+	double hit_r = mTargetHit? 1.0 : 0.0;
+
+	mRewardGoal = w_hit * hit_r + w_target * target_r;
 
 	mStateGoal.resize(10);
-	mStateGoal<<com_vel, cur_dir, tar_loc, mStateLabel;
-	// mStateGoal.resize(1);
-	// mStateGoal<<mStateLabel;
+	mStateGoal<<com_vel, part_disp, del_part_vel, mStateLabel;
 
-
-	if(mStateLabel==1||mStateLabel==0){	
-		double proj_vel = tar_loc.dot(com_vel);
-		mRewardGoal = 0.0;
-		if(proj_vel > 0.0)
-		{
-			double err = std::max(1.0 - proj_vel, 0.0);
-			mRewardGoal = std::exp(-1.0*err*err);
-		}
-	}
-	else{
-		double proj_vel = tar_loc.dot(cur_dir);
-		if(proj_vel > 0.0)
-		{
-			double err = std::max(1.0 - proj_vel, 0.0);
-			mRewardGoal = std::exp(-2.0*err*err);
-		}
-
-	}
+	if(labels[mStateLabel]=="skick") mRewardGoal=1.0;
 }
 
 double
@@ -508,7 +505,7 @@ getStateAMPExpert()
 		int num_label = motion_label.rows()/3; 
 		for(int i=0; i<num_label; i++){
 			int label = motion_label[3*i];
-			// if(label==0) continue;
+			if(label==0) continue;
 			int start = motion_label[3*i +1];
 			int end = motion_label[3*i +2];
 			total_num_frames += end-start-1;
@@ -544,7 +541,7 @@ getStateAMPExpert()
 		for(int i=0; i<num_label; i++){
 
 			int label = clip_info[3*i];
-			// if(label==0) continue;
+			if(label==0) continue;
 			int start = clip_info[3*i+1];
 			int end = clip_info[3*i+2];
 
@@ -589,6 +586,7 @@ getStateAMPExpert()
 		// }
 		// o += nf - 1;
 	}
+
 	if(o != total_num_frames){
 		std::cout<<"Collecting states4Disc is not correct"<<std::endl;
 		exit(0);
@@ -669,15 +667,18 @@ Environment::
 ParseLabel(std::string filename, std::vector<Eigen::VectorXd>& label_info){
 
 	std::vector<int> idx_list;
+	int hasNoLabel=true;
+
 	for(int i=0; i< mLabelMap.size(); i++){
 		if(mLabelMap[i]["file"].compare(filename) ){
 			continue;
 		}
-		// std::cout<<i<<"\t";
 		idx_list.push_back(i);
 	}
-	Eigen::VectorXd label(idx_list.size() *3);
-	for(int i=0; i< idx_list.size(); i++){
+	int num_idx = idx_list.size();
+
+	Eigen::VectorXd label((num_idx) *3);
+	for(int i=0; i< num_idx; i++){
 
 		std::string type = mLabelMap[idx_list[i]]["type"];
 		int type_int=0;
@@ -687,21 +688,53 @@ ParseLabel(std::string filename, std::vector<Eigen::VectorXd>& label_info){
 				break;
 			}
 		}
+
+
 		int start = std::stoi(mLabelMap[idx_list[i]]["startFrame"]);
 		int end = std::stoi(mLabelMap[idx_list[i]]["endFrame"]);
 		label[3 * i] = type_int; 
 		label[3 * i + 1] = start;
 		label[3 * i + 2] = end;
 	}
-	// std::cout<<label.rows()<<std::endl;
+
+	// std::vector<double> temp;
+	// if(hasNoLabel){
+	// 	int start = std::stoi(mLabelMap[idx_list[num_idx-1]]["startFrame"]);
+	// 	int end = std::stoi(mLabelMap[idx_list[num_idx-1]]["endFrame"]);
+	// 	if(num_idx>1){
+	// 		for(int j=1; j<num_idx; j++){
+	// 			int act_start = label[3*(j-1)+1];
+	// 			int act_end = label[3*(j-1)+2];
+	// 			if(act_end>=end) break;
+	// 			if(act_start-1 <= start) continue;
+
+	// 			temp.push_back(0);
+	// 			temp.push_back(start);
+	// 			temp.push_back(act_start-1);
+	// 			start = act_end+1;
+	// 		}
+	// 	}
+	// 	temp.push_back(0);
+	// 	temp.push_back(start);
+	// 	temp.push_back(end);
+	// }
+	// int output_size = label.rows() + temp.size();
+	// Eigen::VectorXd label_out(output_size);
+
+	// int o=0;
+	// if(label.rows()!=0) label_out.head(label.rows())=label; o+=label.rows();
+	// for(int i=0; i<temp.size(); i++){
+	// 	label_out[o+i]=temp[i];
+	// }
+
+	// std::cout<<label_out.transpose()<<std::endl;
 	label_info.push_back(label);
 }
 bool
 Environment::
 inspectEndOfEpisode()
 {
-	if(mFrozenEOE)
-		return true;
+
 	if(mContactEOE)
 		return true;
 	else if(mElapsedFrame>mMaxElapsedFrame)
@@ -781,18 +814,17 @@ getTargetSpeed()
 	return this->mTargetSpeed;
 }
 
-double
-Environment::
-getTargetHeight()
-{
-	return this->mTargetHeight;
-}
-
 const Eigen::Vector3d
 Environment::
 getTargetDirection()
 {
 	return this->mTargetDirection;
+}
+
+std::vector<std::string>
+Environment::
+getMotionLabels(){
+	return this->labels;
 }
 
 void
@@ -808,12 +840,5 @@ Environment::
 setTargetSpeed(double speed)
 {
 	this->mTargetSpeed = speed;
-	return;
-}
-void
-Environment::
-setTargetHeight(double height)
-{
-	this->mTargetHeight = height;
 	return;
 }

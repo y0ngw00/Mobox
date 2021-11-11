@@ -25,7 +25,7 @@ Window()
 	mUseNN(false),
 	mDrawTargetPose(false),
 	mExplore(false),
-	mDrawKinPose(true),
+	mDrawKinPose(false),
 	mDrawSimPose(true),
 	mPlotReward(false),
 	mFocus(false),
@@ -54,18 +54,20 @@ Window()
 	mCamera->setEye( com + dir );
 
 
-	char buffer[100];
-	std::ifstream txtread;
-	std::string txt_path = "/data/bvh/motionlist.txt";
-	txtread.open(std::string(ROOT_DIR)+ txt_path);
-	if(!txtread.is_open()){
-		std::cout<<"Text file does not exist from : "<< txt_path << std::endl;
-		return;
-	}
-	while(txtread>>buffer){
-        motion_lists.push_back(std::string(buffer));	
-	}
-	txtread.close();
+	motion_lists.clear();
+	motion_lists = mEnvironment->getMotionLabels();
+	// char buffer[100];
+	// std::ifstream txtread;
+	// std::string txt_path = "/data/bvh/motionlist.txt";
+	// txtread.open(std::string(ROOT_DIR)+ txt_path);
+	// if(!txtread.is_open()){
+	// 	std::cout<<"Text file does not exist from : "<< txt_path << std::endl;
+	// 	return;
+	// }
+	// while(txtread>>buffer){
+        // motion_lists.push_back(std::string(buffer));	
+	// }
+	// txtread.close();
 
 }
 void
@@ -183,14 +185,14 @@ ImGuiDisplay()
 
         // static int counter = 0;
 
-        // ImGui::Begin("Parameter Control Window");                          // Create a window called "Hello, world!" and append into it.
+        ImGui::Begin("Parameter Control Window");                          // Create a window called "Hello, world!" and append into it.
 
                     // Display some text (you can use a format strings too)
         // ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         // ImGui::Checkbox("Control", &mControl);
-        // ImGui::Text("Current Motion "); ImGui::SameLine();
-        // ImGui::Text(motion_lists[mMotionType].c_str());
-        // ImGui::SliderFloat("Theta", &theta, -180, 180);            // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::Text("Current Motion "); ImGui::SameLine();
+        ImGui::Text(motion_lists[mMotionType].c_str());
+        // ImGui::SliderFloat("Theta", &mTargetHeading, -180, 180);            // Edit 1 float using a slider from 0.0f to 1.0f
         
         // ImGui::Text("Forwarding height");   
         // ImGui::SliderFloat("Height", &height, 0.6f, 2.0f);
@@ -198,20 +200,18 @@ ImGuiDisplay()
         // ImGui::Text("Speed");   
         // ImGui::SliderFloat("Speed", &speed, 0.5f, 3.0f);
 
-        // static int motionidx = 0;
+        // static int motionidx;
 
 
-        // for(int n=0; n<motion_lists.size();n++){
-        // 	if(ImGui::Button(motion_lists[n].c_str()))
-        // 		mMotionType = n;
-        // }
-        // }
+        for(int n=0; n<motion_lists.size();n++){
+        	if(ImGui::Button(motion_lists[n].c_str()))
+        		mMotionType = n;
+        }
+    }
         // ImGui::InputInt("Class", &mMotionType);
-        // ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
-        // ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
-        // ImGui::RadioButton("hurt", &motionidx, 2);
-        // ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
-        // ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
+        // for(int i=0; i<motion_lists.size(); i++){
+	       //  ImGui::RadioButton(motion_lists[i], &motionidx, i); ImGui::SameLine();
+        // }
 
         // mMotionType.setZero();
         // mMotionType[motionidx]=1;
@@ -221,72 +221,64 @@ ImGuiDisplay()
         // if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
         //     counter++;
 
-    //     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    //     ImGui::End();
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
     // }
 
-    // // // 3. Show another simple window.
-    // {
-    //     ImGui::Begin("Indicator");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-    //     // if (ImGui::BeginTable("table1", 3))
-    //     // {
-    //     //     for (int row = 0; row < 4; row++)
-    //     //     {
-    //     //         ImGui::TableNextRow();
-    //     //         for (int column = 0; column < 3; column++)
-    //     //         {
-    //     //             ImGui::TableSetColumnIndex(column);
-    //     //             ImGui::Text("Row %d Column %d", row, column);
-    //     //         }
-    //     //     }
-    //     //     ImGui::EndTable();
-    //     // }
-    //    if (ImGui::CollapsingHeader("Style Reward"))
-    //     {
-	   //      int n = mRewards.size();
-	   //      ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
-	   //      ImPlot::SetNextPlotLimitsY(-0.2,1.2);
+    // // 3. Show another simple window.
+    {
+        ImGui::Begin("Indicator");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+        // if (ImGui::BeginTable("table1", 3))
+        // {
+        //     for (int row = 0; row < 4; row++)
+        //     {
+        //         ImGui::TableNextRow();
+        //         for (int column = 0; column < 3; column++)
+        //         {
+        //             ImGui::TableSetColumnIndex(column);
+        //             ImGui::Text("Row %d Column %d", row, column);
+        //         }
+        //     }
+        //     ImGui::EndTable();
+        // }
+       if (ImGui::CollapsingHeader("Reward"))
+        {
+        	ImGui::Text("Style Reward "); 
+	        int n = mRewards.size();
+	        ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
+	        ImPlot::SetNextPlotLimitsY(-0.2,1.2);
 	        
 	        
-	   //      double* x = new double[n]();
-	   //      double* y = new double[n]();
-	   //      for(int i = 0; i < n; i++)
-	   //      {
-	   //          x[i] = i; y[i] = mRewards[i];
-	   //      }
-	   //      if (ImPlot::BeginPlot("reward"))
-	   //      {
-	   //          ImPlot::PlotLine("",x,y,n);       
-	   //          ImPlot::EndPlot();
-
-
-
-
-
-	   //      }
-    // 	}
-    // 	if (ImGui::CollapsingHeader("Motion Index"))
-    //     {
-	   //      int n = mMotionTypes.size();
-	   //      ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
-	   //      ImPlot::SetNextPlotLimitsY(-1.0,9.0);
+	        double* x = new double[n]();
+	        double* y = new double[n]();
+	        for(int i = 0; i < n; i++)
+	        {
+	            x[i] = i; y[i] = mRewards[i];
+	        }
+	        if (ImPlot::BeginPlot("Style reward"))
+	        {
+	            ImPlot::PlotLine("",x,y,n);       
+	            ImPlot::EndPlot();
+	        }
+    
+        	ImGui::Text("Task Reward "); 
+	        int nG = mRewardGoals.size();
+	        ImPlot::SetNextPlotLimitsX(nG-200,nG+1.0,ImGuiCond_Always);
+	        ImPlot::SetNextPlotLimitsY(-0.2,1.2);
 	        
 	        
-	   //      double* x = new double[n]();
-	   //      double* y = new double[n]();
-	   //      for(int i = 0; i < n; i++)
-	   //      {
-	   //          x[i] = i; y[i] = mMotionTypes[i];
-	   //      }
-	   //      if (ImPlot::BeginPlot("Motion class"))
-	   //      {
-	   //          ImPlot::PlotLine("",x,y,n);       
-	   //          ImPlot::EndPlot();
-	   //      }
-    // 	}
-    //     // if (ImGui::Button("Close Me"))
-    //     //     show_another_window = false;
-    //     ImGui::End();
+	        double* x2 = new double[nG]();
+	        double* y2 = new double[nG]();
+	        for(int i = 0; i < n; i++)
+	        {
+	            x2[i] = i; y2[i] = mRewardGoals[i];
+	        }
+	        if (ImPlot::BeginPlot("Task reward"))
+	        {
+	            ImPlot::PlotLine("",x2,y2,nG);       
+	            ImPlot::EndPlot();
+	        }
+    	}
     }
 }
 
@@ -314,20 +306,16 @@ reset(int frame)
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
 	}
-	// this->mMotionType = mEnvironment->getStateLabel();		
+	mTargetHeading = mEnvironment->getTargetHeading();
+	this->mMotionType = mEnvironment->getStateLabel();		
 }
 void
 Window::
 step()
 {
 
-	// if(mControl){
-	// 	mEnvironment->setStateLabel(mMotionType);
-	// 	// mEnvironment->setTargetMotion(this->mMotionType);		
-	// }
-	// else{
-	// 	this->mMotionType = mEnvironment->getStateLabel();		
-	// }
+	mEnvironment->setStateLabel(this->mMotionType);
+	mEnvironment->setTargetHeading(mTargetHeading);
 
 	if(mUseNN)
 	{
@@ -347,13 +335,12 @@ step()
 	
 	mRewardGoals.push_back(mRewardGoal);
 	mRewards.push_back(0.5*(mReward));
-	// mMotionTypes.push_back(mMotionType);
 	bool eoe = mEnvironment->inspectEndOfEpisode();
-	// if(eoe)
-	// 	this->reset();
-	if(mDrawKinPose){
-		mEnvironment->FollowBVH(this->mMotionType);
-	}
+	if(eoe)
+		this->reset();
+	// if(mDrawKinPose){
+	// 	mEnvironment->FollowBVH(this->mMotionType);
+	// }
 
 	if(mFocus)
 	{
@@ -418,6 +405,8 @@ keyboard(unsigned char key, int x, int y)
 		case 'r':this->reset();break;
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
+		case 'a':mTargetHeading-=0.1;break;
+		case 'd':mTargetHeading+=0.1;break;
 		case ' ':mPlay = !mPlay; break;
 		default:GLUTWindow3D::keyboard(key,x,y);break;
 	}
@@ -441,8 +430,6 @@ Window::
 mouse(int button, int state, int x, int y)
 {
 	GLUTWindow3D::mouse(button,state,x,y);
-
-
 
 	if(mMouse == 2) // Right
 	{

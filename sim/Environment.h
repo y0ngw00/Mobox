@@ -22,6 +22,7 @@ public:
 	double getTargetHeading();
 	double getTargetHeight();
 	double getTargetSpeed();
+	std::vector<std::string> getMotionLabels();
 	const Eigen::Vector3d getTargetDirection();
 
 	void setTargetHeading(double heading);
@@ -89,17 +90,13 @@ private:
 
 	int mNumMotions, mStateLabel, mNumFeatureAdds,mDimLabel;
 
-	double mTargetHeading, mTargetSpeed;
+	double mTargetHeading;
 	Eigen::Vector3d mTargetDirection;
-	double mTargetSpeedMin, mTargetSpeedMax;
 	double mTargetFrame;
 	double mTargetHeight, mIdleHeight;
 	double mSharpTurnProb, mSpeedChangeProb,mHeightChangeProb, mMaxHeadingTurnRate, mTransitionProb;
 
 	double mTargetHeightMin, mTargetHeightMax;
-
-	int mFrozen;
-	bool mFrozenEOE;
 
 	std::vector<std::string> labels;
 	std::vector<std::string> strike_bodies;
@@ -107,6 +104,13 @@ private:
 	std::vector<Eigen::VectorXd> label_info;
 
 	Eigen::Matrix3d R_init;
+	bool mTargetHit;
+	Eigen::Vector3d mTargetPos;
+	double mTargetRadius;
+	double mTargetDist;
+	double mTargetSpeed;
+	double mTargetDistMin;
+	double mTargetDistMax;
 
 
 };

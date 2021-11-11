@@ -72,6 +72,8 @@ protected:
     int mMotionType;
     std::vector<int> mMotionTypes;
     std::vector<std::string> motion_lists;
+
+    double mTargetHeading;
 };
 
 #endif

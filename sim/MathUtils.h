@@ -1,6 +1,7 @@
 #ifndef __MATH_UTILS_H__
 #define __MATH_UTILS_H__
 #include <vector>
+#include <algorithm>
 #include <cstdarg>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
