@@ -292,6 +292,14 @@ resetGoal()
 	double heading = aa_ref.angle()*aa_ref.axis()[1];
 	// Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
 	this->mTargetHeading = heading-M_PI/2;
+
+	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+	double delta_heading = 0;
+	if(sharp_turn)
+		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+	else
+		delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
+
 	if(mStateLabel == 1){
 		this->mTargetDist = dart::math::Random::uniform<double>(mTargetDistMin, 3.0);
 	}
