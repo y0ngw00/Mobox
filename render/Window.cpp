@@ -298,6 +298,7 @@ reset(int frame)
 	mEnvironment->reset(false);
 	mObservation = mEnvironment->getState();
 	mObservationDiscriminator = mEnvironment->getStateAMP();
+	mEnvironment->setStateLabel(this->mMotionType);
 
 	mRewards.clear();
 	mRewardGoals.clear();

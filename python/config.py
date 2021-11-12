@@ -12,7 +12,7 @@ config = {
 		'value_activations' : ['relu', 'relu', None],
 		'value_init_weights' : [0.1, 0.1, 0.01],
 		'embedding_length' : 256,
-		'dim_embedding_out' : 32
+		'dim_embedding_out' : 8
 	},
 	
 	'policy' : {
@@ -31,7 +31,7 @@ config = {
 		'activations' : ['relu', 'relu', None],
 		'init_weights' : [0.1, 0.1, 1.0],
 		'embedding_length' : 256,
-		'dim_embedding_out' : 32
+		'dim_embedding_out' : 8
 	},
 	
 	'discriminator' : {
