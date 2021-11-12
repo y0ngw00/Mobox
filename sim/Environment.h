@@ -86,7 +86,7 @@ private:
 
 	int mNumMotions, mStateLabel, mNumFeatureAdds,mDimLabel;
 
-	double mTargetHeading, mTargetSpeed;
+	double mTargetHeading;
 	Eigen::Vector3d mTargetDirection;
 	double mTargetSpeedMin, mTargetSpeedMax;
 	double mTargetFrame;
@@ -94,6 +94,16 @@ private:
 	double mSharpTurnProb, mSpeedChangeProb,mHeightChangeProb, mMaxHeadingTurnRate, mTransitionProb;
 
 	double mTargetHeightMin, mTargetHeightMax;
+
+	std::vector<std::string> strike_bodies;
+	bool mTargetHit;
+	Eigen::Vector3d mTargetPos;
+	double mTargetRadius;
+	double mTargetDist;
+	double mTargetSpeed;
+	double mTargetDistMin;
+	double mTargetDistMax;
+
 
 };
 #endif
