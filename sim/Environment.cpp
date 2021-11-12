@@ -84,6 +84,8 @@ Environment()
 	strike_bodies.push_back("Hips");
 	strike_bodies.push_back("Hips");
 	strike_bodies.push_back("LeftHand");
+	strike_bodies.push_back("LeftHand");
+	strike_bodies.push_back("RightHand");
 	strike_bodies.push_back("RightHand");
 	strike_bodies.push_back("LeftFoot");
 	strike_bodies.push_back("RightFoot");
@@ -209,7 +211,6 @@ step(const Eigen::VectorXd& _action)
 	int num_sub_steps = mSimulationHz/mControlHz;
 
 	auto target_pos = mSimCharacter->computeTargetPosition(action);
-	// std::cout<<1<<std::endl;
 
 	for(int i=0;i<num_sub_steps;i++)
 	{
@@ -251,15 +252,11 @@ step(const Eigen::VectorXd& _action)
 			}
 		}
 	}
-		// std::cout<<1<<std::endl;
 
 	if(mEnableGoal)
 	{
 		this->recordGoal();
-			// std::cout<<1<<std::endl;
-
 		this->updateGoal();
-			// std::cout<<1<<std::endl;
 
 	}
 	
@@ -284,12 +281,12 @@ resetGoal()
 	// Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
 	this->mTargetHeading = heading-M_PI/2;
 
-	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
-	double delta_heading = 0;
-	if(sharp_turn)
-		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
-	else
-		delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
+	// bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+	// double delta_heading = 0;
+	// if(sharp_turn)
+	// 	delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+	// else
+	// 	delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
 
 	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
 	

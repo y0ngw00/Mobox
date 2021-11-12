@@ -294,11 +294,15 @@ void
 Window::
 reset(int frame)
 {
-
-	mEnvironment->reset(false);
+	if(!mControl){
+		mEnvironment->reset(true);
+	}
+	else{
+		mEnvironment->reset(false);
+		mEnvironment->setStateLabel(this->mMotionType);
+	}
 	mObservation = mEnvironment->getState();
 	mObservationDiscriminator = mEnvironment->getStateAMP();
-	mEnvironment->setStateLabel(this->mMotionType);
 
 	mRewards.clear();
 	mRewardGoals.clear();
@@ -315,9 +319,6 @@ reset(int frame)
 		mCamera->setEye( com + dir );
 	}
 
-
-	this->mMotionType = mEnvironment->getStateLabel();
-
 }
 void
 Window::
@@ -329,7 +330,6 @@ step()
 		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
-
 		this->mMotionType = mEnvironment->getStateLabel();		
 	}
 
@@ -357,8 +357,8 @@ step()
 	mRewards.push_back(0.5*(mReward));
 	mMotionTypes.push_back(mMotionType);
 	bool eoe = mEnvironment->inspectEndOfEpisode();
-	// if(eoe)
-	// 	this->reset();
+	if(eoe)
+		this->reset();
 	if(mDrawKinPose){
 		mEnvironment->FollowBVH(this->mMotionType);
 	}
