@@ -257,32 +257,27 @@ ImGuiDisplay()
 	        {
 	            ImPlot::PlotLine("",x,y,n);       
 	            ImPlot::EndPlot();
-
-
-
-
-
 	        }
-    	}
-    	if (ImGui::CollapsingHeader("Motion Index"))
-        {
-	        int n = mMotionTypes.size();
-	        ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
-	        ImPlot::SetNextPlotLimitsY(-1.0,9.0);
+
+	        ImGui::Text("Task Reward "); 
+	        int nG = mRewardGoals.size();
+	        ImPlot::SetNextPlotLimitsX(nG-200,nG+1.0,ImGuiCond_Always);
+	        ImPlot::SetNextPlotLimitsY(-0.2,1.2);
 	        
 	        
-	        double* x = new double[n]();
-	        double* y = new double[n]();
+	        double* x2 = new double[nG]();
+	        double* y2 = new double[nG]();
 	        for(int i = 0; i < n; i++)
 	        {
-	            x[i] = i; y[i] = mMotionTypes[i];
+	            x2[i] = i; y2[i] = mRewardGoals[i];
 	        }
-	        if (ImPlot::BeginPlot("Motion class"))
+	        if (ImPlot::BeginPlot("Task reward"))
 	        {
-	            ImPlot::PlotLine("",x,y,n);       
+	            ImPlot::PlotLine("",x2,y2,nG);       
 	            ImPlot::EndPlot();
 	        }
     	}
+
         // if (ImGui::Button("Close Me"))
         //     show_another_window = false;
         ImGui::End();
