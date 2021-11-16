@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export CENVDIR=$(pwd)/venv
+export CENVDIR=$(pwd)/envs/c_env
 
 mkdir build
 cd build

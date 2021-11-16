@@ -16,7 +16,7 @@ sudo apt-get install -y pybind11-dev
 echo "installing c libaries"
 
 export PROJECTDIR=$(pwd)
-export ENVDIR=$HOME/envs/venv
+export ENVDIR=$PROJECTDIR/c_env
 
 mkdir -p $ENVDIR
 mkdir -p $ENVDIR/include
@@ -46,7 +46,7 @@ install_library() {
 }
 install_boost() {
 	cd $ENVDIR/src
-  wget https://dl.bintray.com/boostorg/release/1.71.0/source/boost_1_71_0.tar.gz
+  wget https://boostorg.jfrog.io/artifactory/main/release/1.71.0/source/boost_1_71_0.tar.gz
   tar -xzf ./boost_1_71_0.tar.gz
   rm ./boost_1_71_0.tar.gz
   cd ./boost_1_71_0
@@ -74,7 +74,7 @@ cd $PROJECTDIR
 
 echo "installing python env"
 
-python3 -m venv venv
-. ./py_env/bin/activate
+python3 -m venv pyenv
+source ./pyenv/bin/activate
 pip3 install --upgrade pip
-pip3 install -r requirements.txt
+pip3 install -r requirement.txt

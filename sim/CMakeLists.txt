@@ -10,7 +10,7 @@ add_compile_options(-std=gnu++17)
 add_compile_options(-Wdeprecated-declarations)
 
 
-find_package(DART REQUIRED COMPONENTS collision-bullet CONFIG)
+find_package(DART REQUIRED COMPONENTS gui collision-bullet CONFIG)	
 find_package(PythonLibs REQUIRED)
 find_package(pybind11 REQUIRED)
 

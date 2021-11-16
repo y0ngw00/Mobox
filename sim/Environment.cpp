@@ -391,11 +391,11 @@ recordGoal()
 	part_disp = R_ref_inv * part_disp;
 	double part_disp_norm = part_disp.norm();
 
-	double pos_r = std::exp(-2.0 * part_disp_norm * part_disp_norm);
+	double pos_r = std::exp(-1.0 * part_disp_norm * part_disp_norm);
 
 	Eigen::Vector3d del_part_vel = R_ref_inv*(target_dir - part_vel);
 
-	double vel_r = std::clamp(part_speed/mTargetSpeed, 0.0, 1.0);
+	double vel_r = std::min(std::max(part_speed/mTargetSpeed, 0.0), 1.0);
 	vel_r *= vel_r;
 
 	double target_r = std::max(0.0, 0.2 * pos_r + 0.8 * vel_r);

@@ -422,6 +422,8 @@ keyboard(unsigned char key, int x, int y)
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;
+		case 'a':mTargetHeading-=0.1;break;
+		case 'd':mTargetHeading+=0.1;break;
 		default:GLUTWindow3D::keyboard(key,x,y);break;
 	}
 }
