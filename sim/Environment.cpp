@@ -25,10 +25,10 @@ Environment()
 	mKinCharacter(nullptr),
 	mTargetSpeedMin(0.5),
 	mTargetSpeedMax(3.0),
-	mSharpTurnProb(0.01),
+	mSharpTurnProb(0.005),
 	mSpeedChangeProb(0.05),
 	mHeightChangeProb(0.01),
-	mMaxHeadingTurnRate(0.15),
+	mMaxHeadingTurnRate(0.1),
 	mTransitionProb(0.002),
 	mRewardGoal(0.0),
 	mEnableGoal(true)
@@ -61,7 +61,7 @@ Environment()
 		Motion* motion = new Motion(bvh);
 		for(int j=0;j<bvh->getNumFrames();j++){
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-			if(j>350) break;
+			if(j>6000) break;
 		}
 		if(bvh->getNumFrames() < 350) motion->repeatMotion(350, bvh);
 
@@ -263,21 +263,21 @@ void
 Environment::
 resetGoal()
 {
-	// Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
-	// Eigen::Matrix3d R_ref = T_ref.linear();
-	// Eigen::AngleAxisd aa_ref(R_ref);
-	// double heading = aa_ref.angle()*aa_ref.axis()[1];
-	//Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
-	// this->mTargetHeading = heading-M_PI/2;
+	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
+	Eigen::Matrix3d R_ref = T_ref.linear();
+	Eigen::AngleAxisd aa_ref(R_ref);
+	double heading = aa_ref.angle()*aa_ref.axis()[1];
+	// Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
+	this->mTargetHeading = heading-M_PI/2;
 
-	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
+	mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
+
+	Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
 	// com_vel[1] =0.0;
 	// if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
 	// else{
 	// 	this->mTargetHeading = com_vel[2]>0? 90: 270; 
 	// }
-	// this->mTargetSpeed = std::max(1.0, com_vel.norm());
 	// this->mTargetHeight = mSimCharacter->getSkeleton()->getCOM()[1];
 	// this->mIdleHeight = mSimCharacter->getSkeleton()->getCOM()[1];
 
@@ -287,17 +287,17 @@ void
 Environment::
 updateGoal()
 {
-	// bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
-	// double delta_heading = 0;
-	// if(sharp_turn)
-	// 	delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
-	// else
-	// 	delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
-	// mTargetHeading += delta_heading;
+	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+	double delta_heading = 0;
+	if(sharp_turn)
+		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+	else
+		delta_heading = dart::math::Random::normal<double>(-mMaxHeadingTurnRate, mMaxHeadingTurnRate);
+	mTargetHeading += delta_heading;
 
-	// bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
-	// if(change_speed)
-	// 	mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
+	bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
+	if(change_speed)
+		mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
 
 	// bool change_height = dart::math::Random::uniform<double>(0.0, 1.0)<mHeightChangeProb?true:false;
 	// if(change_height)
@@ -318,50 +318,34 @@ Environment::
 recordGoal()
 {
 	mRewardGoal = 1.0;
-	// Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
-	// Eigen::Matrix3d R_ref = T_ref.linear();
+	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
+	Eigen::Matrix3d R_ref = T_ref.linear();
 
-	// Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
-	// com_vel[1] = 0.0;
-	// com_vel = R_ref.inverse() * com_vel;
+	Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
+	com_vel[1] = 0.0;
+	com_vel = R_ref.inverse() * com_vel;
 
-	// // Eigen::Vector3d target_direction = R_target.col(2);
-	// Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
+	// Eigen::Vector3d target_direction = R_target.col(2);
+	Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
 
-	// mTargetDirection = target_direction;
-	// Eigen::Vector3d tar_loc = R_ref.inverse() * target_direction;
-
-	// double err_height = mTargetHeight - mSimCharacter->getSkeleton()->getCOM()[1];
+	mTargetDirection = target_direction;
+	Eigen::Vector3d tar_loc = R_ref.inverse() * target_direction;
 	
-	// double err_vel = std::sqrt(mTargetHeight *2* 9.8) - com_vel[1];
-
-	// mStateGoal.resize(7+mNumMotions);
-	// mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
+	mStateGoal.resize(7+mNumMotions);
+	mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
 	
-	mStateGoal.resize(mNumMotions);
-	mStateGoal<< mStateLabel;
+	// mStateGoal.resize(mNumMotions);
+	// mStateGoal<< mStateLabel;
 
 
-	// double proj_vel = tar_loc.dot(com_vel);
-	// mRewardGoal = 0.0;
-	// if(proj_vel > 0.0)
-	// {
-	// 	double err = std::max(1.0 - proj_vel, 0.0);
-	// 	mRewardGoal = std::exp(-1.0*err*err);
-	// }
+	double proj_vel = tar_loc.dot(com_vel);
+	mRewardGoal = 0.0;
+	if(proj_vel > 0.0)
+	{
+		double err = std::max(mTargetSpeed - proj_vel, 0.0);
+		mRewardGoal = std::exp(-1.0*err*err);
+	}
 
-	// Eigen::Vector3d vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
-	// double vel_reward=0;
-	// if(vel[1]>0){
-	// 	double vel_reward = std::exp(-1.0 * err_vel * err_vel);
-	// }
-
-	// double pos_reward = 0.5;
-	// if(mSimCharacter->getSkeleton()->getCOM()[1] > 0.86){
-	// 	pos_reward += 0.5 * std::exp(-10.0 * err_height * err_height);
-	// }
-
-	// mRewardGoal *= (0.5 * pos_reward + 0.5 * vel_reward);
 }
 
 double

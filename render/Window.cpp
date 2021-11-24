@@ -67,6 +67,8 @@ Window()
         motion_lists.push_back(std::string(buffer));	
 	}
 	txtread.close();
+
+	// theta = mEnvironment->getTargetHeading();
 }
 void
 Window::
@@ -103,11 +105,9 @@ render()
 
 	
 
-	// Eigen::Vector3d force_dir =mEnvironment->getTargetDirection();
-	// Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
-	// force_dir = R_ref.inverse() * force_dir;
-	// Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
-	// glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
+	Eigen::Vector3d force_dir(std::cos(theta), 0.0, -std::sin(theta));
+	Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
+	glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
 
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
@@ -321,6 +321,8 @@ reset(int frame)
 		mCamera->setEye( com + dir );
 	}
 
+	theta = mEnvironment->getTargetHeading();
+
 
 		
 }
@@ -328,7 +330,7 @@ void
 Window::
 step()
 {
-
+	theta = mEnvironment->getTargetHeading();
 	if(mControl){
 		mEnvironment->setStateLabel(mMotionType);
 		// mEnvironment->setTargetMotion(this->mMotionType);		
@@ -422,6 +424,8 @@ keyboard(unsigned char key, int x, int y)
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;
+		case 'a':theta+=0.1; break;
+		case 'd':theta-=0.1; break;
 		default:GLUTWindow3D::keyboard(key,x,y);break;
 	}
 }
