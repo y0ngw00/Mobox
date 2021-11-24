@@ -65,6 +65,7 @@ protected:
 	std::chrono::system_clock::time_point mTimePoint;
 	double mComputedTime;
 
+	double mTargetHeading;
 	bool mControl;
 	float height;
     float theta;

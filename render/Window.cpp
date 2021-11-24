@@ -102,7 +102,7 @@ render()
 
 	
 
-	Eigen::Vector3d force_dir =mEnvironment->getTargetDirection();
+	Eigen::Vector3d force_dir =Eigen::Vector3d(1.0 * std::cos(mTargetHeading), 0.0, -1.0 *std::sin(mTargetHeading));
 	// Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
 	// force_dir = R_ref.inverse() * force_dir;
 	Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
@@ -313,6 +313,7 @@ reset(int frame)
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
 	}
+	mTargetHeading = mEnvironment->getTargetHeading();
 
 }
 void
@@ -322,11 +323,13 @@ step()
 
 	if(mControl){
 		mEnvironment->setStateLabel(mMotionType);
+
 		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
 		this->mMotionType = mEnvironment->getStateLabel();		
 	}
+	mEnvironment->setTargetHeading(mTargetHeading);
 
 	if(mUseNN)
 	{
