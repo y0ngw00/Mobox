@@ -292,7 +292,7 @@ updateGoal()
 	if(sharp_turn)
 		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
 	else
-		delta_heading = dart::math::Random::normal<double>(-mMaxHeadingTurnRate, mMaxHeadingTurnRate);
+		delta_heading = dart::math::Random::normal<double>(0, mMaxHeadingTurnRate);
 	mTargetHeading += delta_heading;
 
 	bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
