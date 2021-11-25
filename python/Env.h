@@ -22,11 +22,10 @@ public:
 
 	int getDimState();
 	int getDimStateAMP();
-	int getDimStateLabel();
 	int getNumTotalLabel();
 	int getDimAction();
 
-	void reset();
+	void reset(int idx=0);
 	void step(const Eigen::VectorXd& action);
 	
 	double getRewardGoal();

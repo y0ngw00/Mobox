@@ -1,3 +1,4 @@
+  
 #include "Window.h"
 #include "Camera.h"
 #include "BVH.h"
@@ -102,14 +103,16 @@ render()
 
 	
 
-	Eigen::Vector3d force_dir =Eigen::Vector3d(1.0 * std::cos(mTargetHeading), 0.0, -1.0 *std::sin(mTargetHeading));
-	// Eigen::Matrix3d R_ref = mEnvironment->getSimCharacter()->getReferenceTransform().linear();
-	// force_dir = R_ref.inverse() * force_dir;
+
+	Eigen::Vector3d force_dir(std::cos(theta), 0.0, -std::sin(theta));
 	Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
 	glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
 
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
+	if(mDrawKinPose)
+		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
+
 	if(mDrawKinPose)
 		DARTRendering::drawSkeleton(mEnvironment->getKinCharacter()->getSkeleton(),mKinRenderOption);
 
@@ -240,7 +243,7 @@ ImGuiDisplay()
         //     }
         //     ImGui::EndTable();
         // }
-       if (ImGui::CollapsingHeader("Style Reward"))
+        if (ImGui::CollapsingHeader("Style Reward"))
         {
 	        int n = mRewards.size();
 	        ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
@@ -276,9 +279,13 @@ ImGuiDisplay()
 	            ImPlot::PlotLine("",x2,y2,nG);       
 	            ImPlot::EndPlot();
 	        }
+    	
+	        {
+	            ImPlot::PlotLine("",x,y,n);       
+	            ImPlot::EndPlot();
+	        }
     	}
-
-        // if (ImGui::Button("Close Me"))
+   // if (ImGui::Button("Close Me"))
         //     show_another_window = false;
         ImGui::End();
     }
@@ -289,13 +296,18 @@ void
 Window::
 reset(int frame)
 {
-	if(!mControl){
-		mEnvironment->reset(true);
+
+	if(mControl){
+		mEnvironment->reset(mMotionType, false);
+		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
-		mEnvironment->reset(false);
-		mEnvironment->setStateLabel(this->mMotionType);
+		int n = mEnvironment->getNumTotalLabel();
+		this->mMotionType = std::rand() % n;
+		
+		mEnvironment->reset(mMotionType, true);		
 	}
+
 	mObservation = mEnvironment->getState();
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 
@@ -313,14 +325,15 @@ reset(int frame)
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
 	}
-	mTargetHeading = mEnvironment->getTargetHeading();
+
+	theta = mEnvironment->getTargetHeading();
 
 }
 void
 Window::
 step()
 {
-
+	theta = mEnvironment->getTargetHeading();
 	if(mControl){
 		mEnvironment->setStateLabel(mMotionType);
 
@@ -329,7 +342,8 @@ step()
 	else{
 		this->mMotionType = mEnvironment->getStateLabel();		
 	}
-	mEnvironment->setTargetHeading(mTargetHeading);
+	// mEnvironment->setTargetHeading(mTargetHeading);
+
 
 	if(mUseNN)
 	{
@@ -348,7 +362,7 @@ step()
 	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
 
 	mObservation = mEnvironment->getState();
-	
+
 	mRewardGoal = mEnvironment->getRewardGoal();
 	
 	mRewardGoals.push_back(mRewardGoal);
@@ -384,14 +398,13 @@ initNN(const std::string& config)
 	sys_module = py::module::import("sys");
 	py::str module_dir = (std::string(ROOT_DIR)+"/python").c_str();
 	sys_module.attr("path").attr("insert")(1, module_dir);
-
+	py::exec("import torch",mns);
 	policy_md = py::module::import("ppo");
 	discriminator_md = py::module::import("discriminator");
 	py::object pyconfig = policy_md.attr("load_config")(config);
 
-	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimStateLabel(),mEnvironment->getDimAction(),pyconfig);
-	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(), mEnvironment->getDimStateLabel(),mEnvironment->getStateAMPExpert(), pyconfig);
-
+	policy = policy_md.attr("build_policy")(mEnvironment->getDimState(),mEnvironment->getDimAction(),pyconfig);
+	discriminator = discriminator_md.attr("build_discriminator")(mEnvironment->getDimStateAMP(),mEnvironment->getNumTotalLabel(),mEnvironment->getStateAMPExpert(), pyconfig);
 	//TODO
 	
 	// policy0 = policy_md.attr("build_policy0")(mEnvironment->getDimState0(),mEnvironment->getDimAction0(),pyconfig);
@@ -421,12 +434,12 @@ keyboard(unsigned char key, int x, int y)
 		case '6':mDrawCOMvel = !mDrawCOMvel;break;
 		case '7':mDraw2DCharacter = !mDraw2DCharacter;break;
 		case 's':this->step();break;
-		case 'r':this->reset();break;
+		case 'r':this->reset(mMotionType);break;
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;
-		case 'a':mTargetHeading-=0.1;break;
-		case 'd':mTargetHeading+=0.1;break;
+		case 'a':theta+=0.1; break;
+		case 'd':theta-=0.1; break;
 		default:GLUTWindow3D::keyboard(key,x,y);break;
 	}
 }

@@ -7,7 +7,7 @@ link_directories(../imgui/)
 include_directories(../imgui/)
 
 add_compile_options(-fPIC)
-add_compile_options(-std=gnu++11)
+add_compile_options(-std=gnu++14)
 add_compile_options(-Wdeprecated-declarations)
 
 find_package(OpenGL REQUIRED)

@@ -14,7 +14,7 @@ import time
 from misc import *
 
 class PolicyNN(nn.Module):
-	def __init__(self, dim_state, dim_class, dim_action, model_config):
+	def __init__(self, dim_state, dim_action, model_config):
 		nn.Module.__init__(self)
 
 		sample_std = model_config['sample_std']
@@ -28,16 +28,10 @@ class PolicyNN(nn.Module):
 		value_activations = model_config['value_activations']
 		value_init_weights = model_config['value_init_weights']
 
-		embedding_length = model_config['embedding_length']
-		dim_label_out = model_config['dim_embedding_out']
-
 		layers = []
 		self.dim_action = dim_action
 
-		self.label_embedding = nn.Embedding( embedding_length, dim_label_out)
-		
-		self.dim_state_wolabel = dim_state - dim_class
-		self.dim_state = dim_state - dim_class + dim_label_out
+		self.dim_state = dim_state 
 
 		prev_layer_size = self.dim_state
 
@@ -77,13 +71,15 @@ def discount(x, gamma):
 	return scipy.signal.lfilter([1],[1, -gamma], x[::-1], axis=0)[::-1]
 
 class PPO(object):
-	def __init__(self, dim_state,  dim_class, dim_action, device, model_config, policy_config):
-		self.model = PolicyNN(dim_state, dim_class,  dim_action, model_config)
+	def __init__(self, dim_state, dim_action, device,model_config, policy_config):
 
-		self.state_filter = filter.MeanStdRuntimeFilter(shape=self.model.dim_state_wolabel)
+		self.model = PolicyNN(dim_state,  dim_action, model_config)
+
+		self.state_filter = filter.MeanStdRuntimeFilter(shape=self.model.dim_state)
 		self.distribution = torch.distributions.normal.Normal
 		self.gamma = policy_config['gamma']
 		self.lb = policy_config['lb']
+
 
 		self.policy_clip = policy_config['policy_clip']
 		self.value_clip = policy_config['value_clip']
@@ -93,8 +89,6 @@ class PPO(object):
 		self.optimizer = optim.Adam(self.model.parameters(),lr=policy_config['lr'])
 
 		self.loss = None
-
-		self.dim_class = dim_class
 		
 		if isinstance(device, str):
 			self.device = torch.device(device)
@@ -104,15 +98,12 @@ class PPO(object):
 
 	def __call__(self, state):
 		if len(state.shape) == 1:
-			state = state.reshape(1, -1)		
-		state_filtered = np.concatenate((self.state_filter(state[:,:-self.dim_class], update=False),state[:,-self.dim_class:]), axis=1)
-		state_tensor = self.convert_to_tensor(state_filtered)
-
+			state = state.reshape(1, -1)
+		state_filtered = self.state_filter(state, update=False)
+		state_tensor = self.convert_to_tensor(state_filtered)		
+		
 		with torch.no_grad():
-			label = state_tensor[:,-self.dim_class:].long()
-			state_embed = torch.cat((state_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
-		with torch.no_grad():
-			logit, vf_pred = self.model(state_embed)
+			logit, vf_pred = self.model(state_tensor)
 			mean, log_std = torch.chunk(logit, 2, dim = 1)
 			
 			action_dist = self.distribution(mean, torch.exp(log_std))
@@ -124,18 +115,6 @@ class PPO(object):
 		vf_pred = self.convert_to_ndarray(vf_pred)
 
 		return action, logprob, vf_pred
-
-	def embedding(self, tensor):
-		if tensor.dtype == torch.float:
-			tensor = tensor.long().to(self.device)
-
-			out = self.model.label_embedding(tensor)
-			return out.float().to(self.device)
-
-		else :
-			out = self.model.label_embedding(tensor)
-			return out.to(self.device)
-
 
 	def convert_to_tensor(self, arr):
 		if torch.is_tensor(arr):
@@ -213,17 +192,10 @@ class PPO(object):
 	def compute_action(self, state, explore):
 		# print(np.any(np.isnan(state)))
 		state = state.reshape(1,-1)
-		# state_filtered = self.state_filter(state, update=False)
-		# state = self.convert_to_tensor(state_filtered)
-
-		state_filtered = np.concatenate((self.state_filter(state[:,:-self.dim_class], update=False),state[:,-self.dim_class:]), axis=1)
+		state_filtered = self.state_filter(state, update=False)
 		state_tensor = self.convert_to_tensor(state_filtered)
-
-		with torch.no_grad():
-			label = state_tensor[:,-self.dim_class:].long()
-			state_embed = torch.cat((state_tensor[:,:-self.dim_class],self.model.label_embedding(label).float().squeeze(dim=1)),1)
 			
-		logit, vf_pred = self.model(state_embed)
+		logit, vf_pred = self.model(state_tensor)
 		mean, log_std = torch.chunk(logit, 2, dim = 1)
 		action_dist = self.distribution(mean, torch.exp(log_std))
 
@@ -254,14 +226,16 @@ class PPO(object):
 import importlib.util
 
 def load_config(path):
+	
 	spec = importlib.util.spec_from_file_location("config", path)
 	spec_module = importlib.util.module_from_spec(spec)
 	spec.loader.exec_module(spec_module)
 	spec = spec_module
 	return spec.config
 
-def build_policy(dim_state, dim_class, dim_action, config):
-	return PPO(dim_state, dim_class, dim_action, torch.device(0), config['model'], config['policy'])
+
+def build_policy(dim_state, dim_action, config):
+	return PPO(dim_state, dim_action, torch.device(0),config['model'], config['policy'])
 
 def load_policy(policy, checkpoint):
 	state = torch.load(checkpoint)

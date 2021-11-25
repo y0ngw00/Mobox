@@ -6,6 +6,7 @@ SET(CMAKE_BUILD_TYPE Release CACHE STRING
 
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR})
 add_compile_options(-fPIC)
+
 add_compile_options(-std=gnu++17)
 add_compile_options(-Wdeprecated-declarations)
 

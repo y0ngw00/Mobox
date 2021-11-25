@@ -29,10 +29,11 @@ Environment()
 	mTargetRadius(0.15),
 	mTargetDistMin(0.4),
 	mTargetDistMax(0.8),
-	mSharpTurnProb(0.01),
+	mSharpTurnProb(0.005),
 	mSpeedChangeProb(0.05),
-	mMaxHeadingTurnRate(0.15),
-	mTransitionProb(0.005),
+	mHeightChangeProb(0.01),
+	mMaxHeadingTurnRate(0.1),
+	mTransitionProb(0.002),
 	mRewardGoal(0.0),
 	mEnableGoal(true)
 {
@@ -55,7 +56,8 @@ Environment()
 
 
 	mNumMotions = motion_lists.size();
-	mDimLabel = 1;
+	mStateLabel.resize(mNumMotions);
+	mStateLabel.setZero();
 
 	bool load_tree =false;
 	for(auto bvh_path : motion_lists){
@@ -63,9 +65,9 @@ Environment()
 		Motion* motion = new Motion(bvh);
 		for(int j=0;j<bvh->getNumFrames();j++){
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-			if(j>300) break;
+			if(j>900) break;
 		}
-		if(bvh->getNumFrames() < 300) motion->repeatMotion(300, bvh);
+		// if(bvh->getNumFrames() < 300) motion->repeatMotion(300, bvh);
 
 		motion->computeVelocity();
 		mMotions.emplace_back(motion);
@@ -119,7 +121,6 @@ Environment()
 	mActionSpace = this->getActionSpace();
 	mActionWeight = this->getActionWeight();
 
-	mStateLabel = 0;
 
 }
 
@@ -142,12 +143,7 @@ getDimStateAMP()
 {
 	return this->getStateAMP().rows();
 }
-int
-Environment::
-getDimStateLabel()
-{
-	return this->mDimLabel;
-}
+
 int
 Environment::
 getNumTotalLabel()
@@ -157,7 +153,7 @@ getNumTotalLabel()
 
 void
 Environment::
-reset(bool RSI)
+reset(int motion_idx, bool RSI)
 {
 	mContactEOE = false;
 	mFrame = 0;
@@ -165,12 +161,16 @@ reset(bool RSI)
 
 	int motion_num=0;
 	if(RSI){
-		motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		// motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		mStateLabel.setZero();
+		motion_num = motion_idx;
+		mStateLabel[motion_num] = 1.0;
 		//mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
-		mStateLabel = motion_num;
 	}
 	else{
-		motion_num = mStateLabel;
+		for(int i =0; i<mNumMotions; i++){
+			if (mStateLabel[i] !=0)	motion_num = i;
+		}
 	}
 	auto motion = mMotions[motion_num];
 	mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
@@ -272,7 +272,6 @@ void
 Environment::
 resetGoal()
 {
-
 	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
 	Eigen::Matrix3d R_ref = T_ref.linear();
 	Eigen::AngleAxisd aa_ref(R_ref);
@@ -281,28 +280,11 @@ resetGoal()
 	// Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
 	this->mTargetHeading = heading-M_PI/2;
 
-	// bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
-	// double delta_heading = 0;
-	// if(sharp_turn)
-	// 	delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
-	// else
-	// 	delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
-
 	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-	
-	if(mStateLabel == 1){
-		this->mTargetDist = dart::math::Random::uniform<double>(mTargetDistMin, 3.0);
-	}
-	else{
-		this->mTargetDist = dart::math::Random::uniform<double>(mTargetDistMin, mTargetDistMax);
-	}
-	this->mTargetSpeed = 1.5;
-	this->mTargetHit = false;
 
-	this->mTargetPos = Eigen::Vector3d(mTargetDist * std::cos(mTargetHeading), 0.0, -mTargetDist *std::sin(mTargetHeading));
-	Eigen::Vector3d root_com =  mSimCharacter->getSkeleton()->getCOM();
-	mTargetPos[0] += root_com[0];
-	mTargetPos[2] += root_com[2];
+
+	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
+	mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
 
 	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
 	// com_vel[1] =0.0;
@@ -310,6 +292,9 @@ resetGoal()
 	// else{
 	// 	this->mTargetHeading = com_vel[2]>0? 90: 270; 
 	// }
+	// this->mTargetHeight = mSimCharacter->getSkeleton()->getCOM()[1];
+	// this->mIdleHeight = mSimCharacter->getSkeleton()->getCOM()[1];
+
 	return;
 }
 void
@@ -317,26 +302,29 @@ Environment::
 updateGoal()
 {
 
-	// bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
-	// double delta_heading = 0;
-	// if(sharp_turn)
-	// 	delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
-	// else
-	// 	delta_heading = dart::math::Random::normal<double>(0.0, mMaxHeadingTurnRate);
-	// mTargetHeading += delta_heading;
+	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+	double delta_heading = 0;
+	if(sharp_turn)
+		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+	else
+		delta_heading = dart::math::Random::normal<double>(0, mMaxHeadingTurnRate);
+	mTargetHeading += delta_heading;
 
-	// bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
-	// if(change_speed)
-	// 	mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
+	bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
+	if(change_speed)
+		mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
 
 	// bool change_height = dart::math::Random::uniform<double>(0.0, 1.0)<mHeightChangeProb?true:false;
 	// if(change_height)
 	// 	mTargetHeight = dart::math::Random::uniform(mTargetHeightMin, mTargetHeightMax);
-	if(mTargetHit) this->resetGoal();
+	// if(mTargetHit) this->resetGoal();
 
 	bool change_motion = dart::math::Random::uniform<double>(0.0, 1.0)<mTransitionProb?true:false;
-	if(change_motion)
-		mStateLabel = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+	if(change_motion){
+		int motion_idx = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		mStateLabel.setZero();
+		mStateLabel[motion_idx]=1.0;
+	}
 
 
 	return;
@@ -346,72 +334,35 @@ Environment::
 recordGoal()
 {
 
-	mRewardGoal = 0.0;
-	
+	mRewardGoal = 1.0;
 	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
 	Eigen::Matrix3d R_ref = T_ref.linear();
-	Eigen::Matrix3d R_ref_inv = R_ref.inverse();
 
-	Eigen::Vector3d root_pos = mSimCharacter->getSkeleton()->getCOM();
-	Eigen::Vector3d com_vel = (root_pos - mPrevCOM)*mControlHz;
+	Eigen::Vector3d com_vel = (mSimCharacter->getSkeleton()->getCOM() - mPrevCOM)*mControlHz;
 	com_vel[1] = 0.0;
-	com_vel = R_ref_inv * com_vel;
+	com_vel = R_ref.inverse() * com_vel;
 
-	Eigen::Vector3d target_disp = mTargetPos - root_pos;
-	target_disp[1] =0.0;
-	double norm_disp = target_disp.norm();
+	// Eigen::Vector3d target_direction = R_target.col(2);
+	Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
 
-	Eigen::Vector3d target_dir = Eigen::Vector3d::Zero();
-	if(target_dir.norm() > 1e-5){
-		target_dir = target_disp.normalized();
+	mTargetDirection = target_direction;
+	Eigen::Vector3d tar_loc = R_ref.inverse() * target_direction;
+	
+	mStateGoal.resize(7+mNumMotions);
+	mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
+	
+	// mStateGoal.resize(mNumMotions);
+	// mStateGoal<< mStateLabel;
+
+
+	double proj_vel = tar_loc.dot(com_vel);
+	mRewardGoal = 0.0;
+	if(proj_vel > 0.0)
+	{
+		double err = std::max(mTargetSpeed - proj_vel, 0.0);
+		mRewardGoal = std::exp(-1.0*err*err);
 	}
 
-	auto body_part =  mSimCharacter->getSkeleton()->getBodyNode(strike_bodies[mStateLabel]);
-	Eigen::Vector3d part_pos;
-	Eigen::Vector3d part_vel;
-
-	if(strike_bodies[mStateLabel]=="Hips"){
-		part_pos = root_pos;
-		part_vel = com_vel;
-	} 
-	else {
-		part_pos = body_part->getCOM();
-		part_vel = body_part->getLinearVelocity();
-	}
-
-	Eigen::Vector3d part_disp = mTargetPos - part_pos;
-	part_disp[1] = 0.0;
-
-	double part_speed = target_dir.dot(part_vel);
-	if(std::abs(part_disp.norm()) < mTargetRadius){
-		if(part_speed>=mTargetSpeed || part_speed==0.0)
-			mTargetHit = true;
-	}
-
-	part_disp = R_ref_inv * part_disp;
-	double part_disp_norm = part_disp.norm();
-
-	double pos_r = std::exp(-2.0 * part_disp_norm * part_disp_norm);
-
-	Eigen::Vector3d del_part_vel = R_ref_inv*(target_dir - part_vel);
-
-	double vel_r = std::min(std::max(part_speed/mTargetSpeed, 0.0), 1.0);
-	vel_r *= vel_r;
-
-	double target_r = std::max(0.0, pos_r);
-
-	double w_target = 0.5;
-	double w_hit = 0.5;
-
-	double hit_r = mTargetHit? 1.0 : 0.0;
-
-	mRewardGoal = w_hit * hit_r + w_target * target_r;
-
-	mStateGoal.resize(10);
-	mStateGoal<<com_vel, part_disp, del_part_vel, mStateLabel;
-
-	// mStateGoal.resize(1);
-	// mStateGoal<<mStateLabel;
 }
 
 double
@@ -425,14 +376,17 @@ int
 Environment::
 getStateLabel()
 {
-	return mStateLabel;
+	for(int i=0; i<mStateLabel.rows();i++){
+		if(mStateLabel[i]!=0) return i;
+	}
 }
 
 void
 Environment::
 setStateLabel(int label)
 {
-	mStateLabel = label;
+	mStateLabel.setZero();
+	mStateLabel[label] = 1.0;
 	return;
 }
 
@@ -483,7 +437,7 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows()+mDimLabel);
+	mStateAMP.resize(s.rows() + s1.rows()+mNumMotions);
 	mStateAMP<<s, s1, mStateLabel;
 }
 
@@ -494,7 +448,7 @@ getStateAMPExpert()
 {
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
-	int m2 = (m-1)/2;
+	int m2 = (m-this->mNumMotions)/2;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
@@ -506,7 +460,9 @@ getStateAMPExpert()
 	for(int n=0; n<mNumMotions; n++)
 	{
 		auto motion = mMotions[n];
-		int label= n;
+		Eigen::VectorXd motionLabel(mNumMotions);
+		motionLabel.setZero();
+		motionLabel[n] =1.0;
 
 		int nf = motion->getNumFrames();
 		mKinCharacter->setPose(motion->getPosition(0),
@@ -527,7 +483,7 @@ getStateAMPExpert()
 
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
-			state_expert.row(o+i)[m-1] = label;
+			state_expert.row(o+i).tail(mNumMotions) = motionLabel;
 			s = s1;
 		}
 		o += nf - 1;

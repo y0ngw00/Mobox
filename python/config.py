@@ -11,8 +11,6 @@ config = {
 		'value_hiddens' : [256, 256],
 		'value_activations' : ['relu', 'relu', None],
 		'value_init_weights' : [0.1, 0.1, 0.01],
-		'embedding_length' : 256,
-		'dim_embedding_out' : 8
 	},
 	
 	'policy' : {
@@ -30,8 +28,6 @@ config = {
 		'hiddens' : [256,256],
 		'activations' : ['relu', 'relu', None],
 		'init_weights' : [0.1, 0.1, 1.0],
-		'embedding_length' : 256,
-		'dim_embedding_out' : 8
 	},
 	
 	'discriminator' : {
@@ -50,9 +46,11 @@ config = {
 		'sgd_minibatch_size' : 128,
 		
 		'num_disc_sgd_iter' : 2,
-		'disc_sgd_minibatch_size' : 16,
+		'disc_sgd_minibatch_size' : 64,
 		'disc_buffer_len' : 100000,
 
 		'save_iteration' : [10,500],
+		'epsilon' : 0.05
 	}
+
 }

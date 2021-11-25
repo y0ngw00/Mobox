@@ -58,6 +58,7 @@ protected:
 	DrawUtils::BarPlot mBarPlot;
 	py::scoped_interpreter guard;
 	std::vector<double> mRewards, mRewardGoals;
+	std::vector<int> mMotionTypes;
 	py::object mm,mns,sys_module;
 	py::module policy_md, discriminator_md;
 	py::object policy, discriminator;
@@ -65,13 +66,11 @@ protected:
 	std::chrono::system_clock::time_point mTimePoint;
 	double mComputedTime;
 
-	double mTargetHeading;
 	bool mControl;
 	float height;
     float theta;
     float speed;
     int mMotionType;
-    std::vector<int> mMotionTypes;
     std::vector<std::string> motion_lists;
 };
 
