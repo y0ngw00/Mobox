@@ -31,10 +31,17 @@ class SlimFC(nn.Module):
 		layers = []
 		linear = nn.Linear(in_size, out_size)
 		if Norm == "SpectralNorm":
-			linear = nn.utils.spectral_norm(linear)
+			linear = nn.utils.spectral_norm(linear)	
+
+		elif Norm == "BatchNorm":
+			linear = nn.BatchNorm1d(linear)
 		initializer(linear.weight)
 		nn.init.constant_(linear.bias, 0.0)
 		layers.append(linear)
+
+		
+
+
 		if activation == "relu":
 			layers.append(nn.ReLU())
 

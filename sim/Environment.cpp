@@ -417,8 +417,8 @@ recordState()
 	if(mEnableGoal)
 	{
 		Eigen::VectorXd goal = this->getStateGoal();
-		mState = Eigen::VectorXd(state.rows() + goal.rows());
-		mState<<state, goal;	
+		mState = Eigen::VectorXd(state.rows() + goal.rows()*2);
+		mState<<state, goal,goal;	
 	}
 	else
 		mState = state;	
@@ -437,8 +437,8 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows()+mNumMotions);
-	mStateAMP<<s, s1, mStateLabel;
+	mStateAMP.resize(s.rows() + s1.rows()+mNumMotions*2);
+	mStateAMP<<s, s1, mStateLabel,mStateLabel;
 }
 
 
@@ -448,7 +448,7 @@ getStateAMPExpert()
 {
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
-	int m2 = (m-this->mNumMotions)/2;
+	int m2 = (m-this->mNumMotions*2)/2;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
@@ -483,6 +483,7 @@ getStateAMPExpert()
 
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
+			state_expert.row(o+i).segment(m2*2,mNumMotions) = motionLabel;
 			state_expert.row(o+i).tail(mNumMotions) = motionLabel;
 			s = s1;
 		}
