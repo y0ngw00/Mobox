@@ -25,31 +25,38 @@ class DiscriminatorNN(nn.Module):
 
 		prev_layer_size = self.dim_in
 		
-		for size, activation, init_weight in zip(hiddens + [1], activations, init_weights):
-			size_modified = size-self.dim_class if size > 1 else size
+		for size, activation, init_weight in zip(hiddens, activations[:-1], init_weights[:-1]):
 			self.layers.append(SlimFC(
 				prev_layer_size,
-				size_modified,
+				size,
 				xavier_initializer(init_weight),
 				activation,
-				))
+				"SpectralNorm"))
 			prev_layer_size = size
 
-		self.l0 = self.layers[0]
-		self.l1 = self.layers[1]
-		self.l2 = self.layers[2]
-		
-		self.num_layer = 3
-		# self.fn = nn.Sequential(*layers)
-		
-	def forward(self, x):
-		add = x[:,-self.dim_class:]
-		x1 = self.l0(x)
-		x1 = torch.cat((x1,add),1)
-		x2 = self.l1(x1)
-		x2 = torch.cat((x2,add),1)
+		self.fn = nn.Sequential(*self.layers)
 
-		return self.l2(x2)
+		self.layers_out =SlimFC(
+				prev_layer_size,
+				1,
+				xavier_initializer(1.0),
+				None,
+				"SpectralNorm")
+
+		self.fn_out = nn.Sequential(self.layers_out)
+
+		if dim_class > 0:
+			self.l_y = nn.utils.spectral_norm(nn.Embedding(dim_class, prev_layer_size))
+
+		
+	def forward(self, x, y=None):
+		
+		h = self.fn(x)
+		output = self.fn_out(h)
+		if y is not None:
+			output += torch.sum(self.l_y(y) * h, dim=1, keepdim=True)
+
+		return output
 
 
 class Discriminator(object):
@@ -120,7 +127,7 @@ class Discriminator(object):
 		self.loss = 0.5 * (loss_pos + loss_neg)
 
 		if self.w_decay>0:
-			for i in range(self.model.num_layer):
+			for i in range(len(self.model.fn)):
 				v = self.model.layers[i].model[0].weight
 				self.loss += 0.5* self.w_decay * torch.sum(v**2)
 
