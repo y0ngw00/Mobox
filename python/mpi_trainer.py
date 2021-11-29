@@ -53,7 +53,7 @@ class Trainer(object):
 
 		self.save_iteration = trainer_config['save_iteration']
 		
-		self.env.reset(0)
+		self.env.reset()
 		self.state = self.env.get_state()
 
 		self.episode_buffers = []
@@ -74,7 +74,7 @@ class Trainer(object):
 		return ppo.PPO(self.env.get_dim_state(), self.env.get_dim_action(), device, model_config , policy_config)
 
 	def create_disc(self, device, model_config, disc_config):
-		return discriminator.Discriminator(self.env.get_dim_state_AMP(),self.env.get_num_total_label(), device, model_config, disc_config)
+		return discriminator.Discriminator(self.env.get_dim_state_AMP()-self.env.get_num_total_label(),self.env.get_num_total_label(), device, model_config, disc_config)
 
 	def create_summary_writer(self, path):
 		self.writer = SummaryWriter(path)
@@ -106,8 +106,8 @@ class Trainer(object):
 			else:
 				self.state_dict['elapsed_time'] += t_sample
 
-			if self.state_dict['num_iterations_so_far'] % 1000 == 0:
-				self.update_sampler()
+			# if self.state_dict['num_iterations_so_far'] % 1000 == 0:
+			# 	self.update_sampler()
 		if is_root2_proc():
 			valid_samples = self.concat_samples(self.disc_episode_list)
 			if valid_samples:
@@ -155,15 +155,20 @@ class Trainer(object):
 			ss1 = self.env.get_state_AMP()
 			eoe = self.env.inspect_end_of_episode()
 			rg = self.env.get_reward_goal()
-			
+
 			self.episode_buffers[-1].append(Sample(self.state, action, rg, ss1, valuef, logprob))
 			
+			# if eoe:
+			# 	if len(self.episode_buffers[-1]) != 0:
+			# 		self.episode_buffers.append([])
+
+			# 	idx = self.sampler.sample()
+			
+			# 	self.env.reset(idx)
 			if eoe:
 				if len(self.episode_buffers[-1]) != 0:
 					self.episode_buffers.append([])
-
-				idx = self.sampler.sample()
-				self.env.reset(idx)
+				self.env.reset()
 			self.state = self.env.get_state()
 
 	def postprocess_episodes(self):
@@ -172,7 +177,8 @@ class Trainer(object):
 		for epi in self.episode_buffers[:-1]:
 			s, a, rg, ss1, v, l = Sample(*zip(*epi))
 			ss1 = np.vstack(ss1)
-			r = self.disc(ss1)
+			dim_label = self.env.get_num_total_label()
+			r = self.disc(ss1[:,:-dim_label],ss1[:,-dim_label:])
 
 			rg = np.array(rg)
 
@@ -237,8 +243,10 @@ class Trainer(object):
 
 		if is_root2_proc():
 			n = len(self.samples['STATES_EXPERT'])
+			dim_label = self.env.get_num_total_label()
+			state = self.disc_loc.state_filter(np.vstack([self.samples['STATES_EXPERT'][:,:-dim_label], self.samples['STATES_AGENT'][:,:-dim_label]]))
+			state = np.concatenate((state, np.vstack([self.samples['STATES_EXPERT'][:,-dim_label:], self.samples['STATES_AGENT'][:,-dim_label:]])), axis=1)
 
-			state = self.disc_loc.state_filter(np.vstack([self.samples['STATES_EXPERT'], self.samples['STATES_AGENT']]))
 
 			self.samples['STATES_EXPERT'] = state[:n]
 			self.samples['STATES_AGENT'] = state[n:]
@@ -247,21 +255,21 @@ class Trainer(object):
 		for j in range(self.env.get_num_total_label()):
 			cnt = 0
 			r_j = []
-			self.env.reset(j)
+			self.env.reset()
 			
 			while cnt < 10 :
 				action, _, _ = self.policy(self.state)
 				self.env.step(action)
 
 				ss1 = self.env.get_state_AMP()
-				r = self.disc(ss1)
+				r = self.disc(ss1[:,:-dim_label], ss1[:,-dim_label:])
 				r_j.append(r)
 
 				eoe = self.env.inspect_end_of_episode()
 
 				if eoe :
 					cnt += 1
-					self.env.reset(j)
+					self.env.reset()
 				self.state = self.env.get_state()
 
 			self.sampler.update(j, np.mean(r_j))
@@ -319,10 +327,7 @@ class Trainer(object):
 		if is_root2_proc():
 			n = len(self.samples['STATES_EXPERT'])
 			''' Discriminator '''
-			self.samples['STATES_EXPERT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
-			self.samples['STATES_EXPERT2'] = self.disc_loc.convert_to_tensor(self.samples['STATES_EXPERT'])
-			self.samples['STATES_AGENT'] = self.disc_loc.convert_to_tensor(self.samples['STATES_AGENT'])
-			
+
 			disc_loss = 0.0
 			disc_grad_loss = 0.0
 			expert_accuracy = 0.0
@@ -332,7 +337,7 @@ class Trainer(object):
 				minibatches = self.generate_shuffle_indices(n, self.sgd_minibatch_size)
 				for minibatch in minibatches:
 					states_expert = self.samples['STATES_EXPERT'][minibatch]
-					states_expert2 = self.samples['STATES_EXPERT2'][minibatch]
+					states_expert2 = self.samples['STATES_EXPERT'][minibatch]
 					states_agent = self.samples['STATES_AGENT'][minibatch]
 
 					self.disc_loc.compute_loss(states_expert, states_expert2, states_agent)

@@ -161,11 +161,11 @@ reset(int motion_idx, bool RSI)
 
 	int motion_num=0;
 	if(RSI){
-		// motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
+		motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
 		mStateLabel.setZero();
-		motion_num = motion_idx;
+		// motion_num = motion_idx;
 		mStateLabel[motion_num] = 1.0;
-		//mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
+		// mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
 	}
 	else{
 		for(int i =0; i<mNumMotions; i++){

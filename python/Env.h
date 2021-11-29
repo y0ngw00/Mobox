@@ -25,7 +25,7 @@ public:
 	int getNumTotalLabel();
 	int getDimAction();
 
-	void reset(int idx=0);
+	void reset();
 	void step(const Eigen::VectorXd& action);
 	
 	double getRewardGoal();

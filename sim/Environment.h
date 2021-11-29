@@ -27,7 +27,7 @@ public:
 	void setTargetHeight(double height);
 
 
-	void reset(int motion_idx = 0, bool RSI = true);
+	void reset(int motion_idx = -1, bool RSI = true);
 	void FollowBVH(int idx);
 
 	void step(const Eigen::VectorXd& action);

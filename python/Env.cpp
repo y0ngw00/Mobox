@@ -48,9 +48,9 @@ getDimAction()
 
 void
 Env::
-reset(int idx)
+reset()
 {
-	mEnv->reset(idx);
+	mEnv->reset();
 }
 void
 Env::
