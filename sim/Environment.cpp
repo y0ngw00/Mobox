@@ -83,14 +83,7 @@ Environment()
 	}
 
 	strike_bodies.clear();
-	strike_bodies.push_back("Hips");
-	strike_bodies.push_back("Hips");
-	strike_bodies.push_back("LeftHand");
-	// strike_bodies.push_back("LeftHand");
-	strike_bodies.push_back("RightHand");
-	// strike_bodies.push_back("RightHand");
-	strike_bodies.push_back("LeftFoot");
-	strike_bodies.push_back("RightFoot");
+
 
 	// BVH* bvh = new BVH(std::string(ROOT_DIR)+"/data/bvh/walk_long.bvh");
 	// 	Motion* motion = new Motion(bvh);
@@ -114,7 +107,7 @@ Environment()
 	mElapsedFrame = 0;
 	mFrame = 0;
 
-	mSimCharacter->getSkeleton()->setSelfCollisionCheck(true);
+	mSimCharacter->getSkeleton()->setSelfCollisionCheck(false);
 	mSimCharacter->getSkeleton()->setAdjacentBodyCheck(false);
 	this->reset();
 
@@ -168,9 +161,9 @@ reset(int motion_idx, bool RSI)
 		// mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
 	}
 	else{
-		for(int i =0; i<mNumMotions; i++){
-			if (mStateLabel[i] !=0)	motion_num = i;
-		}
+		mStateLabel.setZero();
+		motion_num = motion_idx;
+		mStateLabel[motion_idx] = 1.0;
 	}
 	auto motion = mMotions[motion_num];
 	mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
@@ -204,13 +197,16 @@ void
 Environment::
 step(const Eigen::VectorXd& _action)
 {
-	// std::cout<<1<<std::endl;
 	Eigen::VectorXd action = this->convertToRealActionSpace(_action);
 
 	auto sim_skel = mSimCharacter->getSkeleton();
 	int num_sub_steps = mSimulationHz/mControlHz;
 
 	auto target_pos = mSimCharacter->computeTargetPosition(action);
+	// auto target_pos = mPrevPositions;
+	// int n = sim_skel->getNumDofs();
+	// target_pos.tail(n-6) += action;
+
 
 	for(int i=0;i<num_sub_steps;i++)
 	{
@@ -284,8 +280,8 @@ resetGoal()
 
 
 	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
-	mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-
+	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
+	mTargetSpeed =1.0;
 	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
 	// com_vel[1] =0.0;
 	// if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
@@ -310,9 +306,9 @@ updateGoal()
 		delta_heading = dart::math::Random::normal<double>(0, mMaxHeadingTurnRate);
 	mTargetHeading += delta_heading;
 
-	bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
-	if(change_speed)
-		mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
+	// bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
+	// if(change_speed)
+	// 	mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
 
 	// bool change_height = dart::math::Random::uniform<double>(0.0, 1.0)<mHeightChangeProb?true:false;
 	// if(change_height)
@@ -333,6 +329,9 @@ void
 Environment::
 recordGoal()
 {
+	bool isWalk=false;
+
+	for(int i=0;i<7;i++) if(mStateLabel[i]!=0.0) isWalk = true;
 
 	mRewardGoal = 1.0;
 	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
@@ -342,26 +341,35 @@ recordGoal()
 	com_vel[1] = 0.0;
 	com_vel = R_ref.inverse() * com_vel;
 
-	// Eigen::Vector3d target_direction = R_target.col(2);
-	Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
+	if(isWalk){
+		// Eigen::Vector3d target_direction = R_target.col(2);
+		Eigen::Vector3d target_direction(std::cos(mTargetHeading), 0.0, -std::sin(mTargetHeading));
 
-	mTargetDirection = target_direction;
-	Eigen::Vector3d tar_loc = R_ref.inverse() * target_direction;
-	
-	mStateGoal.resize(7+mNumMotions);
-	mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
+		mTargetDirection = target_direction;
+		Eigen::Vector3d tar_loc = R_ref.inverse() * target_direction;
+		
+		mStateGoal.resize(7+mNumMotions);
+		mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
+
+		double proj_vel = tar_loc.dot(com_vel);
+		mRewardGoal = 0.0;
+		if(proj_vel > 0.0)
+		{
+			double err = std::max(mTargetSpeed - proj_vel, 0.0);
+			mRewardGoal = std::exp(-1.0*err*err);
+		}
+
+	}
+	else {
+		mStateGoal.resize(7+mNumMotions);
+		mStateGoal<<com_vel, com_vel, 1.0, mStateLabel;
+	}
+
 	
 	// mStateGoal.resize(mNumMotions);
 	// mStateGoal<< mStateLabel;
 
 
-	double proj_vel = tar_loc.dot(com_vel);
-	mRewardGoal = 0.0;
-	if(proj_vel > 0.0)
-	{
-		double err = std::max(mTargetSpeed - proj_vel, 0.0);
-		mRewardGoal = std::exp(-1.0*err*err);
-	}
 
 }
 
@@ -495,14 +503,15 @@ Environment::
 FollowBVH(int idx){
 
 	auto& motion = mMotions[idx];
+	if(mFrame > (motion->getNumFrames()-3))
+		mFrame = 0;
 	
 	Eigen::Vector3d position = motion->getPosition(mFrame);
 	Eigen::MatrixXd rotation = motion->getRotation(mFrame);
 	Eigen::Vector3d linear_velocity = motion->getLinearVelocity(mFrame);
 	Eigen::MatrixXd angular_velocity = motion->getAngularVelocity(mFrame);
 	mKinCharacter->setPose(position, rotation, linear_velocity, angular_velocity);
-	if(mFrame > (motion->getNumFrames()-3))
-		mFrame = 0;
+
 	return;
 }
 bool

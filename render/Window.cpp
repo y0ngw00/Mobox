@@ -186,22 +186,12 @@ ImGuiDisplay()
         static int counter = 0;
 
         ImGui::Begin("Parameter Control Window");                          // Create a window called "Hello, world!" and append into it.
-
+        ImGui::SetWindowFontScale(1.8f);
                     // Display some text (you can use a format strings too)
         // ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Control", &mControl);
         ImGui::Text("Current Motion "); ImGui::SameLine();
         ImGui::Text(motion_lists[mMotionType].c_str());
-        // ImGui::SliderFloat("Theta", &theta, -180, 180);            // Edit 1 float using a slider from 0.0f to 1.0f
-        
-        // ImGui::Text("Forwarding height");   
-        // ImGui::SliderFloat("Height", &height, 0.6f, 2.0f);
-
-        // ImGui::Text("Speed");   
-        // ImGui::SliderFloat("Speed", &speed, 0.5f, 3.0f);
-
-        // static int motionidx = 0;
-
 
         for(int n=0; n<motion_lists.size();n++){
         	if(ImGui::Button(motion_lists[n].c_str()))
@@ -230,19 +220,7 @@ ImGuiDisplay()
     // // 3. Show another simple window.
     {
         ImGui::Begin("Indicator");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-        // if (ImGui::BeginTable("table1", 3))
-        // {
-        //     for (int row = 0; row < 4; row++)
-        //     {
-        //         ImGui::TableNextRow();
-        //         for (int column = 0; column < 3; column++)
-        //         {
-        //             ImGui::TableSetColumnIndex(column);
-        //             ImGui::Text("Row %d Column %d", row, column);
-        //         }
-        //     }
-        //     ImGui::EndTable();
-        // }
+
         if (ImGui::CollapsingHeader("Style Reward"))
         {
 	        int n = mRewards.size();
@@ -280,10 +258,6 @@ ImGuiDisplay()
 	            ImPlot::EndPlot();
 	        }
     	
-	        {
-	            ImPlot::PlotLine("",x,y,n);       
-	            ImPlot::EndPlot();
-	        }
     	}
    // if (ImGui::Button("Close Me"))
         //     show_another_window = false;
@@ -302,12 +276,10 @@ reset(int frame)
 		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
-		int n = mEnvironment->getNumTotalLabel();
-		this->mMotionType = std::rand() % n;
 		
-		mEnvironment->reset(mMotionType, true);		
+		mEnvironment->reset();
+		this->mMotionType = mEnvironment->getStateLabel();				
 	}
-
 	mObservation = mEnvironment->getState();
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 

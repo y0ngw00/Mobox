@@ -29,6 +29,25 @@ def load_config(path):
 
 	return spec.config
 
+def save_config(path, config):
+	folder_path = path
+	if not os.path.exists(path):
+			os.mkdir(path)
+
+	with open(path+'/config.py', 'w') as f:
+		f.write('config = {\n')
+		for name, value in config.items():
+			if type(value) == dict :
+				f.write('\t\'{}\' : {{\n'.format(name))
+				for names, values in value.items():
+					f.write('\t\t\'{}\' : {!r}\n'.format(names, values))
+				f.write('\t}\n')
+			else :
+				f.write('\t\'{}\' : {!r}\n'.format(name, value))
+
+		f.write('}')
+
+
 def define_save_path(name):
 	dyear = datetime.datetime.now().year
 	dmonth = datetime.datetime.now().month
@@ -63,12 +82,20 @@ if __name__ == "__main__":
 	parser.add_argument("--checkpoint", type=str, default=None)
 	args = parser.parse_args()
 	
+	checkpoint = args.checkpoint
 	config = load_config(args.config)
 	save_path = define_save_path(args.name)
+	save_config(save_path, config)
+
+	if checkpoint is not None:
+		meta_info = checkpoint
+		meta_info.replace('current.pt','')
+		config = load_config(args.checkpoint + 'config.py')
 
 	trainer = mpi_trainer.Trainer(pycomcon.env, config, save_path)
-	if args.checkpoint is not None:
-		trainer.load(args.checkpoint)
+	
+	if checkpoint is not None:
+		trainer.load(checkpoint)
 	done = False
 	try:
 		while not done:
