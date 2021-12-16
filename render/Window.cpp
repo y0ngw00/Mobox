@@ -223,7 +223,15 @@ ImGuiDisplay()
 
         if (ImGui::CollapsingHeader("Style Reward"))
         {
+
 	        int n = mRewards.size();
+	        ImGui::Text("Current style reward :"); ImGui::SameLine();
+        	ImGui::Text(std::to_string(0.5*mReward).c_str());
+
+        	for(int i =0; i<motion_lists.size(); i++){
+        		ImGui::Text((motion_lists[i]+" : ").c_str()); ImGui::SameLine();
+        		ImGui::Text(std::to_string(mReward_label[i]).c_str());
+        	}
 	        ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
 	        ImPlot::SetNextPlotLimitsY(-0.2,1.2);
 	        
@@ -329,9 +337,18 @@ step()
 		mEnvironment->step(action);
 	}
 
+	mReward_label.resize(motion_lists.size());
 
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
+
+	for(int i=0; i<motion_lists.size(); i++){
+		Eigen::VectorXd label(motion_lists.size());
+		label.setZero();
+		label[i] =1.0;
+		mObservationDiscriminator.tail(motion_lists.size()) = label;
+		mReward_label[i] = 0.5 * discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
+	}
 
 	mObservation = mEnvironment->getState();
 
@@ -410,6 +427,7 @@ keyboard(unsigned char key, int x, int y)
 		case 'R':this->reset(0);break;
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;
+		case 'w':mMotionType=0; break;
 		case 'a':theta+=0.1; break;
 		case 'd':theta-=0.1; break;
 		default:GLUTWindow3D::keyboard(key,x,y);break;

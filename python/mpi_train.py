@@ -32,7 +32,7 @@ def load_config(path):
 def save_config(path, config):
 	folder_path = path
 	if not os.path.exists(path):
-			os.mkdir(path)
+		os.mkdir(path)
 
 	with open(path+'/config.py', 'w') as f:
 		f.write('config = {\n')
@@ -87,13 +87,13 @@ if __name__ == "__main__":
 	save_path = define_save_path(args.name)
 	save_config(save_path, config)
 
-	if checkpoint is not None:
-		meta_info = checkpoint
-		meta_info.replace('current.pt','')
-		config = load_config(args.checkpoint + 'config.py')
+	# if checkpoint is not None:
+	# 	meta_info = checkpoint
+	# 	meta_info.replace('current.pt','')
+	# 	config = load_config(args.checkpoint + '/config.py')
 
 	trainer = mpi_trainer.Trainer(pycomcon.env, config, save_path)
-	
+
 	if checkpoint is not None:
 		trainer.load(checkpoint)
 	done = False

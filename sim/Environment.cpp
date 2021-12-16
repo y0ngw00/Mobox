@@ -67,7 +67,7 @@ Environment()
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
 			if(j>900) break;
 		}
-		// if(bvh->getNumFrames() < 300) motion->repeatMotion(300, bvh);
+		if(bvh->getNumFrames() < 600) motion->repeatMotion(600, bvh);
 
 		motion->computeVelocity();
 		mMotions.emplace_back(motion);
@@ -331,7 +331,7 @@ recordGoal()
 {
 	bool isWalk=false;
 
-	for(int i=0;i<7;i++) if(mStateLabel[i]!=0.0) isWalk = true;
+	if(mStateLabel[0]!=0.0) isWalk = true;
 
 	mRewardGoal = 1.0;
 	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();

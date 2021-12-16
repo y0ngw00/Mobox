@@ -52,6 +52,7 @@ protected:
 	bool mDrawSimPose, mDrawKinPose, mDrawTargetPose, mDrawCOMvel, mDraw2DCharacter;
 	bool mExplore, mFocus;
 	double mReward, mRewardGoal;
+	std::vector<double> mReward_label;
 	bool mPlotReward;
 
 	Eigen::VectorXd mObservation, mObservationDiscriminator;
