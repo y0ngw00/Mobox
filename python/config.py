@@ -5,7 +5,7 @@ config = {
 	'model' : {
 		'sample_std' : 0.1,
 		'fixed_std' : True,
-		'policy_hiddens' : [256, 256],
+		'policy_hiddens' : [1024, 512],
 		'policy_activations' : ['relu', 'relu', None],
 		'policy_init_weights' : [0.1, 0.1, 0.01],
 		'value_hiddens' : [256, 256],

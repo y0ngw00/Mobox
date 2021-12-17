@@ -33,7 +33,7 @@ Environment()
 	mSpeedChangeProb(0.05),
 	mHeightChangeProb(0.01),
 	mMaxHeadingTurnRate(0.1),
-	mTransitionProb(0.002),
+	mTransitionProb(0.005),
 	mRewardGoal(0.0),
 	mEnableGoal(true)
 {
@@ -127,7 +127,7 @@ int
 Environment::
 getDimAction()
 {
-	int n = mSimCharacter->getSkeleton()->getNumDofs();
+	int n = mSimCharacter->getSkeleton()->getNumDofs()+1;
 	return n-6;
 }
 int
@@ -185,6 +185,9 @@ reset(int motion_idx, bool RSI)
 	mPrevPositions = mSimCharacter->getSkeleton()->getPositions();
 	mPrevCOM = mSimCharacter->getSkeleton()->getCOM();
 
+	if(motion_num==0) mPhase=0;
+	else mPhase = mFrame/(motion->getNumFrames()-3);
+
 	if(mEnableGoal){
 		this->resetGoal();
 		this->recordGoal();	
@@ -197,16 +200,14 @@ void
 Environment::
 step(const Eigen::VectorXd& _action)
 {
-	Eigen::VectorXd action = this->convertToRealActionSpace(_action);
+	Eigen::VectorXd action = this->convertToRealActionSpace(_action.head(_action.rows()-1));
+
+	mPhase = dart::math::clip(_action[_action.rows()-1]*1.5, -2.0, 1.0);
 
 	auto sim_skel = mSimCharacter->getSkeleton();
 	int num_sub_steps = mSimulationHz/mControlHz;
 
 	auto target_pos = mSimCharacter->computeTargetPosition(action);
-	// auto target_pos = mPrevPositions;
-	// int n = sim_skel->getNumDofs();
-	// target_pos.tail(n-6) += action;
-
 
 	for(int i=0;i<num_sub_steps;i++)
 	{
@@ -349,7 +350,7 @@ recordGoal()
 		Eigen::Vector3d tar_loc = R_ref.inverse() * target_direction;
 		
 		mStateGoal.resize(7+mNumMotions);
-		mStateGoal<<com_vel, tar_loc, 1.0, mStateLabel;
+		mStateGoal<<com_vel, tar_loc, mStateLabel, mPhase;
 
 		double proj_vel = tar_loc.dot(com_vel);
 		mRewardGoal = 0.0;
@@ -362,7 +363,7 @@ recordGoal()
 	}
 	else {
 		mStateGoal.resize(7+mNumMotions);
-		mStateGoal<<com_vel, com_vel, 1.0, mStateLabel;
+		mStateGoal<<com_vel, com_vel, mStateLabel, mPhase;
 	}
 
 	
@@ -445,8 +446,8 @@ recordState()
 
 	Eigen::VectorXd s1 = mKinCharacter->getStateAMP();
 	mKinCharacter->restoreState(save_state);
-	mStateAMP.resize(s.rows() + s1.rows()+mNumMotions);
-	mStateAMP<<s, s1, mStateLabel;
+	mStateAMP.resize(s.rows() + s1.rows()+mNumMotions+1);
+	mStateAMP<<s, s1, mStateLabel, mPhase;
 }
 
 
@@ -456,7 +457,7 @@ getStateAMPExpert()
 {
 	int total_num_frames = 0;
 	int m = this->getDimStateAMP();
-	int m2 = (m-this->mNumMotions)/2;
+	int m2 = (m-(this->mNumMotions+1))/2;
 	int o = 0;
 	for(auto motion: mMotions)
 	{
@@ -472,6 +473,9 @@ getStateAMPExpert()
 		motionLabel.setZero();
 		motionLabel[n] =1.0;
 
+		Eigen::Vector1d phase;
+		phase[0]=0.0;
+		
 		int nf = motion->getNumFrames();
 		mKinCharacter->setPose(motion->getPosition(0),
 							motion->getRotation(0),
@@ -483,6 +487,7 @@ getStateAMPExpert()
 
 		for(int i=0;i<nf-1;i++)
 		{
+			if(n!=0) phase[0] = i/(nf-1);
 			mKinCharacter->setPose(motion->getPosition(i+1),
 							motion->getRotation(i+1),
 							motion->getLinearVelocity(i+1),
@@ -491,7 +496,8 @@ getStateAMPExpert()
 
 			state_expert.row(o+i).head(m2) = s.transpose();
 			state_expert.row(o+i).segment(m2,m2) = s1.transpose();
-			state_expert.row(o+i).tail(mNumMotions) = motionLabel;
+			state_expert.row(o+i).segment(m2*2,mNumMotions) = motionLabel;
+			state_expert.row(o+i).tail(1) = phase;
 			s = s1;
 		}
 		o += nf - 1;

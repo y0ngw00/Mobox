@@ -93,6 +93,7 @@ private:
 	double mTargetHeight, mIdleHeight;
 	double mSharpTurnProb, mSpeedChangeProb,mHeightChangeProb, mMaxHeadingTurnRate, mTransitionProb;
 
+	double mPhase;
 	double mTargetHeightMin, mTargetHeightMax;
 
 	std::vector<std::string> strike_bodies;

@@ -228,8 +228,8 @@ getStateAMP()
 	int n = mSkeleton->getNumBodyNodes();
 	int m = (p.rows()-6)/3;
 	std::vector<Eigen::VectorXd> states;
-	double root_h = p[4];
-	states.emplace_back(Eigen::VectorXd::Constant(1,root_h));
+	// double root_h = p[4];
+	// states.emplace_back(Eigen::VectorXd::Constant(1,root_h));
 	for(int i=0;i<mSkeleton->getNumJoints();i++)
 	{
 		auto joint = mSkeleton->getJoint(i);
