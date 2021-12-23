@@ -59,6 +59,7 @@ class Trainer(object):
 		self.episode_buffers = []
 		self.episode_buffers.append([])
 		self.states_expert = self.env.get_states_AMP_expert()
+		self.motion_frames = self.env.get_num_frames()
 
 		self.enable_goal = self.env.is_enable_goal()
 
@@ -129,11 +130,21 @@ class Trainer(object):
 		return t
 
 	def sample_states_expert(self, n):
-		m = len(self.states_expert)
-		states =  self.states_expert[np.random.randint(0, m, n)]
-		# sample_states = self.compress_label(states,"disc")
-		return states
+		num_motion = len(self.motion_frames)
+		motion_frames_accum = np.zeros(num_motion)
+		for i in range(num_motion-1):
+			motion_frames_accum[i+1]=sum(self.motion_frames[:i+1])
 
+		# motion_ratio = [1/k for k in self.motion_frames]
+		# motion_ratio_norm = [float(k)/sum(motion_ratio) for k in motion_ratio]
+
+		idx_arrs = np.zeros(n)
+		labels_arrs = np.random.randint(num_motion, size=n)
+		for i in range(n):
+  			frame = self.motion_frames[labels_arrs[i]]
+  			idx_arrs[i] = np.random.randint(frame) + motion_frames_accum[labels_arrs[i]]
+		states =  self.states_expert[idx_arrs.astype(int)]
+		return states
 
 	def sync(self):
 		if is_root_proc():

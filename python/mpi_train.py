@@ -85,7 +85,7 @@ if __name__ == "__main__":
 	checkpoint = args.checkpoint
 	config = load_config(args.config)
 	save_path = define_save_path(args.name)
-	save_config(save_path, config)
+	# save_config(save_path, config)
 
 	# if checkpoint is not None:
 	# 	meta_info = checkpoint

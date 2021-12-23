@@ -5,10 +5,10 @@ config = {
 	'model' : {
 		'sample_std' : 0.1,
 		'fixed_std' : True,
-		'policy_hiddens' : [256, 256],
+		'policy_hiddens' : [1024, 512],
 		'policy_activations' : ['relu', 'relu', None],
 		'policy_init_weights' : [0.1, 0.1, 0.01],
-		'value_hiddens' : [256, 256],
+		'value_hiddens' : [1024, 512],
 		'value_activations' : ['relu', 'relu', None],
 		'value_init_weights' : [0.1, 0.1, 0.01],
 	},
@@ -43,9 +43,8 @@ config = {
 	'trainer' : {
 		'sample_size' : 2048,
 		'num_sgd_iter' : 5,
-		'sgd_minibatch_size' : 128,
-		
-		'num_disc_sgd_iter' : 5,
+		'sgd_minibatch_size' : 64,
+		'num_disc_sgd_iter' : 2,
 		'disc_sgd_minibatch_size' : 256,
 		'disc_buffer_len' : 100000,
 

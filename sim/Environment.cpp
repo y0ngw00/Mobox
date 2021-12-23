@@ -33,7 +33,7 @@ Environment()
 	mSpeedChangeProb(0.05),
 	mHeightChangeProb(0.01),
 	mMaxHeadingTurnRate(0.1),
-	mTransitionProb(0.002),
+	mTransitionProb(0.005),
 	mRewardGoal(0.0),
 	mEnableGoal(true)
 {
@@ -65,9 +65,8 @@ Environment()
 		Motion* motion = new Motion(bvh);
 		for(int j=0;j<bvh->getNumFrames();j++){
 			motion->append(bvh->getPosition(j), bvh->getRotation(j),false);
-			if(j>900) break;
 		}
-		if(bvh->getNumFrames() < 600) motion->repeatMotion(600, bvh);
+		// if(bvh->getNumFrames() < 300) motion->repeatMotion(300, bvh);
 
 		motion->computeVelocity();
 		mMotions.emplace_back(motion);
@@ -158,12 +157,14 @@ reset(int motion_idx, bool RSI)
 		mStateLabel.setZero();
 		// motion_num = motion_idx;
 		mStateLabel[motion_num] = 1.0;
+		mControl = false;
 		// mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
 	}
 	else{
 		mStateLabel.setZero();
 		motion_num = motion_idx;
 		mStateLabel[motion_idx] = 1.0;
+		mControl = true;
 	}
 	auto motion = mMotions[motion_num];
 	mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
@@ -203,9 +204,6 @@ step(const Eigen::VectorXd& _action)
 	int num_sub_steps = mSimulationHz/mControlHz;
 
 	auto target_pos = mSimCharacter->computeTargetPosition(action);
-	// auto target_pos = mPrevPositions;
-	// int n = sim_skel->getNumDofs();
-	// target_pos.tail(n-6) += action;
 
 
 	for(int i=0;i<num_sub_steps;i++)
@@ -252,7 +250,7 @@ step(const Eigen::VectorXd& _action)
 	if(mEnableGoal)
 	{
 		this->recordGoal();
-		this->updateGoal();
+		if(!mControl) this->updateGoal();
 
 	}
 	
@@ -281,7 +279,7 @@ resetGoal()
 
 	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
 	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-	mTargetSpeed =1.0;
+	mTargetSpeed =1.5;
 	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
 	// com_vel[1] =0.0;
 	// if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
@@ -305,15 +303,6 @@ updateGoal()
 	else
 		delta_heading = dart::math::Random::normal<double>(0, mMaxHeadingTurnRate);
 	mTargetHeading += delta_heading;
-
-	// bool change_speed = dart::math::Random::uniform<double>(0.0, 1.0)<mSpeedChangeProb?true:false;
-	// if(change_speed)
-	// 	mTargetSpeed = dart::math::Random::uniform(mTargetSpeedMin, mTargetSpeedMax);
-
-	// bool change_height = dart::math::Random::uniform<double>(0.0, 1.0)<mHeightChangeProb?true:false;
-	// if(change_height)
-	// 	mTargetHeight = dart::math::Random::uniform(mTargetHeightMin, mTargetHeightMax);
-	// if(mTargetHit) this->resetGoal();
 
 	bool change_motion = dart::math::Random::uniform<double>(0.0, 1.0)<mTransitionProb?true:false;
 	if(change_motion){
@@ -365,11 +354,6 @@ recordGoal()
 		mStateGoal<<com_vel, com_vel, 1.0, mStateLabel;
 	}
 
-	
-	// mStateGoal.resize(mNumMotions);
-	// mStateGoal<< mStateLabel;
-
-
 
 }
 
@@ -417,6 +401,15 @@ getStateAMP()
 {
 	return mStateAMP;
 }
+
+const
+Eigen::VectorXd& 
+Environment::
+getNumFrames()
+{
+	return mNumFrames;
+}
+
 void
 Environment::
 recordState()
@@ -458,6 +451,7 @@ getStateAMPExpert()
 	int m = this->getDimStateAMP();
 	int m2 = (m-this->mNumMotions)/2;
 	int o = 0;
+	mNumFrames.resize(mNumMotions);
 	for(auto motion: mMotions)
 	{
 		int nf = motion->getNumFrames();
@@ -473,6 +467,8 @@ getStateAMPExpert()
 		motionLabel[n] =1.0;
 
 		int nf = motion->getNumFrames();
+		mNumFrames[n] = nf-1;
+
 		mKinCharacter->setPose(motion->getPosition(0),
 							motion->getRotation(0),
 							motion->getLinearVelocity(0),
@@ -498,6 +494,8 @@ getStateAMPExpert()
 	}
 	return state_expert;
 }
+
+
 void
 Environment::
 FollowBVH(int idx){

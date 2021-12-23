@@ -1,4 +1,4 @@
-  
+
 #include "Window.h"
 #include "Camera.h"
 #include "BVH.h"
@@ -313,14 +313,15 @@ void
 Window::
 step()
 {
-	theta = mEnvironment->getTargetHeading();
 	if(mControl){
 		mEnvironment->setStateLabel(mMotionType);
-
+		mEnvironment->setTargetHeading(theta);
 		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
-		this->mMotionType = mEnvironment->getStateLabel();		
+		this->mMotionType = mEnvironment->getStateLabel();	
+		theta = mEnvironment->getTargetHeading();
+	
 	}
 	// mEnvironment->setTargetHeading(mTargetHeading);
 

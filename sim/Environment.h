@@ -42,6 +42,7 @@ public:
 	const Eigen::VectorXd& getStateGoal();
 	const Eigen::VectorXd& getStateAMP();
 
+	const Eigen::VectorXd& getNumFrames();
 	Eigen::MatrixXd getStateAMPExpert();
 
 	bool inspectEndOfEpisode();
@@ -77,11 +78,14 @@ private:
 
 	Eigen::VectorXd mPrevPositions, mPrevPositions2, mPrevCOM;
 	Eigen::VectorXd mState, mStateGoal, mStateAMP;
+	Eigen::VectorXd mNumFrames;
 
 	bool mContactEOE;
 	bool mEnableGoal;
+	bool mControl;
 
 	double mRewardGoal;
+	double mFramesPerMotion;
 
 	Eigen::VectorXd mStateLabel;
 	int mNumMotions, mNumFeatureAdds,mDimLabel;

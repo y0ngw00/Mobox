@@ -1,8 +1,1 @@
-walk_long.bvh
-mxm_idle.bvh
-jump_lsw.bvh
-strike_lsw.bvh
-mxm_lpunch.bvh
-mxm_rpunch.bvh
-sidekick_lsw.bvh
-wushu_lsw.bvh
+mxm_rkick.bvh

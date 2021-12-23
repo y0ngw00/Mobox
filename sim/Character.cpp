@@ -195,6 +195,7 @@ getState()
 	for(int i=0;i<n_ee;i++)
 		ee[i] = T_ref_inv*mEndEffectors[i]->getCOM();
 	Eigen::Vector3d p_com = T_ref_inv*mSkeleton->getCOM();
+	p_com[0]=0.0; p_com[2]=0.0;
 	Eigen::Vector3d v_com = R_ref_inv*mSkeleton->getCOMLinearVelocity();
 
 	std::vector<Eigen::Vector3d> states(5*n + n_ee + 2);
@@ -228,8 +229,6 @@ getStateAMP()
 	int n = mSkeleton->getNumBodyNodes();
 	int m = (p.rows()-6)/3;
 	std::vector<Eigen::VectorXd> states;
-	double root_h = p[4];
-	states.emplace_back(Eigen::VectorXd::Constant(1,root_h));
 	for(int i=0;i<mSkeleton->getNumJoints();i++)
 	{
 		auto joint = mSkeleton->getJoint(i);

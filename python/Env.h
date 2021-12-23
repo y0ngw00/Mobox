@@ -34,6 +34,7 @@ public:
 	const bool& inspectEndOfEpisode();
 
 	const Eigen::MatrixXd& getStatesAMPExpert();
+	const Eigen::VectorXd& getNumFrames();
 private:
 	Environment* mEnv;
 
@@ -43,5 +44,6 @@ private:
 	bool mEOE;
 
 	Eigen::MatrixXd mStatesAMPExpert;
+	Eigen::VectorXd mNumFrames;
 };
 #endif

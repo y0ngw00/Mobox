@@ -96,6 +96,13 @@ getStatesAMPExpert()
 	return mStatesAMPExpert;
 }
 
+const Eigen::VectorXd&
+Env::
+getNumFrames()
+{
+	mNumFrames = mEnv->getNumFrames();
+	return mNumFrames;
+}
 
 namespace py = pybind11;
 
@@ -113,5 +120,6 @@ PYBIND11_MODULE(pycomcon, m){
 		.def("get_state", &Env::getState)
 		.def("get_state_AMP", &Env::getStateAMP)
 		.def("inspect_end_of_episode", &Env::inspectEndOfEpisode)
-		.def("get_states_AMP_expert", &Env::getStatesAMPExpert);
+		.def("get_states_AMP_expert", &Env::getStatesAMPExpert)
+		.def("get_num_frames", &Env::getNumFrames);
 }
