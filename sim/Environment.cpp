@@ -189,7 +189,6 @@ reset(int motion_idx, bool RSI)
 	if(mEnableGoal){
 		this->resetGoal();
 		this->recordGoal();	
-
 	}
 
 	this->recordState();
@@ -228,11 +227,6 @@ step(const Eigen::VectorXd& _action)
 			if(bn1->getName().find("Foot") != std::string::npos)
 				continue;
 			else if(bn2->getName().find("Foot") != std::string::npos)
-				continue;
-
-			if(bn1->getName().find("Hand") != std::string::npos)
-				continue;
-			else if(bn2->getName().find("Hand") != std::string::npos)
 				continue;
 
 			if(skel1->getName() == "humanoid" && skel2->getName() == "ground"){
@@ -279,7 +273,8 @@ resetGoal()
 
 	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
 	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-	mTargetSpeed =1.5;
+	if(mStateLabel[0]!=0.0 ) mTargetSpeed = 1.5;
+	if(mStateLabel[1]!=0.0 ) mTargetSpeed = 3.0;
 	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
 	// com_vel[1] =0.0;
 	// if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
@@ -295,14 +290,16 @@ void
 Environment::
 updateGoal()
 {
+	if(mStateLabel[0]!=0.0 || mStateLabel[1]!=0.0){
+		bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
+		double delta_heading = 0;
+		if(sharp_turn)
+			delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
+		else
+			delta_heading = dart::math::Random::normal<double>(0, mMaxHeadingTurnRate);
+		mTargetHeading += delta_heading;
 
-	bool sharp_turn = dart::math::Random::uniform<double>(0.0, 1.0)<mSharpTurnProb?true:false;
-	double delta_heading = 0;
-	if(sharp_turn)
-		delta_heading = dart::math::Random::uniform<double>(-M_PI, M_PI);
-	else
-		delta_heading = dart::math::Random::normal<double>(0, mMaxHeadingTurnRate);
-	mTargetHeading += delta_heading;
+	}
 
 	bool change_motion = dart::math::Random::uniform<double>(0.0, 1.0)<mTransitionProb?true:false;
 	if(change_motion){
@@ -320,7 +317,7 @@ recordGoal()
 {
 	bool isWalk=false;
 
-	if(mStateLabel[0]!=0.0) isWalk = true;
+	if(mStateLabel[0]!=0.0 || mStateLabel[1]!=0.0) isWalk = true;
 
 	mRewardGoal = 1.0;
 	Eigen::Isometry3d T_ref = mSimCharacter->getReferenceTransform();
@@ -518,7 +515,7 @@ inspectEndOfEpisode()
 {
 	if(mContactEOE)
 		return true;
-	else if(mElapsedFrame>mMaxElapsedFrame)
+	else if(mElapsedFrame>mMaxElapsedFrame && !mControl)
 		return true;
 
 	return false;

@@ -103,10 +103,11 @@ render()
 
 	
 
-
-	Eigen::Vector3d force_dir(std::cos(theta), 0.0, -std::sin(theta));
-	Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
-	glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
+	if(mMotionType==0 || mMotionType==1){
+		Eigen::Vector3d force_dir(std::cos(theta), 0.0, -std::sin(theta));
+		Eigen::Vector3d origin = mEnvironment->getSimCharacter()->getSkeleton()->getBodyNode(0)->getWorldTransform().translation();
+		glColor4f(0.95,0.1,0.1,0.8); DrawUtils::drawArrow3D(origin, origin + force_dir,0.2);
+	}
 
 	if(mDrawSimPose)
 		DARTRendering::drawSkeleton(mEnvironment->getSimCharacter()->getSkeleton(),mSimRenderOption);
@@ -176,10 +177,6 @@ void
 Window::
 ImGuiDisplay()
 {
-     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-    // if (show_demo_window)
-    //     ImGui::ShowDemoWindow(&show_demo_window);
-
     // // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
     {
 
@@ -199,20 +196,6 @@ ImGuiDisplay()
         }
         // }
         ImGui::InputInt("Class", &mMotionType);
-        // ImGui::RadioButton("normal", &motionidx, 0); ImGui::SameLine();
-        // ImGui::RadioButton("jump", &motionidx, 1); ImGui::SameLine();
-        // ImGui::RadioButton("hurt", &motionidx, 2);
-        // ImGui::RadioButton("wild", &motionidx, 3); ImGui::SameLine();
-        // ImGui::RadioButton("zombie", &motionidx, 4); ImGui::SameLine();
-
-        // mMotionType.setZero();
-        // mMotionType[motionidx]=1;
-        // ImGui::RadioButton("radio c", &motionidx, 2);
-        // ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-        // if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-        //     counter++;
-
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
     }
@@ -221,7 +204,7 @@ ImGuiDisplay()
     {
         ImGui::Begin("Indicator");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
 
-        if (ImGui::CollapsingHeader("Style Reward"))
+        if (ImGui::CollapsingHeader("Discriminator value"))
         {
 
 	        int n = mRewards.size();
@@ -233,18 +216,18 @@ ImGuiDisplay()
         		ImGui::Text(std::to_string(mReward_label[i]).c_str());
         	}
 	        ImPlot::SetNextPlotLimitsX(n-200,n+1.0,ImGuiCond_Always);
-	        ImPlot::SetNextPlotLimitsY(-0.2,1.2);
+	        ImPlot::SetNextPlotLimitsY(-1.0,1.0);
 	        
-	        
-	        double* x = new double[n]();
-	        double* y = new double[n]();
-	        for(int i = 0; i < n; i++)
+	        int n_logit = mLogits.size();
+	        double* x = new double[n_logit]();
+	        double* y = new double[n_logit]();
+	        for(int i = 0; i < n_logit; i++)
 	        {
-	            x[i] = i; y[i] = mRewards[i];
+	            x[i] = i; y[i] = mLogits[i];
 	        }
-	        if (ImPlot::BeginPlot("reward"))
+	        if (ImPlot::BeginPlot("Discriminator output"))
 	        {
-	            ImPlot::PlotLine("",x,y,n);       
+	            ImPlot::PlotLine("",x,y,n_logit);       
 	            ImPlot::EndPlot();
 	        }
 
@@ -267,8 +250,6 @@ ImGuiDisplay()
 	        }
     	
     	}
-   // if (ImGui::Button("Close Me"))
-        //     show_another_window = false;
         ImGui::End();
     }
 }
@@ -316,15 +297,12 @@ step()
 	if(mControl){
 		mEnvironment->setStateLabel(mMotionType);
 		mEnvironment->setTargetHeading(theta);
-		// mEnvironment->setTargetMotion(this->mMotionType);		
 	}
 	else{
 		this->mMotionType = mEnvironment->getStateLabel();	
 		theta = mEnvironment->getTargetHeading();
 	
 	}
-	// mEnvironment->setTargetHeading(mTargetHeading);
-
 
 	if(mUseNN)
 	{
@@ -342,6 +320,7 @@ step()
 
 	mObservationDiscriminator = mEnvironment->getStateAMP();
 	mReward = discriminator.attr("compute_reward")(mObservationDiscriminator).cast<double>();
+	double mLogit = discriminator.attr("compute_logit")(mObservationDiscriminator).cast<double>();
 
 	for(int i=0; i<motion_lists.size(); i++){
 		Eigen::VectorXd label(motion_lists.size());
@@ -357,6 +336,7 @@ step()
 	
 	mRewardGoals.push_back(mRewardGoal);
 	mRewards.push_back(0.5*(mReward));
+	mLogits.push_back(mLogit);
 	mMotionTypes.push_back(mMotionType);
 	bool eoe = mEnvironment->inspectEndOfEpisode();
 	if(eoe)
@@ -374,7 +354,7 @@ step()
 		Eigen::Vector3d dir = mCamera->getEye() - mCamera->getLookAt();
 		mCamera->setLookAt(com);
 		mCamera->setEye( com + dir );
-	}	
+	}
 }
 
 void
@@ -429,8 +409,13 @@ keyboard(unsigned char key, int x, int y)
 		case 'C':mCapture=true;break;
 		case ' ':mPlay = !mPlay; break;
 		case 'w':mMotionType=0; break;
-		case 'a':theta+=0.1; break;
-		case 'd':theta-=0.1; break;
+		case 'W':mMotionType=1; break;
+		case 'b':mMotionType=2; break;
+		case '[':mMotionType=4; break;
+		case ']':mMotionType=5; break;
+		case ';':mMotionType=6; break;
+		case 'a':theta+=0.15; break;
+		case 'd':theta-=0.15; break;
 		default:GLUTWindow3D::keyboard(key,x,y);break;
 	}
 }

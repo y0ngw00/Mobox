@@ -202,6 +202,18 @@ class Discriminator(object):
 		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
 		return d
 
+	def compute_logit(self, ss1):
+		if len(ss1.shape) == 1:
+			ss1 = ss1.reshape(1, -1)
+		ss1_filtered = self.state_filter(ss1[:,:-self.dim_class])
+		ss1_tensor = self.convert_to_tensor(ss1_filtered)
+		y_tensor = self.convert_to_tensor(ss1[:,-self.dim_class:])
+
+		d = self.model(ss1_tensor, y_tensor)
+		d = self.convert_to_ndarray(d)
+		d = np.clip(d, -1.0, 1.0)
+		return d
+
 '''Below function do not use when training'''
 import importlib.util
 

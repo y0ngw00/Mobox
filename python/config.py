@@ -16,7 +16,7 @@ config = {
 	'policy' : {
 		'gamma' : 0.95,
 		'lb' : 0.95,
-		'lr' : 1e-5,
+		'lr' : 2e-6,
 		'policy_clip' : 0.2,
 		'value_clip' : 1.0,
 		'grad_clip' : 0.5,
@@ -25,19 +25,19 @@ config = {
 	},
 
 	'discriminator_model' : {
-		'hiddens' : [1024,512],
-		'activations' : ['relu', 'relu', None],
-		'init_weights' : [0.1, 0.1, 1.0],
+		'hiddens' : [1024,512,512],
+		'activations' : ['relu', 'relu','relu', None],
+		'init_weights' : [0.1, 0.1, 0.1, 1.0],
 	},
 	
 	'discriminator' : {
-		'loss' : 'hinge loss',
+		'loss' : 'lsq loss',
 		'w_grad' : 10.0,
 		'grad_clip' : 0.5,
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
 		'r_scale' : 2.0,
-		'lr' : 1e-7,
+		'lr' : 1e-8,
 	},
 
 	'trainer' : {
@@ -45,9 +45,8 @@ config = {
 		'num_sgd_iter' : 5,
 		'sgd_minibatch_size' : 64,
 		'num_disc_sgd_iter' : 2,
-		'disc_sgd_minibatch_size' : 256,
+		'disc_sgd_minibatch_size' : 64,
 		'disc_buffer_len' : 100000,
-
 		'save_iteration' : [10,500],
 		'epsilon' : 0.05
 	}

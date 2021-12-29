@@ -58,7 +58,7 @@ protected:
 	Eigen::VectorXd mObservation, mObservationDiscriminator;
 	DrawUtils::BarPlot mBarPlot;
 	py::scoped_interpreter guard;
-	std::vector<double> mRewards, mRewardGoals;
+	std::vector<double> mRewards, mRewardGoals, mLogits;
 	std::vector<int> mMotionTypes;
 	py::object mm,mns,sys_module;
 	py::module policy_md, discriminator_md;
