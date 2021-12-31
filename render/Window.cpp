@@ -338,9 +338,9 @@ step()
 	mRewards.push_back(0.5*(mReward));
 	mLogits.push_back(mLogit);
 	mMotionTypes.push_back(mMotionType);
-	bool eoe = mEnvironment->inspectEndOfEpisode();
-	if(eoe)
-		this->reset();
+	// bool eoe = mEnvironment->inspectEndOfEpisode();
+	// if(eoe)
+	// 	this->reset();
 	if(mDrawKinPose){
 		mEnvironment->FollowBVH(this->mMotionType);
 	}
