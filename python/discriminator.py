@@ -158,13 +158,15 @@ class Discriminator(object):
 		loss_class_r = 0.5 * torch.mean(torch.pow(y_out_expert - 1.0, 2.0))
 		loss_class_f = 0.5 * torch.mean(torch.pow(y_out_agent- 1.0, 2.0))
 
-
+		self.class_loss = 0.5 * (loss_class_f + loss_class_r)
 
 		''' Compute Accuracy'''
 		self.expert_accuracy = torch.sum(d_expert)
 		self.agent_accuracy = torch.sum(d_agent)
 
-		self.loss = 0.5 * (loss_pos + loss_neg) + 0.5* (loss_class_r+loss_class_f)
+		self.style_loss = 0.5 * (loss_pos + loss_neg)
+
+		self.loss = self.style_loss + self.class_loss
 
 		if self.w_decay>0:
 			for i in range(len(self.model.fn)):

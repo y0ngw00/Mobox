@@ -341,6 +341,7 @@ class Trainer(object):
 
 			disc_loss = 0.0
 			disc_grad_loss = 0.0
+			disc_class_loss = 0.0
 			expert_accuracy = 0.0
 			agent_accuracy = 0.0
 
@@ -354,6 +355,7 @@ class Trainer(object):
 					self.disc_loc.compute_loss(states_expert, states_expert2, states_agent)
 					disc_loss += self.disc_loc.loss.detach()
 					disc_grad_loss += self.disc_loc.grad_loss.detach()
+					disc_class_loss += self.disc_loc.class_loss.detach()
 					expert_accuracy += self.disc_loc.expert_accuracy.detach()
 					agent_accuracy += self.disc_loc.agent_accuracy.detach()
 					self.disc_loc.backward_and_apply_gradients()
@@ -361,6 +363,7 @@ class Trainer(object):
 			log = {}
 			log['disc_loss'] = disc_loss.cpu().numpy()
 			log['disc_grad_loss'] = disc_grad_loss.cpu().numpy()
+			log['disc_class_loss'] = disc_class_loss.cpu().numpy()
 			log['expert_accuracy'] = expert_accuracy.cpu().numpy()/n/self.num_disc_sgd_iter
 			log['agent_accuracy'] = agent_accuracy.cpu().numpy()/n/self.num_disc_sgd_iter
 			return log

@@ -37,8 +37,8 @@ config = {
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
 		'r_scale' : 2.0,
-		'w_style': 0.7,
-		'w_class': 0.3,
+		'w_style': 0.5,
+		'w_class': 0.5,
 		'lr' : 1e-8,
 	},
 
