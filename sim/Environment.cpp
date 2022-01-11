@@ -152,20 +152,20 @@ reset(int motion_idx, bool RSI)
 	mElapsedFrame = 0;
 
 	int motion_num=0;
-	if(RSI){
+	if(motion_idx==-1){
 		motion_num = dart::math::Random::uniform<int>(0, this->mNumMotions-1);
 		mStateLabel.setZero();
 		// motion_num = motion_idx;
 		mStateLabel[motion_num] = 1.0;
-		mControl = false;
-		// mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
+		// mControl = false;
 	}
 	else{
 		mStateLabel.setZero();
 		motion_num = motion_idx;
 		mStateLabel[motion_idx] = 1.0;
-		mControl = true;
+		// mControl = true;
 	}
+
 	auto motion = mMotions[motion_num];
 	mFrame = dart::math::Random::uniform<int>(0,motion->getNumFrames()-3);
 
@@ -244,7 +244,7 @@ step(const Eigen::VectorXd& _action)
 	if(mEnableGoal)
 	{
 		this->recordGoal();
-		if(!mControl) this->updateGoal();
+		this->updateGoal();
 
 	}
 	
@@ -268,21 +268,8 @@ resetGoal()
 	// Eigen::Vector3d heading = R_ref.inverse() * Eigen::Vector3d::UnitZ();
 	this->mTargetHeading = heading-M_PI/2;
 
-	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
-
-
-	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
-	// mTargetSpeed = dart::math::Random::uniform<double>(mTargetSpeedMin, mTargetSpeedMax);
 	if(mStateLabel[0]!=0.0 ) mTargetSpeed = 1.5;
 	if(mStateLabel[1]!=0.0 ) mTargetSpeed = 3.0;
-	// Eigen::Vector3d com_vel = mSimCharacter->getSkeleton()->getCOMLinearVelocity();
-	// com_vel[1] =0.0;
-	// if(std::abs(com_vel[0])>1e-5) this->mTargetHeading = std::atan(com_vel[2]/com_vel[0]);
-	// else{
-	// 	this->mTargetHeading = com_vel[2]>0? 90: 270; 
-	// }
-	// this->mTargetHeight = mSimCharacter->getSkeleton()->getCOM()[1];
-	// this->mIdleHeight = mSimCharacter->getSkeleton()->getCOM()[1];
 
 	return;
 }
@@ -515,7 +502,7 @@ inspectEndOfEpisode()
 {
 	if(mContactEOE)
 		return true;
-	else if(mElapsedFrame>mMaxElapsedFrame && !mControl)
+	else if(mElapsedFrame>mMaxElapsedFrame)
 		return true;
 
 	return false;

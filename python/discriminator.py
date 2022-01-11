@@ -43,42 +43,47 @@ class DiscriminatorNN(nn.Module):
 				None,
 				"SpectralNorm")
 
+		self.layers_label =SlimFC(
+				prev_layer_size,
+				dim_class,
+				xavier_initializer(1.0),
+				None
+				)
+
 		self.fn_out = nn.Sequential(self.layers_out)
-
-		if dim_class > 0:
-			self.l_y = nn.utils.spectral_norm(nn.Embedding(dim_class, prev_layer_size))
+		self.aux = nn.Sequential(self.layers_label)
 
 		
-	def forward(self, x, y=None):
-		
+	def forward(self, x):
 		h = self.fn(x)
 		output = self.fn_out(h)
-		if y is not None:
-			y = torch.argmax(y, axis=1)
-			embed_y = self.l_y(y)*h
-			output += torch.sum(self.l_y(y) * h, dim=1, keepdim=True)
+		label = self.aux(h)
+		label = F.softmax(label, dim=1)
 
-		return output
+		return output,label
 
 
 class Discriminator(object):
 	def __init__(self, dim_state, dim_class, device, model_config, disc_config):
+		
 		self.model = DiscriminatorNN(dim_state, dim_class,model_config)
+		self.optimizer = optim.Adam(self.model.parameters(),lr=disc_config['lr'])
+		
 		self.state_filter = filter.MeanStdRuntimeFilter(dim_state)
 		self.w_grad = disc_config['w_grad']
 		self.w_reg = disc_config['w_reg']
 		self.w_decay = disc_config['w_decay']
 		self.r_scale = disc_config['r_scale']
 		self.loss_type = disc_config['loss']
+		self.w_s = disc_config['w_style']
+		self.w_c = disc_config['w_class']
 		self.dim_class = dim_class
 
 		self.grad_clip = disc_config['grad_clip']
-
-		self.optimizer = optim.Adam(self.model.parameters(),lr=disc_config['lr'])
-
-		self.loss = None
 		self.device = device
+		self.loss = None
 		self.model.to(self.device)
+			
 
 	def __call__(self, ss1 , y):
 		if len(ss1.shape) == 1:
@@ -86,14 +91,21 @@ class Discriminator(object):
 		ss1_filtered = self.state_filter(ss1, update=False)
 		ss1_tensor = self.convert_to_tensor(ss1_filtered)
 		y_tensor = self.convert_to_tensor(y, torch.int)
+		y_tensor = torch.argmax(y_tensor, dim=1).unsqueeze(1)
 
 		with torch.no_grad():
-			d = self.model(ss1_tensor,y_tensor)
+			d,y_out = self.model(ss1_tensor)
 		d = self.convert_to_ndarray(d)
+		y_out = torch.gather(y_out,1, y_tensor)
+		y_out = self.convert_to_ndarray(y_out)
 		d = np.clip(d, -1.0, 1.0)
-		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
+		rs = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
+		rc = y_out
+		
 
-		return d
+		r = self.w_s * rs + self.w_c * rc
+
+		return r
 
 
 	def convert_to_tensor(self, arr, embed = None):
@@ -117,16 +129,23 @@ class Discriminator(object):
 
 	
 	def compute_loss(self, s_expert, s_expert2, s_agent):
-		y_expert_tensor = self.convert_to_tensor(s_expert[:,-self.dim_class:])
-		y_expert2_tensor = self.convert_to_tensor(s_expert2[:,-self.dim_class:])
-		y_agent_tensor = self.convert_to_tensor(s_agent[:,-self.dim_class:])
-
 		s_expert_tensor = self.convert_to_tensor(s_expert[:,:-self.dim_class])
+		y_expert_tensor = self.convert_to_tensor(s_expert[:,-self.dim_class:])
+		y_expert_tensor = torch.argmax(y_expert_tensor, dim=1).unsqueeze(1)
+		
 		s_expert2_tensor = self.convert_to_tensor(s_expert2[:,:-self.dim_class])
+		y_expert2_tensor = self.convert_to_tensor(s_expert2[:,-self.dim_class:])
+		y_expert2_tensor = torch.argmax(y_expert2_tensor, dim=1).unsqueeze(1)
+		
 		s_agent_tensor = self.convert_to_tensor(s_agent[:,:-self.dim_class])
-			
-		d_expert = self.model(s_expert_tensor, y_expert_tensor)
-		d_agent  = self.model(s_agent_tensor, y_agent_tensor)
+		y_agent_tensor = self.convert_to_tensor(s_agent[:,-self.dim_class:])
+		y_agent_tensor = torch.argmax(y_agent_tensor, dim=1).unsqueeze(1)
+
+		d_expert,y_out_expert = self.model(s_expert_tensor)
+		d_agent,y_out_agent  = self.model(s_agent_tensor)
+
+		y_out_expert = torch.gather(y_out_expert,1, y_expert_tensor)
+		y_out_agent = torch.gather(y_out_agent, 1, y_agent_tensor)
 		if self.loss_type == 'hinge loss':
 			zero = torch.Tensor([0]).to(self.device)
 			loss_pos = 0.5 * torch.mean(torch.max(zero,-d_expert + 1.0))
@@ -134,11 +153,18 @@ class Discriminator(object):
 		else :
 			loss_pos = 0.5 * torch.mean(torch.pow(d_expert - 1.0, 2.0))
 			loss_neg = 0.5 * torch.mean(torch.pow(d_agent  + 1.0, 2.0))
-			''' Compute Accuracy'''
+		
+		''' Classification Loss'''
+		loss_class_r = 0.5 * torch.mean(torch.pow(y_out_expert - 1.0, 2.0))
+		loss_class_f = 0.5 * torch.mean(torch.pow(y_out_agent- 1.0, 2.0))
+
+
+
+		''' Compute Accuracy'''
 		self.expert_accuracy = torch.sum(d_expert)
 		self.agent_accuracy = torch.sum(d_agent)
 
-		self.loss = 0.5 * (loss_pos + loss_neg)
+		self.loss = 0.5 * (loss_pos + loss_neg) + 0.5* (loss_class_r+loss_class_f)
 
 		if self.w_decay>0:
 			for i in range(len(self.model.fn)):
@@ -154,11 +180,11 @@ class Discriminator(object):
 
 			batch_size = s_expert_tensor.size()[0]
 			s_expert2_tensor.requires_grad = True
-			d_expert2 = self.model(s_expert2_tensor,y_expert2_tensor)
+			d_expert2,y_out_expert2 = self.model(s_expert2_tensor)
 			
-			grad = torch.autograd.grad(outputs=d_expert2, 
+			grad = torch.autograd.grad(outputs=[d_expert2,y_out_expert2],
 										inputs=s_expert2_tensor,
-										grad_outputs=torch.ones(d_expert2.size()).to(self.device),
+										grad_outputs=[torch.ones(d_expert2.size()).to(self.device),torch.ones(y_out_expert2.size()).to(self.device)],
 										create_graph=True,
 										retain_graph=True)[0]
 			
@@ -195,12 +221,19 @@ class Discriminator(object):
 		ss1_filtered = self.state_filter(ss1[:,:-self.dim_class])
 		ss1_tensor = self.convert_to_tensor(ss1_filtered)
 		y_tensor = self.convert_to_tensor(ss1[:,-self.dim_class:])
+		y_tensor = torch.argmax(y_tensor, dim=1).unsqueeze(1)
 
-		d = self.model(ss1_tensor, y_tensor)
+		d,y_out = self.model(ss1_tensor)
 		d = self.convert_to_ndarray(d)
+		y_out = torch.gather(y_out,1, y_tensor)
+		y_out = self.convert_to_ndarray(y_out)
 		d = np.clip(d, -1.0, 1.0)
-		d = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
-		return d
+		rs = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
+		rc = y_out
+
+		r = w_s * rs + w_c * rc
+
+		return r
 
 	def compute_logit(self, ss1):
 		if len(ss1.shape) == 1:
@@ -208,11 +241,19 @@ class Discriminator(object):
 		ss1_filtered = self.state_filter(ss1[:,:-self.dim_class])
 		ss1_tensor = self.convert_to_tensor(ss1_filtered)
 		y_tensor = self.convert_to_tensor(ss1[:,-self.dim_class:])
+		y_tensor = torch.argmax(y_tensor, dim=1).unsqueeze(1)
 
-		d = self.model(ss1_tensor, y_tensor)
+		d,y_out = self.model(ss1_tensor)
 		d = self.convert_to_ndarray(d)
+		y_out = torch.gather(y_out,1, y_tensor)
+		y_out = self.convert_to_ndarray(y_out)
 		d = np.clip(d, -1.0, 1.0)
-		return d
+		rs = self.r_scale*(1.0 - 0.25*(d-1)*(d-1))
+		rc = y_out
+
+		r = w_s * rs + w_c * rc
+
+		return r
 
 '''Below function do not use when training'''
 import importlib.util

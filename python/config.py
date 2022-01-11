@@ -26,8 +26,8 @@ config = {
 
 	'discriminator_model' : {
 		'hiddens' : [1024,512,512],
-		'activations' : ['relu', 'relu','relu', None],
-		'init_weights' : [0.1, 0.1, 0.1, 1.0],
+		'activations' : ['relu', 'relu', 'relu', None],
+		'init_weights' : [0.1, 0.1,0.1, 1.0],
 	},
 	
 	'discriminator' : {
@@ -37,13 +37,16 @@ config = {
 		'w_reg' : 0.05,
 		'w_decay' : 0.0005,
 		'r_scale' : 2.0,
+		'w_style': 0.7,
+		'w_class': 0.3,
 		'lr' : 1e-8,
 	},
 
 	'trainer' : {
-		'sample_size' : 2048,
+		'sample_size' : 4096,
 		'num_sgd_iter' : 5,
 		'sgd_minibatch_size' : 64,
+		'num_disc_expert' : 4,
 		'num_disc_sgd_iter' : 2,
 		'disc_sgd_minibatch_size' : 64,
 		'disc_buffer_len' : 100000,

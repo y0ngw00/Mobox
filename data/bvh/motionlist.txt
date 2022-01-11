@@ -1,7 +1,7 @@
 walk_long.bvh
 run_long.bvh
 jump_lsw.bvh
-strike_lsw.bvh
+backflip_lsw.bvh
 mxm_lpunch.bvh
 mxm_rpunch.bvh
 mxm_rkick.bvh
